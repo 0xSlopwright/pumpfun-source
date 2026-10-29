@@ -1,0 +1,25 @@
+# Lane buyv2-hillclimb
+
+Targets (programs/pump/src/buy_v2.rs):
+
+- `0x13b9b8` `buy_v2::buy_handler`: original 15,480 B.
+- `0x13f630` `buy_v2::buy_exact_quote_in_handler`: original 20,184 B.
+
+## Step 1: seed from the prior frozen-best source (attempt 32763981e8cd40ec904be7e3db7907e9)
+
+Main's `buy_handler` had drifted away from the prior swarm's frozen-best spelling
+(the source the `buyv2-bruteforce` lane was measured on). Restoring frozen-best's
+`buy_v2.rs` (local `pay_from_user*` / `move_curve_tokens` wrappers, bound
+`base_token_program`/`base_mint`, `a.*` field paths in fee validation, `gross`
+naming, `Ok((0,0,0,0))` whitelist arm) recovers its codegen on current main:
+
+| target | before (main d2cb88d) | after |
+| --- | --- | --- |
+| 0x13b9b8 bytes | 15,424 | 15,464 (orig 15,480) |
+| 0x13b9b8 ratio | 0.66526 | 0.94354 |
+| 0x13f630 | 20,096 / 0.69433 | unchanged |
+| official | 1019 / 188 | 1019 / 188, no gains, no losses |
+
+Unstripped sha256: 728936d2cbfb4dc441107bc1c4f9080e7fe65695f5e4891280c38f35387a2030.
+
+Engine (outside git): `~/.cache/pumpfun-reconstruction/lanes/buyv2-hillclimb/engine/`.
