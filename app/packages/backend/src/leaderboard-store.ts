@@ -8,6 +8,7 @@
  */
 import seedData from './leaderboard-seed.json' with { type: 'json' };
 import { UserStore, defaultStore, DATA_SOURCE } from './users-store.js';
+import { userToProfile, type UserProfile } from './posts-store.js';
 
 export { DATA_SOURCE };
 
@@ -180,6 +181,20 @@ export class LeaderboardStore {
     };
   }
 
+  /** Local daily-board projection; unresolved/duplicate identities need an explicit adapter policy. */
+  public getDailyLeaderProfiles(): UserProfile[] {
+    const leaders = this.getBoard({ period: 'daily', sort: 'combined', limit: 10, positionsLimit: 0 });
+    const seen = new Set<string>();
+    return leaders.entries.map(entry => {
+      const user = entry.userId === null ? undefined : this.userStore.getById(entry.userId);
+      if (!user) throw new UnavailableLeaderProfilesError();
+      const profile = userToProfile(user, this.userStore.isVerified(user.userId ?? user.address));
+      if (seen.has(profile.userId)) throw new UnavailableLeaderProfilesError();
+      seen.add(profile.userId);
+      return profile;
+    });
+  }
+
   /**
    * GET /v1/pnl-leaderboard
    * Ranks the period's board by the sort measure (combined by default),
@@ -208,5 +223,7 @@ export class LeaderboardStore {
     };
   }
 }
+
+export class UnavailableLeaderProfilesError extends Error {}
 
 export const defaultLeaderboardStore = new LeaderboardStore();

@@ -285,6 +285,7 @@ const NATIVE_ROUTES = new Set<string>([
   "GET /users/search-v2",
   "GET /users/{id}/overview",
   "POST /profiles/verified",
+  "GET /profiles/verified",
   "GET /posts",
   "GET /posts/{postId}",
   "GET /posts/{postId}/replies",

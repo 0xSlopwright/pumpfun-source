@@ -21,7 +21,7 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | Feature family | Static API leads¹ | Native source readiness | Feature completion | Reviewed state |
 | --- | ---: | ---: | ---: | --- |
 | Identity / authentication | 30 | 0/3 (0%) | 0/4 (0%) | Original auth, sessions and authorization unavailable. |
-| Profiles / follow graph | 70 | 0/3 (0%) | 0/4 (0%) | No native profile or graph handlers. |
+| Profiles / follow graph | 70 | 0/3 (0%) | 0/4 (0%) | Local GET /profiles/verified projects daily leaders to full profiles; production PnL, identity policy and authorization remain unqualified. Family milestones remain pending. |
 | Feed / posts / callouts | 39 | 0/3 (0%) | 0/4 (0%) | No native content handlers or persistence. |
 | Market discovery / search | 35 | 0/3 (0%) | 0/4 (0%) | One dated price fixture; no native discovery or price service. |
 | Leaderboards / competitions | 27 | 0/3 (0%) | 0/4 (0%) | No native ranking, PnL or competition logic. |
