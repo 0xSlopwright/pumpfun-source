@@ -646,7 +646,7 @@ export function formatAtomicAmount(
   decimalsSnapshot: number | undefined,
 ): string | undefined {
   if (
-    amountAtomic === undefined ||
+    typeof amountAtomic !== "string" ||
     decimalsSnapshot === undefined ||
     !atomicPattern.test(amountAtomic) ||
     !Number.isInteger(decimalsSnapshot) ||
