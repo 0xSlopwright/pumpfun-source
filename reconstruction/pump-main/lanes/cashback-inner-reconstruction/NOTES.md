@@ -8,7 +8,8 @@ Target: original window `0x6cd78` (8,544 B), `legacy_sell::process_cashback_inne
 | build | cand bytes | ratio | callees in orig order | official normalized / raw | gains / losses |
 | --- | ---: | ---: | --- | --- | --- |
 | baseline d2cb88d | 8,816 | 0.7354 | no (line-85 error inlined, to_string inlined) | 1019 / 188 | - |
-| this branch | 8,584 | 0.7611 | yes, all 58 | 1019 / 188 | none / none |
+| step 1 (inline check, keyif) | 8,584 | 0.7611 | yes, all 58 | 1019 / 188 | none / none |
+| step 2 (named bump array) | 8,584 | 0.8031 | yes, all 58 | 1019 / 188 | none / none |
 
 ## Mechanism
 
@@ -30,11 +31,15 @@ Target: original window `0x6cd78` (8,544 B), `legacy_sell::process_cashback_inne
    `if key != expected { return err!(...) }` together with the `if len < 8 || disc != ... { return err!(...) }`
    discriminator check. All 58 callees then appear in original order.
 
+5. `let bump_seed = [bump];` declared before the seeds slice (instead of the `&[bump]` temporary inside it)
+   puts the bump byte directly below the seeds array (orig -0x1e9) and aligns the stack-frame offsets
+   of the early locals with the original. Ratio 0.7611 -> 0.8031.
+
 ## Remaining residuals
 
-- 40 B (5 slots) larger. Stack frame has one extra 8-byte slot (offsets -0x1e0 vs -0x1d8 early in the frame).
+- 40 B (5 slots) larger. `user` (r4) is spilled to the stack in the candidate; the original keeps it in r7 for the whole function, so the argument spill slots are shifted by 8.
 - Register allocation and spills differ in the `CpiContext::new(system_program.clone(), Transfer{from: user.clone(), to: uva.clone()})`
   clone sequence (orig +0xc68..0xdb0), plus the first instruction (`mov r6, r2` vs `mov r7, r2`).
 
 Ledger attempt ids: 92dba45b (try_from_unchecked), b02ee191/143f1c62 (inline else), b7fe3455 (inline(always)),
-1adf199b (early-taildup diagnostic), ada66214 (this result); sweep rows for 0x6cd78 by lane cashback-inner-reconstruction.
+1adf199b (early-taildup diagnostic), ada66214 (keyif), efa2b36a (named bump array); sweep rows for 0x6cd78 by lane cashback-inner-reconstruction.
