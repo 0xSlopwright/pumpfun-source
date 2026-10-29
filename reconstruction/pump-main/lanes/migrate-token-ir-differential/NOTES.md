@@ -77,3 +77,5 @@ the two Rc increments; ours copies r1 to r9 first. Untouched by the block-order 
   the first Rc increment) and register/spill differences in the non-native metas/infos build.
 
 Rebased on origin/main f4065ddc3 (round-1 PR #1228 merged): main baseline 1020/188, target 8432 B 0.5781; with this change 1020/188, no gains/losses, target 8400 B 0.6116, unstripped sha 9038ea17bf9afaa4da70ffcf259691626b3f05b89a305337e5316e5257241e33.
+
+Follow-ups on the best form: tp borrow declared inside the nn branch and `*tp.key` are byte-identical to it; hoisting `tp.key()` into a let drops to 0.337. The best form's frame (0x448) and set of stack slots now equal the original's; what remains is register assignment and the interleaving of AccountInfo clone field loads vs Rc stores. Ledger ids 7d5d8432, 5b4d4a83 (+ tp-ref-key-hoisted).
