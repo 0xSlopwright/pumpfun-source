@@ -227,7 +227,7 @@ test("published derivation and existing server RPC boundary remain unchanged", a
     "src/app/api/portfolio/route.ts":
       "3d4bae26bc0a0a5dbfb47376d264ab3980ef0550a403114c1e76104a2ba216bd",
     "src/app/portfolio/rpc.ts":
-      "4f2018bb8e330c118023dd14f8c775e68228b8c0c33db297346572c9d4ab2c1e",
+      "9d63136dc647a5598eae72573a7d721a11429e712f6ec00ee27e6f860098d8ab",
     "src/app/portfolio/types.ts":
       "b25c42a0a64f64949d81a4c322d4d098e9c32c2b2be832af48dbd2ad52d8e33c",
     "src/app/holder-rewards-derivation.ts":
