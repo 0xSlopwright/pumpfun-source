@@ -114,7 +114,7 @@ def pool(urls):
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex: return list(ex.map(fetch, ordered))
 def main():
     if '--resume' in sys.argv and (OUT/'manifest.json').exists():
-        previous=json.loads((OUT/'manifest.json').read_text())
+        previous=json.loads((OUT/'manifest.json').read_text(encoding='utf-8'))
         load_reuse(previous['records'],previous.get('captured_at'))
     records=[]; pages=pool({'https://pump.fun'+p for p in PAGES} | {'https://docs.pump.fun/openapi.public.json','https://docs.pump.fun/llms-full.txt'})
     records.extend(r for r,b in pages)
