@@ -63,3 +63,13 @@ next to the call.
 - `fn.sh <obj> <symbol>`: listing of one function by symbol range.
 - `preds.py <listing> <join addr>`: predecessors of a join block, with their last instructions.
 - `trace_ev.py <print-changed log> <fn> <call regex>`: extractvalue order at each pass that changes it.
+
+## Cross-window scan
+
+`scripts/errscan.py <cand.so>` counts, in each unmatched window, error-return pairs of the form
+`call; ldxdw r1/r3,[r10-N]; ldxdw r3/r1,[r10-N±8]; ja`, split into tag-first (T) and
+ptr-first (P), for the original and the best candidate. On main, buy_exact_sol_in (orig T=1 P=15,
+cand T=0 P=16) is the only window with a T/P mismatch in this exact shape. `trade::buy_exact_quote`
+has one extra ptr-first pair in the candidate (orig P=0, cand P=1), which is a structural difference,
+not an order difference. So this mechanism does not directly unlock another window today. It is still
+the explanation to reach for whenever a residual is a swapped pair of loads right after a call.
