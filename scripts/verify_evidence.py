@@ -20,6 +20,9 @@ def main():
         assert sha((ROOT/'evidence/upstream'/name).read_bytes())==expected
     for f in sorted((ROOT/'evidence').glob('**/capture.json')):
         m=json.loads(f.read_text()); folder=f.parent
+        # The gate exists to publish finalized snapshots, but the declared commitment
+        # was never read: a capture taken at `processed`/`confirmed` still passed.
+        assert m.get('commitment')=='finalized', f'{folder.relative_to(ROOT).as_posix()}: commitment {m.get("commitment")!r}'
         if m.get('loader')=='legacy-v2':
             p=(folder/'program-account.bin').read_bytes(); b=(folder/'deployed.so').read_bytes()
             assert p==b and sha(b)==m['payload_sha256']==m['program_sha256'] and len(b)==m['payload_bytes']
