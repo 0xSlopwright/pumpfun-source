@@ -904,6 +904,11 @@ export async function verifyGraph(root, outputRelative, options = {}) {
     }
   }
   const rebuilt = await buildGraph(root, options);
+  const listed = manifest.files.map((entry) => entry.path);
+  if (new Set(listed).size !== listed.length ||
+      listed.length !== Object.keys(rebuilt).length ||
+      Object.keys(rebuilt).some((name) => !listed.includes(name)))
+    throw new Error("generated evidence inventory differs from rebuilt reports");
   for (const entry of manifest.files) {
     if (!(entry.path in rebuilt))
       throw new Error(`generated evidence is not reproducible: ${entry.path}`);
