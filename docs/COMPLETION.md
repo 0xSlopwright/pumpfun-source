@@ -10,13 +10,15 @@ identity, allocated-image identity, normalized window matches and finite runtime
 comparisons remain distinct claims. The linked qualifications bind the source,
 builds and receipts; they do not establish a complete security review.
 
+See also the [current core-program status](../repro/status.json).
+
 The pass-26 selection and older checkpoint notes below are retained for provenance.
 Their candidate hashes, counts, exclusions and uses of “current” describe those
 checkpoints, rather than replacing the maintained selections linked above.
 
 ## Historical pass-26 selection
 
-The pass-26 selected artifacts agree with its [status.json](../repro/status.json) and complete byte/function index. At that checkpoint, whole-file identity remained **0/4 core programs**. Dependency capture images remained **2/5**; only SPL Token was a whole-file exact raw compiler output (**1/5**). Token-2022 and Metaplex allocation images were recorded separately from shorter raw compiler output. No overall reconstruction percentage follows from finite tests or normalized function matches.
+The [pass-26 checkpoint](../repro/layered-passes/pass-26/README.md) records its selected artifacts and complete byte/function index. At that checkpoint, whole-file identity remained **0/4 core programs**. Dependency capture images remained **2/5**; only SPL Token was a whole-file exact raw compiler output (**1/5**). Token-2022 and Metaplex allocation images were recorded separately from shorter raw compiler output. No overall reconstruction percentage follows from finite tests or normalized function matches.
 
 | Program | Selected executable SHA256 prefix | Differing or missing captured positions |
 | --- | --- | ---: |
