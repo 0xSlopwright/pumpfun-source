@@ -19,7 +19,7 @@ function exactly (1713 insns, 0 differing). `moves.py` (MOVES="after:blk:tgt;bef
 | --- | --- | --- |
 | 581 / 1710 | shared Rc weak-decrement tail: tail merge keeps the admit-chain copy (mid) instead of the emit_cpi Err copy (last) | not yet (moving `exit.i115` gets the tail last but flips the jne) |
 | 664-720 | whitelist fee tuple zero-mov / phi-copy registers | phi order (`_630`, cf, pf, pbps, cbps) in the fee join: 67 -> 51 |
-| 851 | transfer_user_tokens argument load schedule | not yet |
+| 851 | transfer_user_tokens argument load schedule | a+264 GEP defined in the entry block (fixed in source, see below) |
 | 1062 | quote_mint snapshot copy (orig ascending) | memcpy -> 4 ascending i64 load/store pairs: -12 |
 | 1453 | buyback `post_fee_amount(..)?` test: orig `jeq; ja` | IR-next block of the test must be neither Ok nor Err |
 
@@ -28,7 +28,8 @@ function exactly (1713 insns, 0 differing). `moves.py` (MOVES="after:blk:tgt;bef
 | step | sell_v2 bytes / ratio | llc dist | official |
 | --- | --- | --- | --- |
 | main 630a0741 | 13,968 / 0.96294 | 67 | 1023 / 277 |
-| fee tuple bound cf-first (this PR) | 13,968 / 0.96761 | 51 | 1023 / 277, no gains/losses |
+| fee tuple bound cf-first | 13,968 / 0.96761 | 51 | 1023 / 277, no gains/losses |
+| + `let (base_token_program,base_mint)=(&a.base_token_program,&a.base_mint);` at the top (buy_handler idiom), used by transfer_user_tokens | 13,968 / 0.97578 | 23 | 1023 / 277, no gains/losses |
 
 Mechanism: the four tuple fields become MIR-SROA locals `_785.._788` in tuple field order; rustc gives them
 allocas in local order, and mem2reg's phis in the fee join follow that order. The original's register
@@ -38,3 +39,8 @@ assignment needs cf's phi before pf's, so the binding is
 the buy_v2/legacy spellings are much worse (see ledger).
 
 Probably applies to buy_v2 handlers too (w3-buyhandler listed the same "zero-mov phi-copy order" residual).
+
+Second step: the IR oracle showed the transfer_user_tokens schedule follows from where the
+`&a.base_token_program` GEP is defined (call block vs entry block; the default pre-RA scheduler is
+list-ilp, so IR order inside the block does not matter). The buy_handler's tuple binding keeps that GEP in
+the entry block; a plain `let base_token_program=&a.base_token_program;` is byte-identical to before.
