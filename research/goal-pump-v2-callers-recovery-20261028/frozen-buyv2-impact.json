@@ -1,0 +1,12 @@
+[
+  {
+    "name": "frozen",
+    "bytes": 15488,
+    "normalized_equal_frozen_buyv2": true
+  },
+  {
+    "name": "best_exact_quote",
+    "bytes": 15488,
+    "normalized_equal_frozen_buyv2": true
+  }
+]
