@@ -68,3 +68,33 @@ Remaining buy_v3 residuals are block placement: the non-mayhem whitelist block s
 NotEnoughTokensToBuy error block in the original (ours: right after the mayhem test, with the
 clip head tail-duplicated), and the shared `?` error-return block (store r6/r7 to sret; exit)
 is last in the original but mid-function in ours.
+
+## Rebase note
+
+#1210 (t01 + b04) merged into main as 298bf0858. This branch was reset onto main 016a11c7f
+(which also has #1199 and #1189) and carries only the b23 change; official 1020/188 on that base,
+no losses. Follow-up PR #1227.
+
+## sell_v3 residual analysis (0x14a8a8, 6040 vs 6032 B)
+
+Three shapes of the event-CPI tail, each right in a different way:
+- `emit_sell_cpi(&ctx,&event)?; Ok(())` (current, t01): frame matches, because the helper's
+  allocas are LLVM-inlined ahead of the MIR-inlined `Clock::get()?` residual temp. Costs a
+  `tag==2` re-check of the `From<ProgramError>` result (the +8 B).
+- inline `emit_cpi!(event); Ok(())` (s06): 6032 B, the original `jeq Ok / ja Err` branch and a
+  direct return of the converted error. But the macro's locals then sit below the residual temp
+  (frame top -0x28 vs -0x100), and the accounts pointer and result tag swap r8/r9.
+- helper as the tail expression (t02, s08, s10): no re-check, but `jne` instead of `jeq`+`ja`
+  (inlined helper block order), and the same r8/r9 swap.
+Helper with `#[inline]` or no attribute is not inlined (s13/s14). An immediately-invoked closure
+is not inlined (s11). Option locals for the payout accounts (s03-s05) are worse.
+
+## buy_exact_quote analysis (0x1489f8)
+
+`skel.py` (lane out dir) shows the call multisets match the original exactly (66 calls).
+The differences are block order and frame: the original lays out the non-whitelist
+`net_quote_for_budget` path first, materializes `can_cross` as a 0/1 phi tested with `&1`
+(ours is jump-threaded per mayhem path), and has a 0x18-byte larger frame with the formatter at
+the top and the fmt::Error ZST merged at -0x68 (ours unmerged at -0x1). With frame offsets
+masked, 487 of 952 instructions still differ. User-key locals (e01-e03) and can_cross spellings
+(e05-e08) did not help.
