@@ -8,8 +8,19 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { CompetitionStore, defaultCompetitionStore } from './competitions-store.js';
 import { sendSynthetic, errorBody, rejectDuplicateQueryKeys } from './users-routes.js';
 
+/**
+ * All competition numeric query parameters are declared `type: integer` in
+ * contracts/developer.openapi.json, and the documented clamping covers
+ * out-of-range integers only (0/negatives clamp to the floor, values above
+ * the cap clamp to the cap). A fractional value is neither a valid integer
+ * nor a clamping case, but the previous check accepted any finite number and
+ * the handlers then truncated it (limit=2.5 served 2 rows with 200), the
+ * same silent-truncation shape the posts and pnl-leaderboard routes already
+ * reject. Reject non-integer finite values here; integer clamping is
+ * unchanged.
+ */
 function rejectInvalidNumbers(query: Record<string, string | undefined>, keys: string[], reply: FastifyReply): boolean {
-  if (keys.some(key => query[key] !== undefined && (!query[key]!.trim() || !Number.isFinite(Number(query[key]))))) {
+  if (keys.some(key => query[key] !== undefined && (!query[key]!.trim() || !Number.isFinite(Number(query[key])) || !Number.isInteger(Number(query[key]))))) {
     reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
     return true;
   }
