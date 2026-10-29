@@ -165,13 +165,19 @@ export function decodeCursor(cursor: unknown): { createdAt: string; postId: stri
   }
 }
 
+// Keep locale ordering, but break collation equivalence with the exact ID.
+// Keyset pagination needs a total order over distinct identities.
+function comparePostIds(a: string, b: string): number {
+  return a.localeCompare(b) || (a === b ? 0 : a < b ? -1 : 1);
+}
+
 function comparePostsNewestFirst(a: RawPost, b: RawPost): number {
   const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
   const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
   if (timeA !== timeB) {
     return timeB - timeA; // newest first
   }
-  return b.postId.localeCompare(a.postId);
+  return comparePostIds(b.postId, a.postId);
 }
 
 export class PostStore {
@@ -321,7 +327,7 @@ export class PostStore {
    */
   getReplies(postId: string, opts: { cursor?: string; limit?: number }): { replies: Post[]; nextCursor: string | null } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     let items = this.posts.filter(p => p.parentPostId === postId && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
@@ -335,7 +341,7 @@ export class PostStore {
       items = items.filter(item => {
         const itemTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
         if (itemTime < cursorTime) return true;
-        if (itemTime === cursorTime) return item.postId.localeCompare(decoded.postId) < 0;
+        if (itemTime === cursorTime) return comparePostIds(item.postId, decoded.postId) < 0;
         return false;
       });
     }
@@ -357,7 +363,7 @@ export class PostStore {
    */
   getQuotes(postId: string, opts: { cursor?: string; limit?: number }): { quotes: Post[]; nextCursor: string | null } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     let items = this.posts.filter(p => p.quotedPostId === postId && p.kind === 'quote' && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
@@ -371,7 +377,7 @@ export class PostStore {
       items = items.filter(item => {
         const itemTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
         if (itemTime < cursorTime) return true;
-        if (itemTime === cursorTime) return item.postId.localeCompare(decoded.postId) < 0;
+        if (itemTime === cursorTime) return comparePostIds(item.postId, decoded.postId) < 0;
         return false;
       });
     }
@@ -393,7 +399,7 @@ export class PostStore {
    */
   getLikers(postId: string, opts: { offset?: number; limit?: number }): { likers: UserProfile[]; hasMore: boolean } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     const likerIds = (post.likers ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);
@@ -419,7 +425,7 @@ export class PostStore {
    */
   getReposters(postId: string, opts: { offset?: number; limit?: number }): { reposters: UserProfile[]; hasMore: boolean } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     const reposterIds = (post.reposters ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);
