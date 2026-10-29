@@ -562,6 +562,12 @@ export class CompetitionStore {
     const target = comp.entries.find(e => e.entryId === entryId);
     if (!target) return null;
 
+    // The contract serves no token reel before the first board build, even
+    // when the supplied read model still contains retained token rows.
+    if (!comp.entries.some(entry => entry.lastRefreshedAtMs > 0)) {
+      return { entryId, tokens: [] };
+    }
+
     const limit = opts.limit !== undefined ? opts.limit : 10;
     const rawTokens = [...(target.highlightTokens ?? [])];
 
