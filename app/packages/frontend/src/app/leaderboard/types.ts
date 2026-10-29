@@ -229,11 +229,16 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
     ["id", "slug", "kind", "title", "description", "prizeCopy", "phase"].every(
       (key) => typeof value[key] === "string",
     ) &&
+    ["group", "person"].includes(value.kind as string) &&
+    ["upcoming", "registration", "live", "ended"].includes(
+      value.phase as string,
+    ) &&
     ["registrationOpensAt", "registrationClosesAt", "startsAt", "endsAt"].every(
       (key) => typeof value[key] === "string" || value[key] === null,
     ) &&
     [value.maxEntries, value.entriesCount, value.participants].every(
-      (number) => typeof number === "number" && Number.isFinite(number),
+      (number) =>
+        typeof number === "number" && Number.isFinite(number) && number >= 0,
     ) &&
     [value.minMembers, value.maxMembers].every(
       (number) =>
@@ -245,9 +250,11 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
       (prize) =>
         isRecord(prize) &&
         [prize.rankFrom, prize.rankTo].every(
-          (rank) => typeof rank === "number" && Number.isFinite(rank) && rank >= 0,
+          (rank) =>
+            typeof rank === "number" && Number.isFinite(rank) && rank >= 0,
         ) &&
-        typeof prize.amount === "string" && prize.amount.length <= 200,
+        typeof prize.amount === "string" &&
+        prize.amount.length <= 200,
     ) &&
     typeof value.joinable === "boolean" &&
     typeof value.isFinal === "boolean"
@@ -271,6 +278,13 @@ function isCompetitionEntry(value: unknown): value is CompetitionEntry {
     ].every(
       (number) => typeof number === "number" && Number.isFinite(number),
     ) &&
+    ["group", "person"].includes(value.kind as string) &&
+    [
+      value.rank,
+      value.memberCount,
+      value.membersFresh,
+      value.lastRefreshedAtMs,
+    ].every((number) => typeof number === "number" && number >= 0) &&
     typeof value.struck === "boolean" &&
     (typeof value.walletAddress === "string" || value.walletAddress === null) &&
     (typeof value.username === "string" || value.username === null) &&
@@ -325,8 +339,10 @@ function isData(value: unknown): value is LeaderboardData {
       value.entries.every(isCompetitionEntry) &&
       typeof value.totalRanked === "number" &&
       Number.isFinite(value.totalRanked) &&
+      value.totalRanked >= 0 &&
       typeof value.builtAtMs === "number" &&
       Number.isFinite(value.builtAtMs) &&
+      value.builtAtMs >= 0 &&
       typeof value.isFinal === "boolean"
     );
   }
