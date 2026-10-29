@@ -627,3 +627,11 @@ for (const field of Object.getOwnPropertyNames(Object.prototype)) {
     });
   }
 }
+
+test('public callout events cannot postdate the materialization checkpoint',()=>{
+  const factsData=dataset();factsData.callouts[0].facts!.createdAt=Date.parse('2026-10-29T00:00:00Z');
+  assert.throws(()=>new CalloutsStore(factsData),/observedAt/);
+  const updates=dataset();updates.updates[0].body.createdAt='2026-10-29T00:00:00Z';
+  assert.throws(()=>new CalloutsStore(updates),/observedAt/);
+  assert.doesNotThrow(()=>new CalloutsStore(dataset()));
+});
