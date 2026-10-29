@@ -173,3 +173,10 @@ test("general settings and section labels equal the bound captured English strin
     assert.equal(definition?.description, strings[descriptionKey]);
   }
 });
+
+test('settings links reject URL parser control-character normalization', () => {
+  for (const path of ['/\t/evil.example', '/\n/evil.example', '/\r/evil.example', '/docs\u0000/fees', '/docs\u007f']) {
+    assert.throws(() => settingsHref(path,new URLSearchParams(),'privacy'), /same-origin pathname/);
+  }
+  assert.equal(new URL(settingsHref('/docs/fees',new URLSearchParams(),'privacy'),'https://local.invalid').origin,'https://local.invalid');
+});
