@@ -76,6 +76,20 @@ function fixtureProvenance(fixture: unknown, index: number) {
   return `fixture[${index}] sourceSha256=${digest}`;
 }
 
+function isJsonBody(value: unknown, ancestors = new Set<object>()): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value !== "object" || ancestors.has(value)) return false;
+  if (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  ancestors.add(value);
+  try {
+    // Array iteration visits holes as undefined, unlike Array.every.
+    const children = Array.isArray(value) ? value : Object.values(value);
+    for (const child of children) if (!isJsonBody(child, ancestors)) return false;
+    return true;
+  } finally { ancestors.delete(value); }
+}
+
 function validateFixture(
   fixture: unknown,
   index: number,
@@ -91,6 +105,9 @@ function validateFixture(
     throw new Error(
       `Invalid fixture registration (${provenance}): body must be explicitly present; use null for a JSON null body`,
     );
+  }
+  if (!Buffer.isBuffer(candidate.body) && !isJsonBody(candidate.body)) {
+    throw new Error(`Invalid fixture registration (${provenance}): body must contain finite JSON values or a raw Buffer`);
   }
   if (typeof candidate.source !== "string" || candidate.source.length === 0) {
     throw new Error(
