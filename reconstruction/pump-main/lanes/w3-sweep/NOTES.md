@@ -79,3 +79,39 @@ scans), mbp.sh (post-placement block order), sdiff.py (structural diff), trial.s
   ~0.1 s, dumps MIR before/after JumpThreading; counts memcmp/clone copies (F1/F2 screening).
 - `labinl.py` / `labbfi.py`: same with `-print-before=inline` and `scripts/bfi.py` (homebrew opt
   print<block-freq>) to see pre-inline call-site frequencies (cold threshold 2% of entry).
+
+## Near-match candidate a37 (40 calls) — `a37_sweep_fees.rs.txt`
+
+a17 (tuple match, token code inline in execute) with the rent arm written as a Result-producing
+`match`:
+
+```rust
+  (true,true)=>match Rent::get(){
+   Ok(rent)=>{let minimum=rent.minimum_balance(0);if a.recipient.lamports()<minimum{transfer(..)}else{Ok(())}}
+   Err(e)=>Err(e.into()),
+  }?,
+```
+
+| metric | a23 (PR head) | a37 |
+|---|---|---|
+| target ratio | 0.49139 | **0.78830** |
+| differing lines (llc oracle) | 1085 | 414 |
+| stack operands at the original offset | 50 | **370** (all) |
+| direct calls | 39 | 40 |
+| official | 1022 / 276, no losses | 1022 / 276, no losses (sha 5f590f21..) |
+
+Frame findings that led here: rustc creates allocas in MIR-local order (frame top = highest local),
+AlwaysInlined helpers' allocas land at the frame top (a23's quote keys at -0x50..-0x70; original
+-0x168..-0x1a0), so the original's token code is inline in execute; `Rent::get()?` leaves the
+`Result<Rent>` SROA slice without lifetime markers (one uncolored 24 B slot, +24 on 150 operands),
+while matching `Rent::get()` into a Result does not.
+
+The only structural residual of a37 is the shared rent/token join's recipient clone: its pre-inline
+block frequency is 1.47% of entry, below LLVM's ColdCallSiteRelFreq (2%), so it gets the cold
+threshold (45) and stays an out-of-line `AccountInfo::clone` call (clone inline cost is >60:
+`-inline-cold-callsite-threshold=60` still leaves it). In the original that site was inlined, so
+the original's pre-inline CFG gives the join >= 2%. Frequency budget with the current CFG: p = c =
+0.0427 after the zero check, rent 0.375c, the shared native switch 50/50 -> protocol-native 0.0347,
+token entry 0.0347 -> token end 0.0087 (two admit `?` halvings), rent end ~0.006; any fix must lift
+the join by ~1.37x while keeping protocol-native >= 2% and the MIR JT threading (only the
+`(true,true),(_,false),(false,true)` arm order threads, checked in the synthetic lab).
