@@ -119,3 +119,66 @@ for (const width of [390, 1280]) {
     expect(unexpected).toEqual([]);
   });
 }
+
+
+test("competition rules keep the background still and restore scrolling on close or unmount", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.route("**/api/leaderboard?**", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        source: {
+          mode: "developer-api",
+          label: "Pump developer API",
+          fetchedAt: "2026-10-28T00:00:00Z",
+        },
+        data: new URL(route.request().url()).searchParams.has("id")
+          ? {
+              kind: "competition-detail",
+              competition,
+              entries: [],
+              totalRanked: 0,
+              builtAtMs: 1,
+              isFinal: false,
+            }
+          : { kind: "competitions", live: [], upcoming: [competition], past: [] },
+      },
+    }),
+  );
+  await page.goto("/leaderboard?category=competitions&status=upcoming");
+  const detail = page.getByRole("link", { name: "View ranked entries" });
+  await detail.click();
+  const launcher = page.getByRole("button", {
+    name: "Schedule, scoring, eligibility and rules",
+  });
+  await expect(launcher).toBeEnabled();
+  await launcher.click();
+  const dialog = page.getByRole("dialog", { name: "Competition rules" });
+  await expect(dialog).toBeVisible();
+  const backgroundTop = await page.evaluate(() => window.scrollY);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight),
+  ).toBeGreaterThan(640);
+  await page.mouse.move(2, 2);
+  await page.mouse.wheel(0, 500);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.scrollY)).toBe(backgroundTop);
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(2, 2);
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  await launcher.click();
+  await expect(dialog).toBeVisible();
+  await page.goBack();
+  await expect(detail).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(2, 2);
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});
