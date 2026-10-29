@@ -105,6 +105,10 @@ export async function buildInventory(
     let source;
     try {
       const bytes = await fs.readFile(containedPath(root, record.path));
+      if (Object.hasOwn(record, "bytes") &&
+          (!Number.isSafeInteger(record.bytes) || record.bytes < 0 || bytes.length !== record.bytes)) {
+        throw new Error("Captured source byte count mismatch");
+      }
       if (createHash("sha256").update(bytes).digest("hex") !== record.sha256) {
         throw new Error("Captured source SHA-256 mismatch");
       }
