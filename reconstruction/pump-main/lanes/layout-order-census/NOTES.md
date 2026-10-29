@@ -211,3 +211,21 @@ built). With that pairing, the handler commit kept P16 at 415 and raised LIS 871
 Official 1020/276 unchanged, no losses (unstripped 6e1f13e4...). P16 415 -> 423, LIS 874 -> 881, L adjacent
 breaks 144 -> 136. With U and D as built, the source-only P16 ceiling (original L order) is about 647;
 a full original order is 1014.
+
+### The original's module list is sorted by file path (`d39235b3`, kept)
+The original's derive pass and its .rodata file strings both follow the file paths in alphabetical
+order, which is what rustfmt's `reorder_modules` produces for a lib.rs `mod` list:
+- derive pass: AdminSetIdlAuthority (`admin_set_idl_authority.rs`) first, then buy_v2, create_v2,
+  creator/admin_cto, CollectCreatorFee, creator/collect..., creator/distribute..., creator/migrate...,
+  creator/set_*, extend_account, `mayhem_virtual_params` (between extend and migrate), migrate,
+  migrate_v2, multi_hop..., quote_control, sell_v2, AdminReadonly (set_reserved_fee_recipients.rs),
+  sweep_fees, token_incentives/..., trade_v3, then the lib.rs body (declare_program!, entry, program, ...)
+- `.rodata` string stream from 0xdeb: `programs/pump/src/admin_set_idl_authority.rs`, `buy.rs`, `buy_v2.rs`,
+  `create_v2.rs`, `creator/admin_cto.rs`, `creator/collect...`, `creator/distribute...`, `creator/migrate...`,
+  ..., `extend_account.rs`, `fee_recipient.rs`, `migrate.rs`, ... Our stream starts with `buy_v2.rs`.
+
+`tools/alphabetical_mounts.py` mounts `idl_authority` first, `mayhem_virtual_params` after `fee_recipient`, and
+moves `BondingCurve::sync_virtual_quote_reserves` (no sites) next to `reserved_bonding_curve_fees` (lib.rs), where
+the original's hand-written order has it. Official 1020/276, no losses (unstripped ab7d1ade...). LIS 881 -> 886,
+breaks 136 -> 131, mismatched `.data.rel.ro` operands **125 -> 42**, `.rodata` 2051 -> 2008, equal-offset data
+windows 156 -> 157.

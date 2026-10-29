@@ -6,8 +6,10 @@ import sys,json,re
 sys.path.insert(0,__file__.rsplit('/',1)[0])
 import fastmodel as F
 def apply(M,order,spec):
-    for pats,kind,anc in spec:
+    for item in spec:
+        pats,kind,anc=item[:3]
         mv=[a for a in order if any(re.search(p,M.names[a]) for p in pats)]
+        if len(item)>3 and item[3]=='orig': mv.sort(key=lambda a:M.inv.get(a,1<<40))
         if not mv: raise SystemExit(f'no units for {pats}')
         rest=[a for a in order if a not in mv]
         ancs=[a for a in rest if re.search(anc,M.names[a])]

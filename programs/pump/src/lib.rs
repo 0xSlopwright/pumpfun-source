@@ -1,4 +1,4 @@
-#[path="util/account_name.rs"] pub mod account_name;pub mod buy_v2;
+#[path="admin_set_idl_authority.rs"]pub mod idl_authority;#[path="util/account_name.rs"] pub mod account_name;pub mod buy_v2;
 pub use buy_v2::*;
 pub mod create_v2;
 pub use create_v2::*;
@@ -18,7 +18,7 @@ pub use creator_migration::*;
 pub use set_creator::*;pub use set_metaplex_creator::*;
 #[path="buy.rs"]pub mod legacy_buy;
 pub use legacy_buy::*;
-#[path="extend_account.rs"]pub mod extend;#[path = "fee_recipient.rs"] pub(crate) mod fee_recipient;
+#[path="extend_account.rs"]pub mod extend;#[path = "fee_recipient.rs"] pub(crate) mod fee_recipient;pub mod mayhem_virtual_params;
 pub use extend::*;
 pub mod migrate;
 pub use migrate::*;
@@ -55,9 +55,9 @@ pub mod create;
 pub use create::*;
 pub mod set_params;
 pub use set_params::*;
-#[path="admin_set_idl_authority.rs"]pub mod idl_authority;
+
 pub use idl_authority::*;
-pub mod mayhem_virtual_params;
+
 pub use mayhem_virtual_params::*;
 pub mod trade_types;
 
@@ -2563,57 +2563,57 @@ pub fn reserved_bonding_curve_fees(curve: &trade_types::BondingCurve) -> Result<
 }
 
 // layout-pad: aligns the next Source site with the original lib.rs line
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+impl crate::trade_types::BondingCurve {
+    // The original handler calls a separate helper at 0xa23f0.
+    #[inline(never)]
+    pub(crate) fn sync_virtual_quote_reserves(
+        &mut self,
+        initial_real_token_reserves: u64,
+        vault_amount: u64,
+        quote_mint: &Pubkey,
+    ) -> Result<()> {
+        let bc = self;
+        if bc.complete || !bc.is_mayhem_mode {
+            return Ok(());
+        }
+        let real_quote_reserves = bc.real_quote_reserves;
+        let virtual_token_reserves = bc.virtual_token_reserves;
+        let denominator = bc
+            .token_total_supply
+            .checked_mul(2)
+            .ok_or(PumpError::Overflow)?
+            .checked_sub(initial_real_token_reserves)
+            .ok_or(PumpError::Overflow)?
+            .checked_sub(vault_amount)
+            .ok_or(PumpError::Overflow)?;
+        if *quote_mint == Pubkey::default() {
+            if real_quote_reserves < 10_000_000 || denominator < 1_000_000_000_000 {
+                return Ok(());
+            }
+        } else if real_quote_reserves < 1_000_000 || denominator < 1_000_000_000_000 {
+            return Ok(());
+        }
+        // Keep these fallible operations separate: the captured helper has
+        // distinct Overflow returns for multiplication and division.
+        let numerator = (denominator as u128)
+            .checked_add(virtual_token_reserves as u128)
+            .ok_or(PumpError::Overflow)?
+            .checked_mul(real_quote_reserves as u128)
+            .ok_or(PumpError::Overflow)?;
+        let computed = numerator
+            .checked_div(denominator as u128)
+            .ok_or(PumpError::Overflow)?;
+        // Conversion precedes the cap in both captured branches.
+        if *quote_mint == Pubkey::default() {
+            let amount = u64::try_from(computed)?;
+            bc.virtual_quote_reserves = amount.min(2_000_000_000_000);
+        } else {
+            let amount = u64::try_from(computed)?;
+            bc.virtual_quote_reserves = amount.min(160_000_000_000);
+        }
+        Ok(())
+    }
+}
 
 
 
