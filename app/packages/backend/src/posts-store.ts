@@ -165,13 +165,19 @@ export function decodeCursor(cursor: unknown): { createdAt: string; postId: stri
   }
 }
 
+// Keep locale ordering, but break collation equivalence with the exact ID.
+// Keyset pagination needs a total order over distinct identities.
+function comparePostIds(a: string, b: string): number {
+  return a.localeCompare(b) || (a === b ? 0 : a < b ? -1 : 1);
+}
+
 function comparePostsNewestFirst(a: RawPost, b: RawPost): number {
   const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
   const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
   if (timeA !== timeB) {
     return timeB - timeA; // newest first
   }
-  return b.postId.localeCompare(a.postId);
+  return comparePostIds(b.postId, a.postId);
 }
 
 export class PostStore {
@@ -335,7 +341,7 @@ export class PostStore {
       items = items.filter(item => {
         const itemTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
         if (itemTime < cursorTime) return true;
-        if (itemTime === cursorTime) return item.postId.localeCompare(decoded.postId) < 0;
+        if (itemTime === cursorTime) return comparePostIds(item.postId, decoded.postId) < 0;
         return false;
       });
     }
@@ -371,7 +377,7 @@ export class PostStore {
       items = items.filter(item => {
         const itemTime = item.createdAt ? new Date(item.createdAt).getTime() : 0;
         if (itemTime < cursorTime) return true;
-        if (itemTime === cursorTime) return item.postId.localeCompare(decoded.postId) < 0;
+        if (itemTime === cursorTime) return comparePostIds(item.postId, decoded.postId) < 0;
         return false;
       });
     }
