@@ -49,3 +49,21 @@ successor bb151, giving 0.6593 / 0.9023; both together give 0.6684 / 0.9081.
 Caveat: raw loss `0xa868`. That is a 24-byte `<&T as Debug>::fmt` thunk at 0xa7b0 whose call crosses buy_exact_quote; its
 raw match depended on the total byte span matching the original by coincidence. Any change in the target's size breaks it (u02, x01).
 PRs #1539 and #1542 report the same drift.
+
+## Return-phi order at the quote_fee exit join (oracle, no source yet)
+
+On the x04 IR, swapping the `_0` phi pair at the quote_fee exit join (`bb113.i`, `%_0.sroa.38.12`/`%_0.sroa.0.12`, ptr phi
+first) to i64-first gives ratio 0.6878 (`scripts/phiswap_all.py`, PS=12). That puts ctx in r6 as in the original. Swapping the final
+return pair (PS=5) does nothing. Raw-opt: moving the `_0` alloca up 54 or more positions in the entry block (so SROA's LIFO worklist processes it after
+about 54 other allocas) flips the order, and 51 or fewer does not. `scripts/phichk.sh` (early SROA only, 0.3 s on the slim raw body) predicts the flip.
+rustc always creates `_0` first among locals, after the argument allocas, so it is always last in the entry block. Adding an address-taken
+argument alloca below `_0` (`scripts/argalloca.py`) does *not* flip it. Moving the single allocas _90/_91/_92/_93 does not flip it either. The flip depends on how many allocas were processed before `_0`.
+
+## Other oracle results
+
+- Cross-arm tail (`bb68`, tuple build plus post memcpys, then the join) created early: 0.6653 / 0.8976. Cross-arm `v3_trade_fees` block after its
+  `v3_buy_costs` successor: 0.6677 / 0.9044. Both together: 0.6769 / 0.9102. Post-opt hill climb (hc3, 3 rounds): 0.6793.
+- Move-to-end scan over every raw block (`scripts/rawscan.sh`): no other single creation-order change is worth more than +0.0004.
+- Raw drift `0xa868`: `scripts/thunks.py` prints the call immediates of the seven `<&T as Debug>::fmt`-family thunks. The one at
+  0xa7b0 calls across buy_exact_quote and matches only while the target is 7776 B.
+- z12 (`try_into`): identical. z14 (cross fees via `match`): 0.5701, much worse. x06 (decl at body top): = x01.
