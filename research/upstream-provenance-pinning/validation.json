@@ -60,7 +60,7 @@
       },
       {
         "mutation": "provenance commit rewritten to 40 zeroes",
-        "error": "provenance.json sha256 ... does not match pinned ..."
+        "error": "provenance.json sha256 62204f9bfcb43ebe633915fb73fd830b59c052db458577ab503d0f659f63257a does not match pinned a315baa42e9ab40e70f31f541199983c2a5a2883571dbd3dfee8b690518b68b2"
       },
       {
         "mutation": "pump_fees address rewritten in docs/SCOPE.md",
