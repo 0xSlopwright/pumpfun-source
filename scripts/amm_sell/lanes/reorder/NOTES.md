@@ -15,3 +15,8 @@ error macro and the panic-location lines 439/440 kept on their original lines.
 
 ## Reproduce
 `python3 gen.py owner_ne+create_elseok+wr_elseif` then harness/try_sell.py --sell <output>.
+
+## Later results (lane closed once semantic-reconstruction reached the GOAL, key c9f12a27649d78bb)
+- With `?` directly on the chain expression, the match forms (`match () { _ if !w => return err!(..), _ if empty => create(..), _ => Ok(()) }?`, and `match is_writable {..}`) build identically to the else-if chain (136/9000).
+- Binding the chain to a let and then `created?;` loses the placement (173/9032). Folding the 464 check into the chain gives 143/9000.
+- How it relates to the goal: the winning source keeps `create(..)?;` inside the arm and gets the create-before-join block order from `if ata.data_is_empty() == false {} else {`. Joining the arm values (`else { Ok(()) }?`) gets the placement right but merges create's Err path into the shared return tail.
