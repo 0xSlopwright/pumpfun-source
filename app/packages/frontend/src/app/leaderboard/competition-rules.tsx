@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { lockBodyScroll } from "@/lib/body-scroll-lock";
 import type { CompetitionSummary } from "./types";
 import {
   competitionRules,
@@ -34,6 +35,11 @@ export function CompetitionRules({
       if (element?.open) element.close();
     };
   }, [host]);
+
+  useEffect(() => {
+    if (!open) return;
+    return lockBodyScroll();
+  }, [open]);
 
   return (
     <>
