@@ -11,10 +11,20 @@ candidate) match the original image there?
 
 This packet answers with executed chains on the original,
 control, and candidate images. The headline is a genuine
-original-vs-rebuilt divergence, not a defect claim: the
-original image gates cashback only at the route's terminal
-hop, while the rebuilt images gate cashback at every hop.
-Mayhem, by contrast, gates every hop on all three images.
+original-vs-rebuilt divergence, not a defect claim: in the
+measured routes the original image rejects a cashback flag
+only on the P3 (BASE3) hop, while the rebuilt images reject
+it on every hop. Mayhem, by contrast, is rejected on every
+hop on all three images.
+
+"Terminal hop" in this packet means the user-facing hop that
+also pays the creator fee: the P3 hop, which is the LAST hop
+of a buy (quote -> base -> BASE2 -> BASE3) but the FIRST hop
+of a sell (BASE3 -> BASE2 -> base -> quote). So a cashback
+flag on the main pool is non-terminal here even on a sell,
+where the main pool is the last hop executed. The receipts
+cannot separate "user-facing hop" from "creator-fee hop" from
+"the P3 pool", because in every 3-hop case they coincide.
 
 ## Cases
 
@@ -30,9 +40,11 @@ images), 29 parts (28 x 10 + 2).
 
 - Family A (plain anchors): 3-hop buy and sell, no flags.
 - Family B (non-terminal cashback): buy/sell with main or
-  middle pool flagged cashback. DIVERGENT.
+  middle pool flagged cashback (main is hop 1 of a buy,
+  hop 3 of a sell). DIVERGENT.
 - Family C (terminal cashback): buy/sell with tail pool
-  flagged cashback. Agreement: all fail.
+  (P3) flagged cashback (hop 3 of a buy, hop 1 of a sell).
+  Agreement: all fail.
 - Family D (mayhem every hop): buy/sell with main, middle,
   or tail pool flagged mayhem. Agreement: all fail.
 - Family E (both-flags precedence): buy/sell with main,
@@ -63,9 +75,11 @@ on the 10 cases flagged divergent in runtime/report.json.gz.
   protocol +847, middle pool byte-identical.
 - Non-terminal cashback (family B): on the ORIGINAL image,
   buy and sell through a cashback main or middle pool
-  settle byte-identically to the plain anchors (same
-  legs, same buckets, same events) -- the flag is
-  invisible. On CONTROL and CANDIDATE the same trades
+  match the plain anchors in every watched account after
+  the trade except the flagged pool's own cashback byte
+  (pool data offset 244), and their raw event bytes equal
+  the anchors' (verify.py checks this) -- the flag has no
+  observed effect. On CONTROL and CANDIDATE the same trades
   fail 6079 CashbackCoinNotSupported with full rollback
   and ghost events equal to the hops completed before
   the flagged hop (buy main 0, buy middle 1, sell main
@@ -117,17 +131,25 @@ on the 10 cases flagged divergent in runtime/report.json.gz.
   mayhem :124), while control/candidate throw them
   from multi_hop_swap.rs (cashback :500, mayhem
   :504). The site split is consistent with the gate
-  living in a different code path on the original,
-  but no source-level cause is claimed for the
-  original image, whose source at that revision is
-  not in this checkout.
+  living in a different code path on the original.
+  Not re-run here, for context only: the current
+  reconstructed source on main
+  (programs/pump-amm/src/instructions/swap/trade_v2.rs,
+  `validate_multi_hop_pool`, called per hop from
+  multi_hop_swap.rs with the hop's creator-fee gate)
+  has `require!(!charges_creator_fee ||
+  !pool.is_cashback_coin, CashbackCoinNotSupported)` at
+  line 120 and the mayhem require at line 124 -- the same
+  file and lines the original image logs. That source is
+  newer than the #424/#427 images measured here; no image
+  built from it is measured in this packet.
 - Volume account: the first successful multi-hop in
   a VM pays 1,844,400 rent + 5,000 fee and leaves a
   137-byte accumulator for the payer; later steps
   pay 5,000 only. Failed trades never init it.
-- Every failed trade rolls back fully on every image;
-  every seed sweep/collect after a failure drains
-  exactly 123,394.
+- In these 33 cases, every failed trade rolls back fully
+  on every image, and every first sweep/collect after a
+  failure drains exactly the 123,394 seed.
 
 ## Limits
 
@@ -145,14 +167,31 @@ on the 10 cases flagged divergent in runtime/report.json.gz.
   behaviour on three images, including one deliberate
   original-vs-rebuilt divergence.
 
+## Verify / provenance
+
+verify.py checks the packet from its own files plus the three
+program images retained in the repository
+(evidence/original/pump_amm/deployed.so; the #424 control and
+#427 candidate as the gzip `candidate.so.gz` artifacts under
+research/amm-multi-hop-group-slice-recovery/ and
+research/amm-transfer-fee-diagnostic-recovery/, hashed
+decompressed). Event checks compare the decoded fields listed
+in each step's expectation (plus the raw-byte anchor
+comparison above); other raw event words are not checked.
+producer.py is the script that generated the receipts; it
+depends on a private workspace layout (`~/workspace/...`) and
+is not runnable from this checkout as-is.
+
 ## Reproduction
 
+From the repository root:
+
 ```
-python3 verify.py
+python3 -I -B research/amm-multi-hop-mode-pools-chains-20261029/verify.py
 ```
 
 Expected output:
 
 ```
-PASS: 33 cases, 282 receipts, 29 parts, per-image expectations hold (signatures, deltas, events, error codes/sites, rollback); control == candidate everywhere; original diverges on 10 cases as pinned: b-buy-main-cb, b-buy-p2-cb, b-sell-main-cb, b-sell-p2-cb, e-buy-main-both, e-buy-p2-both, e-sell-main-both, e-sell-p2-both, e-buy-maincb-p3mayhem, f-buy-main-cb-loop
+PASS: 33 cases, 282 receipts, 29 parts, per-image expectations hold (signatures, deltas, events, error codes/sites, rollback, silent no-ops); original non-terminal-cashback trades equal the plain anchors except byte 244; control == candidate everywhere; original diverges on 10 cases as pinned: b-buy-main-cb, b-buy-p2-cb, b-sell-main-cb, b-sell-p2-cb, e-buy-main-both, e-buy-p2-both, e-sell-main-both, e-sell-p2-both, e-buy-maincb-p3mayhem, f-buy-main-cb-loop
 ```

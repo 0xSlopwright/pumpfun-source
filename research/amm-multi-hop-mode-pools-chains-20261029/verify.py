@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Independent re-verification for amm-multi-hop-mode-pools-chains-20261029.
 
-Checks, from the packet files alone (plus the three program images):
+Checks, from the packet files alone (plus the three program images retained in the
+repository: evidence/original/pump_amm/deployed.so and the two
+candidate.so.gz artifacts named in IMAGE_PATHS, hashed gzip-decompressed):
 - MANIFEST.json lists every packet file (except itself) with a matching sha256.
 - runtime/report.json.gz: 33 cases, 282 receipts, 29 parts
   (28x10 + 2), part sha256/byte counts match the part files.
@@ -18,9 +20,11 @@ Checks, from the packet files alone (plus the three program images):
   fee/creator/vault-ATA/dest).
 - Failure steps roll back every watched account except the fee
   payer (fee 5,000) and carry the expected error code plus the
-  recorded per-image site line in their logs. A sweep/collect
-  after a drained bucket is a silent no-op (0 events, payer
-  5,000 only). Site lines are checked per image, never compared
+  recorded per-image site line in their logs. A silent no-op
+  sweep/collect (no error, 0 events; on control/candidate, the
+  second tail sweep/collect of the loop case after the seed was
+  drained) leaves every watched account except the fee payer
+  unchanged and costs the payer 5,000. Site lines are checked per image, never compared
   across images, because original and rebuilt sources differ in
   line numbers.
 - Control and candidate observed surfaces are identical in every
@@ -29,9 +33,19 @@ Checks, from the packet files alone (plus the three program images):
   non-terminal both-flags hops, where the original passes (or
   reports mayhem) and the rebuilt images fail cashback (6079).
   The report's divergent flag must match the computed comparison.
+- On the original image, the multi-hop trade in each case with a
+  cashback flag on the main or middle pool only (b-*, and the
+  first trade of f-buy-main-cb-loop) matches the plain anchor of
+  the same direction in every watched after-snapshot except the
+  flagged pool's own cashback byte (pool data offset 244), and its
+  raw event bytes are identical to the anchor's.
 - The three program images hash to the values recorded in the report.
 
-Usage: python3 verify.py   (run from this packet directory)
+Event checks compare the decoded fields listed in each step's
+expectation; other raw event words are not checked.
+
+Usage (from the repository root):
+    python3 -I -B research/amm-multi-hop-mode-pools-chains-20261029/verify.py
 """
 import base64
 import gzip
@@ -45,12 +59,14 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
+# The three program images are retained in the repository; the two
+# rebuilt images (#424 control, #427 candidate) are stored
+# gzip-compressed and hashed decompressed.
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -90,6 +106,14 @@ TOKEN_ROLES = ["userbase", "userquote", "userlp", "vb1", "vq1", "vb2", "vq2",
                "protoata3", "creatorata3", "dest3",
                "protoata2", "creatorata2", "dest2"]
 POOL_KEYS = {"main": POOL, "pool2": POOL2, "p3": P3}
+# Original-image cases whose trade must equal the plain anchor except for
+# the flagged pool's cashback byte (pool data offset 244).
+ANCHOR_MATCH = {"b-buy-main-cb": ("a-mhbuy3-1e9", POOL),
+                "b-buy-p2-cb": ("a-mhbuy3-1e9", POOL2),
+                "b-sell-main-cb": ("a-mhsell3-1e9", POOL),
+                "b-sell-p2-cb": ("a-mhsell3-1e9", POOL2),
+                "f-buy-main-cb-loop": ("a-mhbuy3-1e9", POOL)}
+CASHBACK_OFFSET = 244
 
 
 def fail(msg):
@@ -196,7 +220,10 @@ def main():
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
     for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        if sha(data) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -252,7 +279,14 @@ def main():
                         fail(f"{tag}: pool {pool_name} {pool_state(rec['after'][str(pool_key)])} != {exp['pools'][pool_name]}")
                 if vol_state(rec["after"][str(VOLUME)]) != exp["volume"]:
                     fail(f"{tag}: volume {vol_state(rec['after'][str(VOLUME)])} != {exp['volume']}")
-                if exp.get("rollback"):
+                # A silent no-op sweep/collect (no error, 0 events) must leave
+                # every watched account except the fee payer unchanged and
+                # cost 5,000.
+                silent_noop = (rec["step"] in ("swp", "swc", "col")
+                               and exp["error"] is None and exp["events"] == 0)
+                if silent_noop and exp["dPAYER"] != -5000:
+                    fail(f"{tag}: silent no-op expected dPAYER {exp['dPAYER']}")
+                if exp.get("rollback") or silent_noop:
                     for k, b in rec["before"].items():
                         if k == str(PAYER_KEY):
                             continue
@@ -286,8 +320,29 @@ def main():
             for rec, site in zip(recs, sites):
                 if site is not None and site not in "\n".join(rec["logs"]):
                     fail(f"{label}/{image}: recorded site line not in logs: {site}")
+    for label, (anchor, flagged) in ANCHOR_MATCH.items():
+        got = by_case[label]["original"][0]
+        ref = by_case[anchor]["original"][0]
+        if got["error"] is not None or got["step"] != ref["step"]:
+            fail(f"{label}: original trade not a successful {ref['step']}")
+        if ev_list(got["logs"]) != ev_list(ref["logs"]):
+            fail(f"{label}: original trade events differ from {anchor}")
+        if set(got["after"]) != set(ref["after"]):
+            fail(f"{label}: watched account set differs from {anchor}")
+        for k, a in ref["after"].items():
+            g = got["after"][k]
+            if k == str(flagged):
+                ga, ra = bytearray.fromhex(g["data_hex"]), bytearray.fromhex(a["data_hex"])
+                if ga[CASHBACK_OFFSET] != 1 or ra[CASHBACK_OFFSET] != 0:
+                    fail(f"{label}: flagged pool cashback byte not 1 vs anchor 0")
+                ga[CASHBACK_OFFSET] = ra[CASHBACK_OFFSET]
+                if bytes(ga) != bytes(ra) or {**g, "data_hex": None} != {**a, "data_hex": None}:
+                    fail(f"{label}: flagged pool differs from {anchor} beyond the cashback byte")
+            elif g != a:
+                fail(f"{label}: account {k} differs from {anchor}")
     print(f"PASS: 33 cases, 282 receipts, 29 parts, per-image expectations hold "
-          f"(signatures, deltas, events, error codes/sites, rollback); "
+          f"(signatures, deltas, events, error codes/sites, rollback, silent no-ops); "
+          f"original non-terminal-cashback trades equal the plain anchors except byte 244; "
           f"control == candidate everywhere; original diverges on "
           f"{len(divergent_labels)} cases as pinned: {', '.join(divergent_labels)}")
 
