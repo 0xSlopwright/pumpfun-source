@@ -309,7 +309,7 @@ export class UserTradesStore {
       (options.types !== undefined &&
         (!Array.isArray(options.types) ||
           options.types.length > 2 ||
-          !options.types.every(
+          ![...options.types].every(
             (type) => type === "trades" || type === "transfers",
           )))
     )
