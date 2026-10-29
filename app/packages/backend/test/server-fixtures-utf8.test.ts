@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +18,7 @@ function setup(t: { after: (fn: () => void) => void }) {
   const spawn = (fixturesFile: string) =>
     execFileSync(
       process.execPath,
-      ["--import", "tsx", "--import", preload, "src/server.ts"],
+      ["--import", "tsx", "--import", pathToFileURL(preload).href, "src/server.ts"],
       {
         cwd: fileURLToPath(new URL("../", import.meta.url)),
         env: {
