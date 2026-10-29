@@ -8,6 +8,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   LeaderboardStore,
+  UnavailableLeaderProfilesError,
   defaultLeaderboardStore,
   isPeriod,
   isSort,
@@ -40,6 +41,22 @@ export function registerLeaderboardRoutes(
   app: FastifyInstance,
   store: LeaderboardStore = defaultLeaderboardStore,
 ): void {
+  // Despite its name, this GET returns daily leaders, not a verified-badge filter.
+  // It shares the existing developer API-key gate and synthetic-data attribution.
+  app.get('/v1/profiles/verified', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
+    try {
+      return sendSynthetic(reply, 200, store.getDailyLeaderProfiles());
+    } catch (error) {
+      if (error instanceof UnavailableLeaderProfilesError) {
+        return reply.code(501).send(errorBody(501, 'COMPATIBILITY_NOT_IMPLEMENTED', {
+          reason: 'DAILY_LEADER_PROFILES_UNAVAILABLE',
+        }));
+      }
+      throw error;
+    }
+  });
+
   /**
    * GET /v1/pnl-leaderboard
    * The PnL board for a required period window, ranked by the chosen measure

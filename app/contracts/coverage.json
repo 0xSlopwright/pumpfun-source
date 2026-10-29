@@ -133,6 +133,19 @@
         "packages/backend/test/portfolio-balances-evidence.test.ts"
       ],
       "limits": "Supplied aggregate facts only; no valuation, canonical EVM-link discovery, live RPC/provider, owner holdings/perp cash, API key verification or full operation compatibility claim."
+    },
+    "dailyLeaderProfiles": {
+      "operations": [
+        "GET /profiles/verified"
+      ],
+      "status": "local-daily-board-profile-projection",
+      "defaultEnabled": true,
+      "qualified": false,
+      "evidence": [
+        "packages/backend/DAILY-LEADER-PROFILES.md",
+        "packages/backend/test/profile-leaders.test.ts"
+      ],
+      "limits": "Existing local daily combined board and UserStore projection only; unresolved or duplicate selected profiles remain 501. No production PnL, ranking/deduplication/backfill policy, key/scope authorization or full operation compatibility claim."
     }
   },
   "frontendReadClients": {

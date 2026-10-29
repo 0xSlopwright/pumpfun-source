@@ -933,7 +933,11 @@
         },
         "logic": {
           "status": "pending",
-          "evidence": []
+          "evidence": [
+            "packages/backend/DAILY-LEADER-PROFILES.md",
+            "packages/backend/src/leaderboard-store.ts",
+            "packages/backend/src/leaderboard-routes.ts"
+          ]
         },
         "adapters": {
           "status": "pending",
@@ -958,7 +962,7 @@
           "evidence": []
         }
       },
-      "note": "No native profile or graph handlers."
+      "note": "Local GET /profiles/verified projects daily leaders to full profiles; production PnL, identity policy and authorization remain unqualified. Family milestones remain pending."
     },
     {
       "id": "content",
