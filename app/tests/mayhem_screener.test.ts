@@ -113,3 +113,9 @@ test("implements all captured client sorting modes with stable missing-value tie
     ["mint-b", "mint-c", "mint-a"],
   );
 });
+
+test('one Mayhem response cannot exceed the declared page limit',()=>{
+  const coins=Array.from({length:61},(_,index)=>({mint:`synthetic-${index}`,name:'Synthetic',symbol:'SYN'}));
+  assert.throws(()=>parseMayhemResponse({source:'synthetic-test',coins}),/limit|bounded|60/);
+  assert.doesNotThrow(()=>parseMayhemResponse({source:'synthetic-test',coins:coins.slice(0,60)}));
+});
