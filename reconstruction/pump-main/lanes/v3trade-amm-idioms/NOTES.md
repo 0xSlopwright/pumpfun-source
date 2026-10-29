@@ -57,3 +57,30 @@ but the helper-like frame layout; reconciling the two is the open sell problem.
 
 Frame is 0x18 deeper in the original (0x388 vs 0x370) and most offsets shift by 0x30; partial_fill
 lives on the stack in the original (in r8 in ours). Not attacked further in this lane.
+
+## Round 2: `exempt` local + `(amount,excess)` tuple order (buy_v3 0.8764 -> 0.8774, 3680 B)
+
+The t21 spelling (`let exempt=v3_fee_exempt(..);` then `if amount>real && !exempt`) already had the
+original test order (memcmp, then `amount<=real`, then the memcmp result) but swapped the
+partial_fill/real registers (r6/r7). Declaring the tuple as `(amount,excess)` instead of
+`(excess,amount)` (or, equivalently, `let mut excess=0;` before `let mut amount=amount;` in the
+mutable form, which is byte-identical) fixes the register assignment: the prologue, clip and
+crossing blocks now match the original instruction for instruction (`mov r1,r8; sub r1,r7` in
+the crossing arm). MIR local order decides the vreg order and hence r6/r7.
+
+| window | main (t14) | r2-u2 |
+|---|---|---|
+| 0x147ba0 buy | 3688 B, 0.8764 | 3680 B, 0.8774 |
+
+Official: normalized 1020, raw 188 (vs d2cb88d baseline: gains [0x14f4e0] from main, losses []).
+Ledger key `0x147ba0-main-d2cb88d-swapped-tuple-amount-excess-exempt-local-v1`
+(attempt 839b545b).
+
+Remaining buy residual: block placement only. The original lays out [clip][amount=real][join]
+contiguously and puts the memcmp+crossing chain after the BuyZeroAmount error block (crossing
+jumps back to `amount=real`); ours places memcmp+crossing+amount=real before the join. Also the
+shared `Ok` exit tail placement. The `partial_fill && amount>=real` clip (t25/u4/w5/x3) moves the
+memcmp chain out of line but select-lowers the clip (3672 B, r0.752).
+
+Round-2 rejected (ledger): (amount,excess) with the temp guard (= t14), `!exempt && amount>real`
+(= t14), real<amount clips, else-if `amount>real` clips, `real.min(amount)`.
