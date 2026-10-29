@@ -182,3 +182,15 @@ fn the outlined unit (Source sites stay in the handler files, closures stay at t
 Official 1020/276 unchanged, no losses (unstripped 6048baa7...). Doing the same for the v3 trio
 (trade::buy/buy_exact_quote/sell) is worse (buy 0.876 -> 0.778) and loses 0x859b0 `v3_emit_buy`, so
 the v3 handlers stay as they are (`tools/handlers_as_program_fns_all6.py` reproduces the rejected one).
+
+### Data layout: MAYHEM_ID as a static (`rodata-main-ef8e276-mayhem-id-static-v1`, kept)
+`tools/dwe.py` counts matched windows whose data lddw already point at the original's in-section
+offsets (they turn raw once .text size and section bases match). The first `.rodata` difference was
+MAYHEM_ID: ours sat in the merged 32-byte constant pool at 0x2b8, while the original has it in the
+align-1 stream right after "Global", next to the `declare_id!`/`declare_program!` ID statics. Making it
+`pub static` moves it there: equal-offset data windows 105 -> 156 of 593, mismatched .rodata operands
+3113 -> 2053, official 1020/276 unchanged (unstripped 3e02f014...). The pool region (< 0xd80) now
+differs only by five swapped 4-byte constants (lld shard order follows first use). No other pubkey sits
+in the wrong region. The string stream after 0xd80 follows first-use order; in the original it starts
+with `admin_set_idl_authority.rs`, `buy.rs`, `buy_v2.rs`, `create_v2.rs`, `creator/admin_cto.rs` (file
+order), which our module order does not reproduce yet.
