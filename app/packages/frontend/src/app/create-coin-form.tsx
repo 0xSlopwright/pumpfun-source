@@ -16,6 +16,7 @@ import {
   validateDraftField,
   validateImage,
 } from "./create-coin-validation";
+import { CreateDraftLinks } from "./create-draft-links";
 import CreateVideoInput, { type VideoInputControl } from "./create-video-input";
 import {
   discardVideoCover,
@@ -444,15 +445,7 @@ export default function CreateCoinForm() {
             "Your optional coin description will appear here."}
         </p>
         {previewLinks.length ? (
-          <ul className="preview-links" aria-label="Draft social links">
-            {previewLinks.map((link) => (
-              <li key={link.label}>
-                <a href={link.href} target="_blank" rel="noreferrer">
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <CreateDraftLinks links={previewLinks} />
         ) : (
           <p className="preview-empty-links">
             No valid social links in this draft.

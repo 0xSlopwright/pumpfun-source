@@ -55,7 +55,7 @@ Open Settings → Privacy, or `/?settings=privacy&setting=privacy.confirmExterna
 
 The UI checks storage after a write before reporting “Saved in this browser.” A failed or unconfirmed write retains the original page-lifetime fallback and displays a warning; reload can restore the persisted choice. No server or browser-permission request is involved. The renderer and persistence feedback are authored integration, not a recovered pixel layout.
 
-**App-wide outbound links are not connected to this choice yet.** The row and Settings notice say so. The separately qualified confirmation controller still requires an explicitly supplied consumer/open port; storing false does not claim to bypass or enable a product-wide policy. Existing modal Escape/history/focus behavior is unchanged.
+Create draft preview links now reuse this controller and the same device preference instance. The local shell supplies `settingsHubEnabled: true` because its Settings switch is available; no upstream flag rollout is inferred. Other app links remain unconnected. See [`CREATE-EXTERNAL-LINKS.md`](../../packages/frontend/CREATE-EXTERNAL-LINKS.md) for scope and browser controls. The Settings receipt covers the switch only (`outboundConsumersExercised: false`); its renderer, script and screenshots were requalified after the shared getter and notice changed.
 
 ## Verify
 

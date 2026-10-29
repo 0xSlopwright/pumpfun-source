@@ -487,7 +487,7 @@ test("browser receipt binds actual executed client/test/contract bytes and canno
 });
 test("actual Settings receipt binds renderer/screenshots and rejects edits or global-policy claims", async () => {
   const receipt = await verifyAppBrowserReceipt(root);
-  assert.equal(receipt.outboundConsumersConnected, false);
+  assert.equal(receipt.outboundConsumersExercised, false);
   for (const mutation of ["renderer", "screenshot", "claim", "unmounted"]) {
     const dir = await fs.mkdtemp(
       path.join(os.tmpdir(), "pump-privacy-app-receipt-"),
@@ -531,7 +531,7 @@ test("actual Settings receipt binds renderer/screenshots and rejects edits or gl
       } else {
         const file = path.join(dir, `${folder}/verification.json`);
         const value = JSON.parse(await fs.readFile(file));
-        value.outboundConsumersConnected = true;
+        value.outboundConsumersExercised = true;
         await fs.writeFile(file, JSON.stringify(value));
       }
       await assert.rejects(
