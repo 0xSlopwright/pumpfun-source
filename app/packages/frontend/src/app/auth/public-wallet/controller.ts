@@ -282,6 +282,7 @@ export class PublicWalletController {
     });
   };
   disconnect = async () => {
+    if (this.state.status === "disconnecting") return;
     const wallet =
       this.state.selected === null
         ? null

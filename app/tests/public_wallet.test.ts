@@ -320,3 +320,17 @@ test('selects a Solana account after another chain account and tracks changes', 
     assert.equal(f.controller.getSnapshot().address, null);
   } finally { f.controller.dispose(); }
 });
+
+test('concurrent disconnect requests call the provider once', async () => {
+  const f=fixture();const releases:Array<()=>void>=[];let pending:Promise<void>[]=[];
+  f.disconnect(()=>new Promise<void>(resolve=>releases.push(resolve)));
+  f.controller.discover();await f.controller.connect(0);
+  try {
+    pending=[f.controller.disconnect(),f.controller.disconnect()];
+    assert.equal(f.counts.disconnects,1);
+    assert.equal(f.controller.getSnapshot().status,"disconnecting");
+    await f.controller.connect(0);
+    assert.equal(f.counts.connects,1);
+    assert.equal(f.controller.getSnapshot().address,null);
+  } finally {releases.forEach(resolve=>resolve());await Promise.all(pending);f.controller.dispose();}
+});
