@@ -1,0 +1,76 @@
+{
+ "lane": "buyv2-hillclimb",
+ "base": "origin/main d2cb88d (+ #1171 reconstruction restore)",
+ "pr": "https://github.com/lalalune/pumpfun-source/pull/1207",
+ "targets": [
+  {
+   "window": "0x13b9b8",
+   "symbol": "buy_v2::buy_handler",
+   "original_bytes": 15480,
+   "before": {
+    "ratio": 0.66526,
+    "bytes": 15424
+   },
+   "best": {
+    "ratio": 0.9504,
+    "bytes": 15464
+   }
+  },
+  {
+   "window": "0x13f630",
+   "symbol": "buy_v2::buy_exact_quote_in_handler",
+   "original_bytes": 20184,
+   "before": {
+    "ratio": 0.69433,
+    "bytes": 20096
+   },
+   "best": {
+    "ratio": 0.97361,
+    "bytes": 20168
+   },
+   "note": "exact-quote section composed from buyv2-sibling-transplant #1218"
+  }
+ ],
+ "official": {
+  "normalized": 1019,
+  "raw": 188,
+  "gains": [],
+  "losses": []
+ },
+ "best_unstripped_sha256": "d28a478aadf5b09f6d0afc85e00c9a8e685bb4928abcb12ee375b5d01f87bcdb",
+ "variants_evaluated": 454,
+ "accepted_steps": [
+  "restore frozen-best buy_handler spelling (0.665->0.944)",
+  "frozen tail idiom on exact-quote (0.694->0.926), superseded by sibling restore 0.973",
+  "buy_handler snapshot order reserves-first (0.948)",
+  "let whitelisted=... binding before fee tuple (0.950)",
+  "sibling exact-quote TradeEvent shareholders order (0.9736)"
+ ],
+ "rejected_mechanisms": [
+  "direct-call tail (main style) instead of local pay_from_user*/move_curve_tokens wrappers (-0.25)",
+  "bound system_program vs &a.system_program (neutral)",
+  "cashback-first vs creator-first cf branch (neutral/negative)",
+  "payment amount if native{quote}else{gross} vs gross (negative)",
+  "uva binding, rebinding c, ix .into vs .to_string (neutral)",
+  "admit block one-if vs two-if, inner/outer/no scope, as_ref vs & coercion, None vs const NO_FEE, local vs a.* fee recipients (neutral or negative)",
+  "checked-add via and_then (loses closure windows 0xac2b8/0xac4c0)",
+  "quote_transfer_fee after trade_fees (loses 0x16dc0)",
+  "whitelist operand order / Ok-wrapped tuple variants (negative)",
+  "creator-vault payment: bind AccountInfo or Option args before ensure_rent_exempt (negative)",
+  "is_sol from c.quote_mint (strongly negative)",
+  "random TradeEvent/snapshot field-order moves and 2-gene interaction sweep (no improvement)",
+  "keep _size live via minimum_balance(min(_size,0)) (byte-identical: folds before DeadArgElim)"
+ ],
+ "key_insight": "The original calls buy_v2 ensure_rent_exempt(0,..) as an opaque call (r2=0 materialised and reused for a None spill). Moving that helper into the prior-swarm pump-native-payments path crate gives buy_handler 0.966/15488 and exact-quote 0.987/20200 with no losses, but needs Cargo.toml/Cargo.lock changes, which the swarm rules forbid.",
+ "unresolved_residuals": [
+  "fmt::Error / post-fee Result slot class at -0x28 vs original -0x100 (both handlers)",
+  "buy_handler checked-add: second overflow block placed late",
+  "quote_mint 32-byte copy order in the snapshot (both handlers)",
+  "creator-vault payment spill (largely explained by the crate boundary)"
+ ],
+ "next_ideas": [
+  "Coordinator decision on restoring the pump-native-payments workspace crate (largest known lever, also helps sell_v2 0.662->0.670)",
+  "Re-run this gene climber in the separate-crate configuration to find the residual idioms there",
+  "MIR/LLVM IR diff of the checked-add block order (llc block-order oracle from #1235)"
+ ]
+}
