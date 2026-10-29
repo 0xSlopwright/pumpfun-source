@@ -509,3 +509,9 @@ test('startup refuses sparse arrays instead of indexing missing aliases', () => 
   }
   assert.doesNotThrow(() => new UserTradesStore(dataset()));
 });
+
+test('trade-kind query arrays cannot contain absent elements',()=>{
+  const store=new UserTradesStore(dataset());const types=new Array(1);
+  assert.throws(()=>store.page('person-a',{types}),TradesQueryError);
+  assert.doesNotThrow(()=>store.page('person-a',{types:['trades','transfers']}));
+});
