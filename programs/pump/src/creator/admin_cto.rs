@@ -742,11 +742,11 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
 
 
- let pb=[ctx.bumps.pool_authority];let poolseeds:&[&[u8]]=&[b"pool-authority",mint.as_ref(),&pb];
+ let pb=[ctx.bumps.pool_authority];let poolseeds:&[&[u8]]=&[b"pool-authority",mint.as_ref(),&pb];let signer_seeds:&[&[&[u8]]]=&[poolseeds];
  if let Some(val)=sharing_update{
 
-  let cpi_program=a.pump_fees.to_account_info();let cpi_accounts=crate::pump_fees::cpi::accounts::AdminCtoSharingConfig{pool_authority:a.pool_authority.to_account_info(),authority:a.admin_set_creator_authority.to_account_info(),global:a.global.to_account_info(),mint:a.mint.to_account_info(),sharing_config:a.sharing_config.to_account_info(),event_authority:a.pump_fees_event_authority.to_account_info(),program:a.pump_fees.to_account_info()};
-  crate::pump_fees::cpi::admin_cto_sharing_config(CpiContext::new_with_signer(cpi_program,cpi_accounts,&[poolseeds]),val)?;
+
+  crate::pump_fees::cpi::admin_cto_sharing_config(CpiContext::new_with_signer(a.pump_fees.to_account_info(),crate::pump_fees::cpi::accounts::AdminCtoSharingConfig{pool_authority:a.pool_authority.to_account_info(),authority:a.admin_set_creator_authority.to_account_info(),global:a.global.to_account_info(),mint:a.mint.to_account_info(),sharing_config:a.sharing_config.to_account_info(),event_authority:a.pump_fees_event_authority.to_account_info(),program:a.pump_fees.to_account_info()},signer_seeds),val)?;
 
  }
  let (old_creator,old_fee)={
@@ -761,7 +761,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
  let pool_updated=a.pool.owner==&AMM && !a.pool.data_is_empty();
  if pool_updated{
 
-  let signer_seeds:&[&[&[u8]]]=&[poolseeds];
+
   crate::pump_amm::cpi::admin_cto_pool(CpiContext::new_with_signer(a.pump_amm.to_account_info(),crate::pump_amm::cpi::accounts::AdminCtoPool{payer:a.admin_set_creator_authority.to_account_info(),global_config:a.amm_global_config.to_account_info(),pool:a.pool.to_account_info(),pool_authority:a.pool_authority.to_account_info(),system_program:a.system_program.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()},signer_seeds),target,holder,fee)?;
  }else{msg!("No canonical pump pool for this mint; curve only");}
  let e=AdminCtoEvent{timestamp:Clock::get()?.unix_timestamp,authority:a.admin_set_creator_authority.key(),mint,bonding_curve:a.bonding_curve.key(),old_creator,new_creator:a.bonding_curve.creator,is_holder_reward:a.bonding_curve.is_holder_reward,is_cashback_coin:a.bonding_curve.is_cashback_coin,old_creator_fee_bps:old_fee,new_creator_fee_bps:a.bonding_curve.creator_fee_bps,sharing_config_reset:sharing_update.is_some(),swept_to_holder_vault:swept,pool_updated};emit!(e);emit_cpi!(e);Ok(())
