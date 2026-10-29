@@ -56,7 +56,19 @@ crosses sweep::execute, and it matches raw only when sweep is exactly 7824 B (ba
 change (a37 7528, h1 7864, p1 7768, and the original's own 7832) loses it until the other +8 B
 drift in that span is fixed.
 
-## Residuals (p1, structural diff vs original)
+## Residuals at s6 (fullmask diff 64 lines)
+1. Admit branch polarity (3 insns): IR oracle (scripts/mv2.py, s6a) shows it is only IR block
+   order: the protocol-native clone chain must sit between the first admit's drops and the second
+   admit (as in a37, where admit2 is a MIR block created after bb27). With the LLVM-inlined
+   helper the two admits are contiguous. Oracle fix 0.8867 -> 0.8898.
+2. Rent payload slice lifetime (see s6 section): oracle e2+lifetime = 0.8808 with the exact
+   payload copy; no source spelling found that avoids MemCpyOpt's stack-move (LLVM 18.1.7 erases
+   lifetime markers of merged allocas).
+3. Join loads: original loads quote_token_program/quote_mint fields after the Option diamond
+   (+0x16d8); ours hoists them. Binding the Options/recipient in lets breaks MIR JT threading
+   (0.52-0.69).
+
+## Older residual notes (p1)
 1. Admit branch polarity: original first admit `jeq r1,2,+1; ja err`, second `jne r1,2,err`;
    p1 has them the other way round.
 2. Rent::get error: original places the `From<ProgramError>` block after the protocol-native
@@ -66,3 +78,8 @@ drift in that span is fixed.
 
 IR block-move scans (blk.py) on p1 give at most 5 fewer structural lines; the residuals are not
 block order alone.
+
+## Tools (reconstruction/pump-main/lanes/w4-sweep/scripts; lane scratch has the full set)
+bt.sh (trial + pre-inline BFI listing), par.sh (3 parallel trials), mv2.py (IR block-range move
+with value renaming for the llc oracle), fm.py (full-mask diff count), stkmap.py (orig->cand stack
+slot map), blist.py (IR block list), tgt.py (branch targets), lt_e2.py (lifetime-marker IR edit).
