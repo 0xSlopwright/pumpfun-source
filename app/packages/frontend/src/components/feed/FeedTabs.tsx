@@ -24,6 +24,8 @@ export function FeedTabs({
 }) {
   const router = useRouter();
   const pendingKeyboardFocus = useRef(false);
+  // Keys compose against the last request while the server commits the previous one.
+  const requestedTab = useRef(activeTab);
   const tabs = nativeEnabled
     ? [
         ...offlineTabs,
@@ -36,13 +38,16 @@ export function FeedTabs({
     : offlineTabs;
 
   useEffect(() => {
+    requestedTab.current = activeTab;
     if (!pendingKeyboardFocus.current) return;
     pendingKeyboardFocus.current = false;
     document.getElementById(`feed-tab-${activeTab}`)?.focus();
   }, [activeTab]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLAnchorElement>) {
-    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    const currentIndex = tabs.findIndex(
+      (tab) => tab.id === requestedTab.current,
+    );
     let nextIndex: number | undefined;
     if (event.key === "ArrowRight")
       nextIndex = (currentIndex + 1) % tabs.length;
@@ -55,6 +60,7 @@ export function FeedTabs({
 
     event.preventDefault();
     const next = tabs[nextIndex];
+    requestedTab.current = next.id;
     pendingKeyboardFocus.current = true;
     router.push(next.href);
   }
@@ -74,6 +80,11 @@ export function FeedTabs({
             data-active={selected}
             href={tab.href}
             onKeyDown={handleKeyDown}
+            onNavigate={() => {
+              // A real SPA activation wins over an earlier keyboard request.
+              requestedTab.current = tab.id;
+              pendingKeyboardFocus.current = false;
+            }}
           >
             {tab.label}
           </Link>
