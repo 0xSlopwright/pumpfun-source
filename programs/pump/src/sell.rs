@@ -30,12 +30,12 @@ fn process_cashback_inner<'info>(
 
 
 
-    require!(user_volume_accumulator.key() == expected, PumpError::InvalidCashbackAccumulator);
+    if user_volume_accumulator.key() != expected { return err!(PumpError::InvalidCashbackAccumulator); }
     if user_volume_accumulator.data_is_empty() {
         let rent = Rent::get()?;
         let space = 137;
         let lamports = rent.minimum_balance(space);
-        let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &[bump]]; let signer_seeds = &[&seeds[..]];
+        let bump_seed = [bump]; let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &bump_seed]; let signer_seeds = &[&seeds[..]];
         let required_lamports = lamports.saturating_sub(user_volume_accumulator.lamports());
         if required_lamports > 0 {
             anchor_lang::system_program::transfer(
@@ -76,16 +76,16 @@ fn process_cashback_inner<'info>(
         data[..8].copy_from_slice(crate::UserVolumeAccumulator::DISCRIMINATOR);
         data[8..40].copy_from_slice(user_key.as_ref());
 
-    } else { check_existing(user_volume_accumulator)?; }
-    fn check_existing(user_volume_accumulator: &AccountInfo) -> Result<()> {
+    } else {
+        // An existing accumulator must already be owned by this program and carry its discriminator.
         require!(user_volume_accumulator.owner == &crate::ID, PumpError::InvalidCashbackAccumulator);
         let data = user_volume_accumulator.try_borrow_data()?;
 // layout-pad(2): aligns the next Source site with the original line
 
-        require!(data.len() >= 8 && &data[..8] == crate::UserVolumeAccumulator::DISCRIMINATOR, PumpError::InvalidCashbackAccumulator);
-        Ok(()) }
+        if data.len() < 8 || &data[..8] != crate::UserVolumeAccumulator::DISCRIMINATOR { return err!(PumpError::InvalidCashbackAccumulator); }
+    }
     crate::trade::quote_payments::transfer_native(bonding_curve, user_volume_accumulator, amount)?;
-    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from(user_volume_accumulator)?;
+    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from_unchecked(user_volume_accumulator)?;
     if user_volume_accumulator.user == Pubkey::default() {
         user_volume_accumulator.user = user_key;
     }
