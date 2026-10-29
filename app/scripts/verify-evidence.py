@@ -11,7 +11,13 @@ if actual_objects!=referenced_objects:
  raise ValueError(f"Captured object inventory differs from records: unreferenced={sorted(actual_objects-referenced_objects)}, missing={sorted(referenced_objects-actual_objects)}")
 for r in records:
  if 'path' not in r: continue
- body=(root/r['path']).read_bytes()
+ relative=r['path']
+ if not isinstance(relative,str) or not relative or '\\' in relative or pathlib.PurePosixPath(relative).is_absolute() or ':' in relative or any(part in {'', '.', '..'} for part in relative.split('/')):
+  raise ValueError('Unsafe capture path')
+ target=root/relative
+ if not target.resolve().is_relative_to(root.resolve()):
+  raise ValueError('Escaping capture path')
+ body=target.read_bytes()
  if hashlib.sha256(body).hexdigest()!=r['sha256']:
   raise ValueError(f"Captured object SHA-256 mismatch: {r['path']}")
  # Older probe records may omit byte counts; validate every count that is present.
