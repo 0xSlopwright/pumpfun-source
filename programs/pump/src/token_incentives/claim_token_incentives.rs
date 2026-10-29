@@ -345,6 +345,6 @@ pub mod cashback {
 
    amount}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());let amount=a.user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;amount};
   crate::token_incentives::volume_accumulator::record_cashback_claim(&mut a.user_volume_accumulator,amount,native)?;
-  let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event.clone());emit_cpi!(event);Ok(())
+  let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event);emit_cpi!(event);Ok(())
  }
 }
