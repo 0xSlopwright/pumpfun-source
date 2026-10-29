@@ -137,8 +137,8 @@ original-vs-rebuilt divergence in this packet):
   not 6013. The v2 exact precedence matches v2 buy/sell and
   contradicts the legacy exact precedence. A reimplementation
   that gates v2 exact by the legacy rule (mayhem first) would
-  accept a both-flags exact that the original rejects, and vice
-  versa.
+  report 6013 on this both-flags fixture instead of the observed
+  6079.
 - A deposit moves the v2 exact out by exactly +1,015, the same
   as legacy exact: any model that treats proportional liquidity
   as invisible to exact-out pricing is wrong for both exact
@@ -175,4 +175,23 @@ original-vs-rebuilt divergence in this packet):
   fields, error codes and per-image sites, rollback, and
   three-image surface agreement.
 
-Run: `python3 verify.py` from this directory.
+## Saved-receipt verification
+
+From the repository root:
+
+```sh
+python3 -B research/amm-v2exact-mode-pools-tf-chains-20261029/verify.py
+```
+
+The defaults use the retained original image and the compressed candidate images
+from `amm-multi-hop-group-slice-recovery` (#424 control) and
+`amm-transfer-fee-diagnostic-recovery` (#427 candidate). To use images elsewhere,
+pass `--original /path/to/original.so --control /path/to/control.so --candidate
+/path/to/candidate.so`; each option accepts raw or gzip-compressed bytes. All
+three image hashes must still match the report.
+
+This command checks stored receipts, signatures and snapshots; it does not execute
+the transactions again. `producer.py` is the retained historical producer and
+keeps its original workspace paths and harness imports. These are observations
+from fixed synthetic fixtures, with no source change, rebuild or whole-program
+equivalence claim.

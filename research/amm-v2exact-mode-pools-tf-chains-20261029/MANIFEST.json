@@ -2,8 +2,8 @@
   "files": [
     {
       "path": "README.md",
-      "sha256": "57851c3e1a8e1eb92f5a85352a4acff32921afe6fe9bd710d9468f4c83887686",
-      "bytes": 8764
+      "sha256": "febce244069775fb3ff361aaffb3e1c1ef2b6d6aff0c36bf0f989a5a356aaf78",
+      "bytes": 9628
     },
     {
       "path": "producer.py",
@@ -97,8 +97,8 @@
     },
     {
       "path": "verify.py",
-      "sha256": "eeacb336dfdddff4a274ded1b92c5d628c7124b78614ff64b23241f7d236e62f",
-      "bytes": 14931
+      "sha256": "3799cf153efac28ab35a98eb01439c1fa58e922187823a589e4c49494c8f36e9",
+      "bytes": 15561
     }
   ]
 }
