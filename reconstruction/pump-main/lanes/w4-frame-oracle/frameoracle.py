@@ -457,7 +457,10 @@ def main():
     sim = layout(final)
     bad = [fi for fi, T in sim.items() if -final[fi]['loc'] != T]
     P = print if not a.quiet else (lambda *x, **k: None)
-    P(f'# {sym}  window {a.win}')
+    def mtok(raw):
+        return [norm_calls(raw[x['i']:x['i'] + x['k']]) for x in decode(raw)]
+    exact = difflib.SequenceMatcher(None, mtok(orig), mtok(cand), autojunk=False).ratio()
+    P(f'# {sym}  window {a.win}  masked-exact-ratio {exact:.5f} (calls/lddw imm masked; ~target_metric ratio)')
     P(f'cand bytes {len(cand)} orig {len(orig)}  abstracted-ratio {rep["ratio"]:.4f}  '
       f'r10 pairs {rep["pairs"]} equal {rep["offeq"]}  max-off cand {rep["frame_cand"]:#x} orig {rep["frame_orig"]:#x}')
     P(f'objects: allocas {sum(1 for f in pre if f >= 0)}  surviving {len(rep["rows"])}  '

@@ -61,7 +61,13 @@ frame without llc.
    largest, lowest-index member. An alloca with no LIFETIME_START is never merged (the `*`
    marker). An alloca whose live range overlaps every larger slot stays a separate slot at
    its own index.
-4. **A delta break of +N between slots A and B** means the original has N more bytes at
+4. **The unnamed 16-byte objects are call-return slots.** After the allocas come
+   SelectionDAG's hidden return slots, one per call site that returns a 16-byte value
+   (`{i64, ptr}`: `Result<()>`, `Result<u64>`, ...). ISel creates them while visiting IR
+   blocks in reverse postorder, and they are never merged. So their order is the RPO of
+   those calls, and it depends on branch successor order. The tool labels them
+   `ret:<callee>`. The 8-byte objects after them are register-allocator spills.
+5. **A delta break of +N between slots A and B** means the original has N more bytes at
    frame indices between A and B. That is either an alloca we merged away, one we lack, or
    one the original has at that index instead of ours.
 
@@ -111,6 +117,34 @@ makes the whole frame from T=0 to val6 (0x651) equal to the original's. Equal r1
 offsets go from 528 to 641 of 877. The original then has one more 24 B slot between val6
 and a 16 B slot at T=0x680 (the slot that holds `_109.i`), and holder_key and mint follow at
 +0. The votes for `_109.i` are 3/5, so treat its exact identity as tentative.
+
+### admin_cto: what the original has between val6 and holder_key (read from the original code)
+- 7 B slot at T 0x658, align 1: bytes [1,8) of the `new: Option<Pubkey>` argument, copied at
+  entry by two overlapping `ldxw` (0x22f00/0x22f10).
+- 9 B slot at T 0x668, align 8: bytes [0x18,0x21) of `new` (u64 + u8).
+- 24 B slot at T 0x680: a copy of the 24 B `val.sroa.6.i` piece (the collect closure's
+  quote_mint tail, 0x243b8-0x243d8, copied again to 0x578). This is the slot that the
+  wallet signer array `_109.i` merges into. A 24 B slot sorts before a 16 B one, so the
+  merge happens by itself once this slot exists.
+
+Ours has two 32 B allocas with no lifetime markers there instead (`sharing_update2.sroa.3`,
+and `target1`, which is the block-internal mutable `target`, MIR _53). It also has
+`target.sroa.8` promoted and no 24 B slot. Dropping `let mut target=target;` (a1) is
+byte-identical.
+
+### buy_handler (0x13b9b8): the frame is exact except two swapped call-return slots
+The two slots belong to the `ok_or_else(||error!(Overflow))` closure calls at
+buy_v2.rs:498 and :500 inside `require_gte!`. Ours visits the error successor of each
+`uadd.with.overflow` branch first, so in RPO the 500 slot comes before the 498 slot. The
+original's order is consistent with success-first. Inverting the IR branches with `xor`
+makes things worse (0.977 -> 0.93), so the fix has to come from rustc's successor order
+in source.
+
+### Frame census, all 12 unmatched windows on 630a074 (aligned r10 pairs equal)
+0x147ba0 226/226, 0x14a8a8 333/333, 0x80df8 108/108, 0x83c00 181/181, 0x13f630 1060/1062,
+0x13b9b8 797/806, 0x144508 730/737, 0x1e7c0 742/908, 0x1489f8 287/377, 0x22a10 528/877,
+0x5b3b0 142/723, 0x72810 17/352 (the w4-sweep head is at 340/354). Frames are already exact
+for the near-matches, so their residuals are code order, not frame slots.
 
 ### Other lanes' heads (analysis only)
 - w4-swaphop aa9acd6 (ratio 0.5698), reports/fo-x-swaphop.txt: the frame from the top
