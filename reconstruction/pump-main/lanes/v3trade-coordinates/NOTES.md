@@ -124,3 +124,14 @@ and the event-CPI tail still has the helper's `tag==2` re-check.
   `available.saturating_sub(first)` and a bitwise `can_cross & (available>first)`. Writing exactly
   that reproduces the local block, but the register-allocation cascade raises the masked diff from
   487 to 655 (x02 with `&&` 492, frame 0x378; original frame 0x388).
+
+### Sell tail, round 2 (all on top of r05)
+BPF cannot reverse branch conditions, so `jeq Ok,+1; ja Err` vs `jne Err` records the IR block
+order at ISel. In the original, the error (From) block came right after the invoke_signed test.
+- h1/h2: the emit_cpi! expansion written out in the helper (map_err? / match Err-first): byte-identical to r05.
+- h3: `if let Err(e)=invoke_signed(..){return Err(Error::from(e));}` in the helper: 6032 B and the
+  original `jeq` polarity, but the caller's `?` still re-checks tag==2 (diff 42).
+- h4 (h3 + tail call), h5 (match tail), h6/h7 (caller `if let Err(e)=..{return Err(e)}`), r08 (inline
+  emit_cpi!), r09 (helper tail): all worse (r8/r9 swap or an extra drop_in_place call).
+- Prologue lea (-0x358 sret placed after the arg GEPs): p1 (ctx.accounts.* args before `let a`) and p3
+  (`let user=&a.user`) are byte-identical to r05. The original buy has the late lea too; sell and exact have it early.

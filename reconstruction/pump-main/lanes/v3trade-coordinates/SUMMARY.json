@@ -1,32 +1,58 @@
 {
   "lane": "v3trade-coordinates",
   "targets": {
-    "0x147ba0 trade::buy": {"original_bytes": 3672, "start": "3800 B ratio 0.544 (d2cb88d)", "best": "3728 B ratio 0.874 (b23)"},
-    "0x14a8a8 trade::sell": {"original_bytes": 6032, "start": "6056 B ratio 0.443", "best": "6040 B ratio 0.950 (t01, merged in #1210)"},
-    "0x1489f8 trade::buy_exact_quote": {"original_bytes": 7856, "start": "7800 B ratio 0.303", "best": "7656 B ratio 0.313 (t01)"}
+    "0x147ba0 trade::buy": {
+      "original_bytes": 3672,
+      "start": "3800 B ratio 0.544 (d2cb88d)",
+      "best": "3688 B ratio 0.876 on main (b23 merged #1227, then amm-idioms #1232)"
+    },
+    "0x14a8a8 trade::sell": {
+      "original_bytes": 6032,
+      "start": "6056 B ratio 0.443",
+      "best": "6040 B ratio 0.987, rename-aware diff 10 (r05 payout wrappers, PR #1283)"
+    },
+    "0x1489f8 trade::buy_exact_quote": {
+      "original_bytes": 7856,
+      "start": "7800 B ratio 0.303",
+      "best": "7656 B ratio 0.313 (t01)"
+    }
   },
-  "official": {"normalized": 1020, "raw": 188, "gains_vs_main": [], "losses": []},
-  "prs": ["https://github.com/lalalune/pumpfun-source/pull/1210 (merged)", "https://github.com/lalalune/pumpfun-source/pull/1227"],
-  "attempts": "about 75 builds, all recorded in the shared ledger under lane v3trade-coordinates",
+  "official": {
+    "normalized": 1020,
+    "raw": 188,
+    "gains_vs_main": [],
+    "losses": []
+  },
+  "prs": [
+    "https://github.com/lalalune/pumpfun-source/pull/1210 (merged)",
+    "https://github.com/lalalune/pumpfun-source/pull/1227 (merged)",
+    "https://github.com/lalalune/pumpfun-source/pull/1283 (round 2)"
+  ],
+  "attempts": "about 75 builds in round 1 and 25 in round 2, all recorded in the shared ledger under lane v3trade-coordinates",
   "key_findings": [
     "All Source line sites in the three windows already sit on their original lines; the residual is code shape.",
     "buy_v3: the user key must be a short-lived temporary (scoped block) and the whitelist reference must be taken before the key copy.",
     "sell_v3: the event-CPI tail has a three-way conflict between frame order, branch direction and the error-tag re-check.",
-    "buy_exact_quote: same call multiset as the original; the differences are block order, the can_cross phi and the stack frame."
+    "buy_exact_quote: same call multiset as the original; the differences are block order, the can_cross phi and the stack frame.",
+    "sell_v3 (round 2): the mint derefs (base_mint info, quote_mint decimals/info) are evaluated after the quote Option selects in the original; #[inline(always)] pay_user/pay_owned wrappers taking &InterfaceAccount<Mint> reproduce it (diff 47->10).",
+    "BPF codegen cannot reverse branch conditions, so a jeq+ja pair vs a single jne records which successor came next in IR order at ISel. In sell's tail the original had the From/error block first. `if let Err(e)=invoke_signed(..){return Err(e.into())}` in the helper reproduces that (h3, 6032 B), but the caller's `?` re-check remains.",
+    "buy_exact_quote: original 0x149dc0 shows an unconditional saturating_sub and a bitwise can_cross & (available>first); writing that matches the local block but cascades through register allocation (masked diff 487->655)."
   ],
   "rejected_mechanisms": [
     "buy: single if/else-if chains, mutable assignment chains, precomputed whitelisted bool, excess-first then threaded clip, clip spellings, v3_fee_exempt helper, post-block locals",
     "sell: emit_cpi tail as expression, by-value helper, closure, inline hint, Clock map_err, quote Option locals",
-    "exact: hoisted user_key locals, can_cross spellings"
+    "exact: hoisted user_key locals, can_cross spellings",
+    "sell r2: raw ProgramResult helper with map_err in caller (r01), emit! inside helper (r02), wrappers + inline emit_cpi!/tail helper (r08/r09), helper tail/match variants (h4/h5), caller if-let (h6/h7), prologue ctx.accounts/user-ref spellings (p1/p3)",
+    "exact r2: bitwise guard and precomputed saturating rest (x01-x03)"
   ],
   "unresolved_residuals": [
-    "buy: placement of the non-mayhem whitelist block and the shared ? return block",
-    "sell: prologue sret scheduling, quote-mint decimals/AccountInfo load placement around the payout Option select, event-CPI tail",
-    "exact: block order and stack frame"
+    "buy: block placement (lane v3trade-amm-idioms is actively on it)",
+    "sell: -0x358 sret lea scheduled 3 slots late in the prologue (also in exact; buy matches); caller `?` tag==2 re-check of the inlined emit helper",
+    "exact: block order, tail duplication of return blocks, regalloc and frame 0x388 vs 0x370"
   ],
   "next_ideas": [
-    "sell: get the emit_cpi! code LLVM-inlined from a helper while the handler still returns the From result directly, e.g. a helper that returns the raw invoke_signed result, with the map_err(Error::from)? in the handler.",
-    "exact: rebuild the wl/non-wl join as one tuple-producing match whose result feeds a single tokens>real test, and keep can_cross as a value that is materialized before the require!.",
-    "exact: find the extra 0x18 frame bytes; the original frame is 0x388 vs ours 0x370."
+    "sell: combine h3 (err-first helper, correct jeq polarity and size) with a form that hands the helper's Err directly to the return place without a switch, keeping r8=accounts/r9=tag.",
+    "sell/exact: investigate why the prepare_bonding_curve sret lea is early in sell/exact but late in buy (in both the original and ours); compare IR of the entry block with capture_ir.py.",
+    "exact: apply the x01 bitwise guard together with other structural fixes (error block placement for line 891, return-block duplication), since it is locally correct but globally worse alone."
   ]
 }
