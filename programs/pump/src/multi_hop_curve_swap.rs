@@ -260,7 +260,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
     }
 
     require_keys_eq!(current_mint, a.destination.mint, PumpError::MultiHopDiscontinuousPath);
-    Ok(CurveRunResult { amount_out: amount, buyback_fee: total_buyback }) }
+    Ok(CurveRunResult { amount_out: amount, buyback_fee: total_buyback }) } macro_rules! route_event { ($a:expr, $event:expr, $bump:expr) => {{ let a = $a; let event = $event; anchor_lang::solana_program::log::sol_log_data(&[&anchor_lang::Event::data(event)]); let authority_info = a.event_authority.to_account_info(); let authority_bump = $bump; let disc = anchor_lang::event::EVENT_IX_TAG_LE; let inner_data = anchor_lang::Event::data(event); let ix_data: Vec<u8> = disc.into_iter().map(|b| *b).chain(inner_data.into_iter()).collect(); let ix = Instruction::new_with_bytes(crate::ID, &ix_data, vec![AccountMeta::new_readonly(*authority_info.key, true)]); invoke_signed(&ix, &[authority_info], &[&[b"__event_authority", &[authority_bump]]]).map_err(anchor_lang::error::Error::from)?; }}; }
 #[inline(never)] fn swap_hop<'info>(a: &MultiHopCurve<'info>, event_bump: u8, h: &mut CurveHop<'info>, curve_bump: u8, current_mint: &Pubkey, amount: u64, previous: Option<&PreviousHop<'info>>, last: bool, flag: u8) -> Result<HopOutput<'info>> {
 // layout-pad(219): aligns the next Source site with the original line
         prepare_curve(a,h)?;
@@ -571,7 +571,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
         let buy_transfer_fee = amount.checked_sub(trade_amount).ok_or_else(|| error!(PumpError::Overflow))?;
 
 
-        let mut post_fill = None;
+        let post_fill;
         let (fees,base_amount,quote_amount,output,adapter_difference) = if buy {
             let selected = crate::legacy_sell::fee_math::get_fees(&a.global,c,&a.fee_config,fee_config_len,cap,trade_amount)?;
             let p_rate = if flag & 1 != 0 { selected.protocol_fee_bps } else { 0 };
@@ -601,8 +601,8 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
                     &h.associated_base_bonding_curve,flag,p_rate,c_rate,trade_amount)? {
                     post_fill=Some(post);
                     (c.real_token_reserves,quote,fees.protocol_fee,fees.creator_fee,post.base_out)
-                }else{(c.real_token_reserves,q,pf,cf,0)}
-            }else{(base,q,pf,cf,0)};
+                }else{post_fill=None;(c.real_token_reserves,q,pf,cf,0)}
+            }else{post_fill=None;(base,q,pf,cf,0)};
 
 
 
@@ -693,7 +693,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
             transfer_input(a,previous,&base_token_program,&h.associated_base_bonding_curve.to_account_info(),h.base_mint.decimals,AsRef::<AccountInfo>::as_ref(&*h.base_mint),amount)?;
             h.bonding_curve.apply_sell(amount,gross_sell)?;
             if last && !native && net != 0 { transfer_quote_out(&quote_token_program,&h.associated_quote_bonding_curve,&a.destination,&h.bonding_curve,h.quote_mint.decimals,AsRef::<AccountInfo>::as_ref(&*h.quote_mint),net,&[seeds])?; }
-            (crate::trade::TradeFees{protocol_fee:pf,creator_fee:cf,protocol_fee_bps:p_rate,creator_fee_bps:c_rate},amount,gross_sell,output,sell_transfer_fee)
+            post_fill=None; (crate::trade::TradeFees{protocol_fee:pf,creator_fee:cf,protocol_fee_bps:p_rate,creator_fee_bps:c_rate},amount,gross_sell,output,sell_transfer_fee)
         };
 
 
@@ -779,11 +779,11 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
 
 
 
-        route_event(a,&event,event_bump)?;
+        route_event!(a,&event,event_bump);
         if h.bonding_curve.real_token_reserves==0 { h.bonding_curve.complete=true;
             let completion=crate::trade_types::CompleteEvent { user:a.user.key(),mint:*mint_key,
                 bonding_curve:h.bonding_curve.key(),timestamp,quote_mint:h.bonding_curve.quote_mint };
-            route_event(a,&completion,event_bump)?;
+            route_event!(a,&completion,event_bump);
 
         if let Some(post)=post_fill.as_ref() {
             let post_event=crate::trade::post_complete_buy_event(post,a.user.key(),*mint_key,
@@ -792,7 +792,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
 
 
 
-            route_event(a,&post_event,event_bump)?;
+            route_event!(a,&post_event,event_bump);
         } } Ok(HopOutput { mint: if buy { h.base_mint.key() } else { h.quote_mint.key() }, amount: output, buyback_fee: received_buyback, vault: if buy { h.associated_base_bonding_curve.to_account_info() } else { h.associated_quote_bonding_curve.to_account_info() } }) }
 
 
@@ -906,18 +906,18 @@ pub fn native_buyback<'info>(a: &MultiHopCurve<'info>, event_bump: u8, curve: &A
 
 
 
-#[inline(always)] fn route_event<E: anchor_lang::Event>(a: &MultiHopCurve, event: &E, event_bump: u8) -> Result<()> {
-    anchor_lang::solana_program::log::sol_log_data(&[&anchor_lang::Event::data(event)]);
-    let authority_info = a.event_authority.to_account_info(); let authority_bump = event_bump;
-    let disc = anchor_lang::event::EVENT_IX_TAG_LE;
-    let inner_data = anchor_lang::Event::data(event);
-    let ix_data: Vec<u8> = disc.into_iter().map(|b| *b).chain(inner_data.into_iter()).collect();
-    let ix = Instruction::new_with_bytes(crate::ID, &ix_data, vec![AccountMeta::new_readonly(*authority_info.key, true)]);
-    invoke_signed(&ix, &[authority_info], &[&[b"__event_authority", &[authority_bump]]])
-        .map_err(anchor_lang::error::Error::from)?;
-    Ok(())
 
-}
+
+
+
+
+
+
+
+
+
+
+
 pub struct HopOutput<'info> { mint: Pubkey, amount: u64, buyback_fee: u64, vault: AccountInfo<'info> }
 
 
