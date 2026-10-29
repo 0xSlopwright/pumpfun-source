@@ -178,3 +178,16 @@ stack-coloring groups (result in the 280 B group at -0x2d0, slice at -0x1b8). Re
 differences: `jeq ok,+1; ja err` at the amount decode's `try_borrow_data()?` (one extra instruction
 shifting all later jump offsets) and the order of the transfer signer-seed stores.
 Ledger: r10b `6ee8121e`, r10d `56471f27`, r10f `5d3e8733`, r11d2 `9d79c17e`.
+
+### Empty-ATA early return (ratio 0.969 -> 0.99626, exact size)
+
+Spellings of the amount decode (`if !empty`, `let mut amount`, `match bool`, deref guard, slice binding)
+are all byte-identical, an explicit `match` on `try_borrow_data` is worse (0.867), and a helper fn is worse
+(67 calls). `305` as `if !(..){return err!(..)}` is identical (that is what `require!` expands to).
+Following the cashback-inner lane's finding (LLVM block creation order decides whether the
+`try_borrow_data` Ok block is the IR successor of its test; BPF cannot reverse branches afterwards),
+the token path now returns early on an empty ATA:
+`if ata.data_is_empty(){msg!("No cashback to claim");return Ok(());}let amount={let data=..?;TokenAccount::try_deserialize(&mut &data[..])?.amount};if amount==0{msg!(..);return Ok(());}`.
+Result r17Z1: **8,832 B (original size), ratio 0.99626, 15 slots differ**, all in the transfer
+signer-seed stores at 0x2080 (the outer seed slice is stored after the seed lengths instead of before).
+Ledger: r17Z1 `7f9bfaeb`; rejected spellings `c352c1e6`..`a3a8918e`, `4f4663a7`, `662919ca`.
