@@ -203,6 +203,10 @@ export function registerPostRoutes(app: FastifyInstance, store: PostStore = defa
    * Returns: 200 with { post: Post }, or 404 for unknown, hidden or deleted posts.
    */
   app.get('/v1/posts/:postId', async (request, reply) => {
+    // The single-post read takes no query parameters, but a repeated key is
+    // still ambiguous input: fail closed like the sub-resources and the
+    // /users reads instead of silently serving past it.
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const { postId } = request.params as { postId: string };
     const post = store.getLivePost(postId);
     if (!post) {

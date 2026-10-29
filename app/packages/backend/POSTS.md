@@ -98,13 +98,15 @@ is a contract decision, not a bug fix.
 33. **Route ordering**: Sub-resource routes (`/v1/posts/:postId/replies`, `/v1/posts/:postId/likers`,
     `/v1/posts/:postId/quotes`, `/v1/posts/:postId/reposters`) are registered before `/v1/posts/:postId`
     so `:postId` never captures sub-paths.
-34. **Duplicate query keys on sub-resources**: A repeated scalar query key on the four paginated
+34. **Duplicate query keys on posts reads**: A repeated scalar query key on the four paginated
     sub-resources returns `501 {"error":"DUPLICATE_QUERY_KEYS_UNIMPLEMENTED"}`, matching the
     replay harness and the native /users and /following reads: the scalar OpenAPI parameters do
     not establish semantics for repeated keys, so selecting a value or coercing an array would
     invent them. Previously a repeated `limit`/`offset` silently fell through to the default page
-    size with 200, and a repeated `cursor` was misreported as `400 INVALID_CURSOR`. The batch
-    `/v1/posts` route is exempt: repeated `ids` keys are documented to collapse (item 24).
+    size with 200, and a repeated `cursor` was misreported as `400 INVALID_CURSOR`. The single
+    `/v1/posts/:postId` read takes no query parameters but applies the same guard: it previously
+    served 200 past any repeated key. The batch `/v1/posts` route is exempt: repeated `ids`
+    keys are documented to collapse (item 24).
 
 ## Local cursor integrity
 
