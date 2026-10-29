@@ -197,7 +197,7 @@ pub struct PreviousHop<'info> {
 
 
 
-pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
+pub fn execute<'info>(mut ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
     amount_in: u64, hop_fees: Vec<u8>) -> Result<CurveRunResult> {
 
 
@@ -216,7 +216,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
 
 
     require!(hop_fees.len() == count && hop_fees.iter().all(|f| *f < 4), PumpError::MultiHopHopFeesMismatch);
-    let a = &ctx.accounts; current_mint = a.source.mint; let mut amount = amount_in; let mut total_buyback = 0u64; let mut previous = None;
+    let a = &mut *ctx.accounts; current_mint = a.source.mint; let mut amount = amount_in; let mut total_buyback = 0u64; let mut previous = None;
     for index in 0..count {
 
 
@@ -475,7 +475,7 @@ pub fn transfer_input<'info>(a: &MultiHopCurve<'info>, previous: Option<&Previou
 
 
 
-#[inline(never)] fn swap_hop<'info>(a: &MultiHopCurve<'info>, event_bump: u8, h: &mut CurveHop<'info>, curve_bump: u8, current_mint: &Pubkey, amount: u64, previous: Option<&PreviousHop<'info>>, last: bool, flag: u8) -> Result<HopOutput<'info>> {
+#[inline(never)] fn swap_hop<'info>(a: &mut MultiHopCurve<'info>, event_bump: u8, h: &mut CurveHop<'info>, curve_bump: u8, current_mint: &Pubkey, amount: u64, previous: Option<&PreviousHop<'info>>, last: bool, flag: u8) -> Result<HopOutput<'info>> {
         prepare_curve(a,h)?;
         crate::trade::validate_trade(h.bonding_curve.complete as u8,h.bonding_curve.is_cashback_coin as u64,(flag & 2 == 0) as u64)?;
 
@@ -762,7 +762,7 @@ pub fn transfer_input<'info>(a: &MultiHopCurve<'info>, previous: Option<&Previou
             crate::trade::quote_payments::pay_out_native(&h.bonding_curve,a.user.to_account_info(),output)?;
         }
         let c = &h.bonding_curve;
-        let timestamp = Clock::get()?.unix_timestamp; let event = trade_event(c,&a.global,&crate::UserVolumeAccumulator::default(),&a.user.key(),mint_key,buy,base_amount,quote_amount,&fees,buyback,adapter_difference,"multi_hop_swap",timestamp);
+        let timestamp = Clock::get()?.unix_timestamp; let event = trade_event(c,&a.global,&crate::UserVolumeAccumulator::default(),&a.user.key(),&h.base_mint.key(),buy,base_amount,quote_amount,&fees,buyback,adapter_difference,"multi_hop_swap",timestamp);
 
 
 
@@ -779,20 +779,20 @@ pub fn transfer_input<'info>(a: &MultiHopCurve<'info>, previous: Option<&Previou
 
 
 
-        route_event!(a,&event,event_bump);
+        route_event!(&*a,&event,event_bump);
         let completed=h.bonding_curve.real_token_reserves==0; if completed { h.bonding_curve.complete=true;
-            let completion=crate::trade_types::CompleteEvent { user:a.user.key(),mint:h.base_mint.key(),
+            let completion=crate::trade_types::CompleteEvent { mint:h.base_mint.key(),user:a.user.key(),
                 bonding_curve:h.bonding_curve.key(),timestamp,quote_mint:h.bonding_curve.quote_mint };
-            route_event!(a,&completion,event_bump);
-        }
-        if completed { if let Some(post)=post_fill.as_ref() {
-            let post_event=crate::trade::post_complete_buy_event(post,a.user.key(),h.base_mint.key(),
+            route_event!(&*a,&completion,event_bump);
+
+        if let Some(post)=post_fill {
+            let post_event=crate::trade::post_complete_buy_event(&post,a.user.key(),h.base_mint.key(),
                 h.bonding_curve.key(),h.bonding_curve.quote_mint,timestamp,post_buyback)?;
 
 
 
 
-            route_event!(a,&post_event,event_bump);
+            route_event!(&*a,&post_event,event_bump);
         } } Ok(HopOutput { mint: if buy { h.base_mint.key() } else { h.quote_mint.key() }, amount: output, buyback_fee: received_buyback, vault: if buy { h.associated_base_bonding_curve.to_account_info() } else { h.associated_quote_bonding_curve.to_account_info() } }) }
 
 
