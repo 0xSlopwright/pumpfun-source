@@ -167,3 +167,18 @@ live in a lib.rs module `bonding_curve_instruction_accounts` (glob re-exported),
 
 The tail windows depend only on tail + D, so these 88 survive any future fix of the 16 mid-L
 functions.
+
+### v2 handlers outlined as the #[program] fns (`0fe43b05`, kept; `310c3a1f` all six, rejected)
+Round 1 found the six unmatched v2/v3 handlers inside the original's #[program] module run. Putting
+`#[inline(never)]` on the program fns and `#[inline(always)]` on the module handlers makes the program
+fn the outlined unit (Source sites stay in the handler files, closures stay at the module site):
+
+| window | before (ratio, bytes) | after | orig bytes |
+| --- | --- | --- | ---: |
+| 0x13b9b8 buy_v2 | 0.94776, 15464 | **0.95384, 15472** | 15480 |
+| 0x13f630 buy_exact_quote_in_v2 | 0.97361, 20168 | **0.97889**, 20168 | 20184 |
+| 0x144508 sell_v2 | 0.86599, 13952 | **0.87883**, 13952 | 13976 |
+
+Official 1020/276 unchanged, no losses (unstripped 6048baa7...). Doing the same for the v3 trio
+(trade::buy/buy_exact_quote/sell) is worse (buy 0.876 -> 0.778) and loses 0x859b0 `v3_emit_buy`, so
+the v3 handlers stay as they are (`tools/handlers_as_program_fns_all6.py` reproduces the rejected one).

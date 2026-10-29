@@ -175,7 +175,7 @@ fn narrow(a:u128)->Result<u64>{u64::try_from(a).map_err(|_|error!(PumpError::Tru
 pub fn execute<'info>(ctx:Context<'_,'_,'_,'info,BuyV2<'info>>,input:u64,limit:u64,partial:bool,exact:bool)->Result<()>{
  if exact{buy_exact_quote_in_handler(ctx,input,limit,partial)}else{buy_handler(ctx,input,limit,partial)}
 }
-#[inline(never)]
+#[inline(always)]
 fn buy_handler<'info>(ctx:Context<'_,'_,'_,'info,BuyV2<'info>>,mut input:u64,limit:u64,partial:bool)->Result<()>{
  let a=&mut *ctx.accounts;let fee_recipient=&a.fee_recipient;let buyback_fee_recipient=&a.buyback_fee_recipient;let (base_token_program,base_mint)=(&a.base_token_program,&a.base_mint);
 // layout-pad(164): aligns the next Source site with the original line
@@ -541,7 +541,7 @@ Ok(())
 // layout-pad
 // layout-pad
 }
-#[inline(never)]
+#[inline(always)]
 fn buy_exact_quote_in_handler<'info>(ctx:Context<'_,'_,'_,'info,BuyV2<'info>>,input:u64,limit:u64,partial:bool)->Result<()>{
  let a=&mut *ctx.accounts;let fee_recipient=&a.fee_recipient;let buyback_fee_recipient=&a.buyback_fee_recipient;let (base_token_program,base_mint)=(&a.base_token_program,&a.base_mint);
 // layout-pad(220): aligns the next Source site with the original line
