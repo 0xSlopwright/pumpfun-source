@@ -78,7 +78,21 @@ function boolean(value: unknown, label: string): boolean {
 
 function date(value: unknown, label: string): string | null {
   const parsed = nullableText(value, label, 80);
-  if (parsed !== null && !Number.isFinite(Date.parse(parsed))) {
+  const parts = parsed?.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/,
+  );
+  const calendar = parts
+    ? new Date(`${parts[1]}-${parts[2]}-${parts[3]}T00:00:00Z`)
+    : null;
+  if (
+    parsed !== null &&
+    (!parts ||
+      !Number.isFinite(Date.parse(parsed)) ||
+      Number(parts[4]) > 23 ||
+      Number(parts[5]) > 59 ||
+      Number(parts[6]) > 59 ||
+      calendar?.toISOString().slice(0, 10) !== parsed.slice(0, 10))
+  ) {
     throw new UpstreamValidationError(`${label} must be an ISO date.`);
   }
   return parsed;
@@ -220,7 +234,10 @@ function parseCompetitionPrizes(
   return array(value, label, 100).map((prizeValue, index) => {
     const prize = record(prizeValue, `${label}[${index}]`);
     return {
-      rankFrom: nonNegativeNumber(prize.rankFrom, `${label}[${index}].rankFrom`),
+      rankFrom: nonNegativeNumber(
+        prize.rankFrom,
+        `${label}[${index}].rankFrom`,
+      ),
       rankTo: nonNegativeNumber(prize.rankTo, `${label}[${index}].rankTo`),
       amount: text(prize.amount, `${label}[${index}].amount`, 200),
     };
@@ -297,8 +314,14 @@ function parseCompetitionSummary(
     description: text(competition.description, `${label}.description`, 5000),
     prizeCopy: text(competition.prizeCopy, `${label}.prizeCopy`, 1000),
     prizes,
-    minMembers: nonNegativeNumber(competition.minMembers, `${label}.minMembers`),
-    maxMembers: nonNegativeNumber(competition.maxMembers, `${label}.maxMembers`),
+    minMembers: nonNegativeNumber(
+      competition.minMembers,
+      `${label}.minMembers`,
+    ),
+    maxMembers: nonNegativeNumber(
+      competition.maxMembers,
+      `${label}.maxMembers`,
+    ),
     registrationOpensAt: date(
       competition.registrationOpensAt,
       `${label}.registrationOpensAt`,
@@ -400,7 +423,9 @@ export async function readBoundedJson(response: Response): Promise<unknown> {
       total += value.byteLength;
       if (total > MAX_UPSTREAM_BYTES) {
         await reader.cancel();
-        throw new UpstreamValidationError("The upstream response is too large.");
+        throw new UpstreamValidationError(
+          "The upstream response is too large.",
+        );
       }
       chunks.push(value);
     }
