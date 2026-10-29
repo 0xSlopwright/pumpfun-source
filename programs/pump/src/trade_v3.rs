@@ -1162,7 +1162,7 @@ pub fn sell(ctx:Context<SellV3>,amount:u64,min_sol_output:u64)->Result<()> {
     if a.user.key()==a.global.whitelist_pda{a.associated_base_bonding_curve.reload()?;a.associated_base_user.reload()?;let quote_mint=a.bonding_curve.quote_mint;a.bonding_curve.sync_virtual_quote_reserves(a.associated_base_bonding_curve.amount,a.associated_base_user.amount,&quote_mint)?;}
     init_volume_user(&mut a.user_volume_accumulator,&a.user);
     
-    quote_payments::transfer_to_user(is_sol,a.base_mint.as_ref().as_ref(),a.bonding_curve.as_ref(),a.user.as_ref(),user_output,&a.quote_token_program,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),if is_sol{None}else{Some(a.associated_quote_bonding_curve.as_ref())},if is_sol{None}else{Some(a.associated_quote_user.as_ref())},ctx.bumps.bonding_curve)?;
+    pay_user(is_sol,&a.base_mint,a.bonding_curve.as_ref(),a.user.as_ref(),user_output,&a.quote_token_program,&a.quote_mint,if is_sol{None}else{Some(a.associated_quote_bonding_curve.as_ref())},if is_sol{None}else{Some(a.associated_quote_user.as_ref())},ctx.bumps.bonding_curve)?;
 
 
 
@@ -1170,9 +1170,9 @@ pub fn sell(ctx:Context<SellV3>,amount:u64,min_sol_output:u64)->Result<()> {
 
 
     
-    quote_payments::transfer_to_owned(
-        is_sol,a.base_mint.as_ref().as_ref(),a.bonding_curve.as_ref(),a.buyback_fee_recipient.to_account_info(),
-        buyback_fee,&a.quote_token_program,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),
+    pay_owned(
+        is_sol,&a.base_mint,a.bonding_curve.as_ref(),a.buyback_fee_recipient.to_account_info(),
+        buyback_fee,&a.quote_token_program,&a.quote_mint,
         if is_sol{None}else{Some(a.associated_quote_bonding_curve.as_ref())},if is_sol{None}else{Some(a.buyback_fee_recipient.as_ref())},ctx.bumps.bonding_curve,
     )?;
 
@@ -1287,7 +1287,7 @@ fn quote_fee_for_amount(snapshot:&Option<(u64,u64,u64)>,amount:u64,inverse:bool)
 #[derive(Clone)]pub struct PostCompleteBuyEvent{pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub quote_mint:Pubkey,pub timestamp:i64,pub base_out:u64,pub quote_in:u64,pub fee_basis_points:u64,pub fee:u64,pub creator_fee_basis_points:u64,pub creator_fee:u64,pub buyback_fee:u64,pub pool_base_reserves_before:u64,pub pool_quote_reserves_before:u64,pub pool_base_reserves_after:u64,pub pool_quote_reserves_after:u64}
 
 // Buy-side pretrade fee basis recovered from the original mode selector.
-use crate::buy_fee_market_cap;
+use crate::buy_fee_market_cap;#[inline(always)] fn pay_user<'info>(native:bool,base_mint:&InterfaceAccount<'info,Mint>,curve:&Account<'info,BondingCurve>,destination:&AccountInfo<'info>,amount:u64,token_program:&Interface<'info,TokenInterface>,quote_mint:&InterfaceAccount<'info,Mint>,quote_source:Option<&AccountInfo<'info>>,quote_destination:Option<&AccountInfo<'info>>,bump:u8)->Result<()>{quote_payments::transfer_to_user(native,base_mint.as_ref(),curve,destination,amount,token_program,quote_mint.decimals,quote_mint.as_ref(),quote_source,quote_destination,bump)}#[inline(always)] fn pay_owned<'info>(native:bool,base_mint:&InterfaceAccount<'info,Mint>,curve:&Account<'info,BondingCurve>,destination:AccountInfo<'info>,amount:u64,token_program:&Interface<'info,TokenInterface>,quote_mint:&InterfaceAccount<'info,Mint>,quote_source:Option<&AccountInfo<'info>>,quote_destination:Option<&AccountInfo<'info>>,bump:u8)->Result<()>{quote_payments::transfer_to_owned(native,base_mint.as_ref(),curve,destination,amount,token_program,quote_mint.decimals,quote_mint.as_ref(),quote_source,quote_destination,bump)}
 
 #[path="curve_quote_payments.rs"]
 pub mod quote_payments;
