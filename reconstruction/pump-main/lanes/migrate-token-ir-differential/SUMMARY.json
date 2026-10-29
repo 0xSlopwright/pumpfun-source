@@ -1,0 +1,11 @@
+{
+  "lane": "migrate-token-ir-differential",
+  "targets": [{"original": "0x4c158", "name": "migrate_v2::create_token_account_v2", "original_bytes": 8368}],
+  "best": {"source": "let bump_seed=[bump]; hoisted before the native branch", "cand_bytes": 8432, "ratio": 0.57812, "baseline_ratio": 0.56277, "calls": [10, 1], "normalized": 1019, "raw": 188, "gains": [], "losses": [], "unstripped_sha256": "902ed30f5ece17c69a6ea39e242e55191ef76a6edfe8d5f9c1c69f4c81ff0245"},
+  "pr": "https://github.com/lalalune/pumpfun-source/pull/1228",
+  "mechanism": "Shared out-pointer reload is post-RA BranchFolder tail merging with the fall-through predecessor of the return block; the return block follows nn-err because rustc creates llbbs on first reference. A surviving outer-scope StorageDead defers return-block creation and removes the merge.",
+  "attempts": 13,
+  "rejected_mechanisms": ["if !native (identical)", "match native bool (identical)", "if let true (identical)", "Ok in each arm (identical)", "nn early return (identical)", "hoisted ATA id const (identical)", "inline nn helper (drop6 coalesced)", "hoisted signer seeds (key load hoisted, 0.486)", "match native as u8 native-first (0.424)", "match native as u8 nn-first (no merge, 0.5625)", "IR: bump store into native (0.570)", "IR: bump alloca reorder (0.545)"],
+  "unresolved_residuals": ["entry regalloc: original keeps token_program in r9 and spills r1; ours copies r1 to r9", "token_program1.sroa.12 alloca placed at -0x2a1 vs original -0x16c"],
+  "next_ideas": ["Use the 3 s llc loop to reorder allocas in IR until the token_program sroa tail lands at -0x16c, then map that order back to a source form (e.g. where the clone temp is declared)", "Search for an outer-scope local whose only effect is a shared StorageDead and that leaves the bump temp inside the native branch"]
+}
