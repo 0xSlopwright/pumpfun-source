@@ -1,46 +1,51 @@
 #!/usr/bin/env python3
-"""Independent re-verification for amm-boost-chains-20261029.
+"""Independent re-verification for amm-fee-tier-double-crossing-chains-20261029.
 
-Checks, from the packet files alone (plus the three program images):
+Checks, from the packet files alone (plus the three program images retained in the
+repository: evidence/original/pump_amm/deployed.so and the two
+candidate.so.gz artifacts named in IMAGE_PATHS, hashed decompressed):
 - MANIFEST.json lists every packet file with a matching sha256.
-- runtime/report.json.gz: 23 cases, 171 receipts, 18 parts
-  (17x10 + 1), part sha256/byte counts match the part files.
+- runtime/report.json.gz: 17 cases, 276 receipts, 28 parts
+  (27x10 + 6), part sha256/byte counts match the part files.
 - Every receipt transaction parses (solders) and all signatures verify.
 - Every receipt's recorded before/after snapshots reproduce the
   report's expected values: fee-payer lamport deltas, the token-leg
-  deltas (user base/quote/lp, vault base/quote, Token-2022
-  protocol/creator/buyback ATAs plus the boost vault ATA),
-  lamport deltas for the quote accounts (boost and sweep move
-  lamports with the tokens because the boost vault ATA and the
-  transfer-fee override quote accounts are native; collect moves
-  tokens only), the withheld balances after each step (178-byte
-  override accounts at offset 170, 182-byte t22acct accounts at
-  offset 174), the pool state (virtual_quote_reserves i128,
-  protocol_fees, creator_fees, lp_supply), the user volume
-  accumulator state (absent, or 1,844,400 lamports / 137 bytes /
-  payer user for a trade-created accumulator), and the decoded
-  event fields (boost BuyEvent disc/len + 208-byte
-  BoostBuyAndBurnEvent requested/used/burned/vq/quote_after/
-  base_after/remaining, v2 buy/sell/exact, deposit/withdraw
-  base/quote, sweep amount/bucket/recipient, collect
-  fee/creator/vault-ATA/dest).
-- Failure steps roll back every watched account except the fee
-  payer (fee 5,000) and carry the expected error code plus the
-  recorded per-image site line in their logs. Site lines are
-  checked per image, never compared across images, because
-  original and rebuilt sources differ in line numbers.
-- The observed surface of every case (step, error, event count,
-  and snapshots with fee-payer lamports zeroed) is identical
-  across the original, control, and candidate images.
+  deltas, lamport deltas for the quote accounts, the withheld
+  balances after each step where the report records them (178-byte
+  override accounts at offset 170, 182-byte Token-2022 ATAs at offset
+  174), the pool state (virtual_quote_reserves i128, protocol_fees,
+  creator_fees, lp_supply), the user volume accumulator state, and
+  the decoded event fields (v2 buy/sell/exact fee legs and bps,
+  sweep amount/bucket, collect fee).
+- Every watched token account NOT listed in a step's expected deltas
+  moves by exactly 0 (this is what pins buyback 0 on mayhem trades).
+- Every collect step: the withheld amount added at the destination
+  equals the creator-vault outflow minus the destination inflow.
+- Live-cap tier model: before every v2 trade the verifier recomputes
+  cap = supply * (vault_quote + virtual_quote_reserves) // vault_base
+  from the receipt's own before-snapshot (supply = the fixture base
+  mint supply {SUPPLY}, or 10**15 on mayhem pools), selects the last
+  tier of the case's patched table [(100, A), (T1, B), (T2, C)] whose threshold is
+  <= cap, and requires the event's lp/protocol bps to equal that
+  tier's. In the two `exact` cases at least one trade's cap equals a
+  non-first threshold exactly and that trade pays the tier at that
+  threshold (the inclusive `>=` boundary).
+- The observed surface of every case (step, error, event count, and
+  snapshots with fee-payer lamports zeroed) is identical across the
+  original, control, and candidate images. No step in this packet is
+  expected to fail, so the inherited rollback and error-site checks
+  are exercised only trivially; the boost branches are inert.
 - The three program images hash to the values recorded in the
-  report.
+  report. Nothing is re-executed.
 
-Usage: python3 verify.py   (run from this packet directory)
+Usage (from the repository root):
+    python3 -I -B research/amm-fee-tier-double-crossing-chains-20261029/verify.py
 """
 import base64
 import gzip
 import hashlib
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -49,12 +54,13 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
+# The three program images are retained in the repository; the two
+# rebuilt images are stored gzip-compressed and hashed decompressed.
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -70,6 +76,29 @@ CREATOR_ATA = Pubkey.from_string("HShRmMRVQBgRz1eCD1aSr1hUm2BdrALVimjNXRduJwZB")
 DEST = Pubkey.from_string("Dv7PMRUFDTJywhzw88zJ3tpyBmj9HqLbNq8BZwXWb7MW")
 BBATA = Pubkey.from_string("8imwZyx4D4zdUQ67TvftjjyGattafMNWMLs6HV8WNn1Y")
 BOOST_ATA22 = Pubkey.from_string("Cd8K5QT4ninw4jnWP7nhmPbEJb8VsECTHUzeBf7KueMS")
+SUPPLY = 999203529491389
+MAYHEM_SUPPLY = 10**15
+TIER_RE = re.compile(r"\((\d+), \((\d+), (\d+), (\d+)\)\)")
+
+
+def parse_tiers(setup):
+    out = []
+    for text in setup["tiers"]:
+        m = TIER_RE.fullmatch(text)
+        if m is None:
+            fail(f"unparsed tier {text}")
+        out.append(tuple(int(g) for g in m.groups()))
+    return out
+
+
+def live_cap(rec, mayhem):
+    pool_raw = bytes.fromhex(rec["before"][str(POOL)]["data_hex"])
+    vqr = int.from_bytes(pool_raw[245:261], "little", signed=True)
+    quote = tok_amount(rec["before"][str(VAULTQUOTE)]) + vqr
+    base = tok_amount(rec["before"][str(VAULTBASE)])
+    return (MAYHEM_SUPPLY if mayhem else SUPPLY) * quote // base
+
+
 ROLE_KEY = {"userbase": USERBASE, "userquote": USERQUOTE, "userlp": USERLP,
             "vaultbase": VAULTBASE, "vaultquote": VAULTQUOTE, "buyback": BUYBACK,
             "protoata": PROTOCOL_ATA, "creatorata": CREATOR_ATA, "dest": DEST,
@@ -205,7 +234,10 @@ def main():
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
     for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        if sha(data) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -226,6 +258,9 @@ def main():
     for case in report["cases"]:
         label = case["label"]
         expect = case["steps"]
+        tiers = parse_tiers(case["setup"])
+        mayhem = case["setup"].get("mayhem") == "True"
+        exact_hits = 0
         for image in ("original", "control", "candidate"):
             recs = by_case.get(label, {}).get(image)
             if recs is None or len(recs) != len(expect):
@@ -248,6 +283,22 @@ def main():
                 for role, want in exp["deltas"].items():
                     if tok_delta(rec, ROLE_KEY[role]) != want:
                         fail(f"{tag}: delta {role} {tok_delta(rec, ROLE_KEY[role])} != {want}")
+                for role, key in ROLE_KEY.items():
+                    if role not in exp["deltas"] and tok_delta(rec, key) != 0:
+                        fail(f"{tag}: unlisted delta {role} {tok_delta(rec, key)} != 0")
+                if rec["step"] == "col":
+                    wb = tok_withheld(rec["before"][str(DEST)]) or 0
+                    wa = tok_withheld(rec["after"][str(DEST)]) or 0
+                    if wa - wb != -tok_delta(rec, CREATOR_ATA) - tok_delta(rec, DEST):
+                        fail(f"{tag}: collect withheld {wa - wb} != outflow - inflow")
+                ev_exp = exp.get("event") or {}
+                if "lp_bps" in ev_exp:
+                    cap = live_cap(rec, mayhem)
+                    idx = max(i for i, t in enumerate(tiers) if i == 0 or cap >= t[0])
+                    if (ev_exp["lp_bps"], ev_exp["proto_bps"]) != tiers[idx][1:3]:
+                        fail(f"{tag}: cap {cap} selects tier {idx} {tiers[idx][1:3]}, event pays {ev_exp['lp_bps']}/{ev_exp['proto_bps']}")
+                    if idx > 0 and cap == tiers[idx][0]:
+                        exact_hits += 1
                 for role, want in exp.get("lam_deltas", {}).items():
                     if lam_delta(rec, ROLE_KEY[role]) != want:
                         fail(f"{tag}: lam_delta {role} {lam_delta(rec, ROLE_KEY[role])} != {want}")
@@ -288,6 +339,8 @@ def main():
                     for fkey, want in exp["event"].items():
                         if got.get(fkey) != want:
                             fail(f"{tag}: event {fkey} {got.get(fkey)} != {want}")
+        if "exact" in label and exact_hits == 0:
+            fail(f"{label}: no trade landed exactly on a threshold")
         def surface(recs):
             out = []
             for rec in recs:
@@ -313,7 +366,7 @@ def main():
             for rec, site in zip(recs, sites):
                 if site is not None and site not in "\n".join(rec["logs"]):
                     fail(f"{label}/{image}: recorded site line not in logs: {site}")
-    print("PASS: 17 cases, 276 receipts, 28 parts, 3 images agree (signatures, deltas, withheld, events, error codes/sites, rollback)")
+    print("PASS: 17 cases, 276 receipts, 28 parts, 3 images agree (signatures, deltas incl. unlisted-zero, withheld, collect withholding, live-cap tier selection, exact-threshold hits, events)")
 
 
 if __name__ == "__main__":
