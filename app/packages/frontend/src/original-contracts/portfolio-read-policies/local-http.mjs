@@ -21,6 +21,7 @@ export function localPortfolioPolicyClient({ baseUrl, fetchImplementation }) {
     if (operation === "GET /user-portfolio/dust-floor")
       url = new URL("user-portfolio/dust-floor", base);
     else if (operation === "GET /user-portfolio/{userId}") {
+      if ([".", ".."].includes(String(options.params.userId))) throw new TypeError("Invalid path segment");
       url = new URL(
         `user-portfolio/${encodeURIComponent(String(options.params.userId))}`,
         base,
