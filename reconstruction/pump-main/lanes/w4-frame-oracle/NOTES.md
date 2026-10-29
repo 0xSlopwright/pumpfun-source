@@ -1,0 +1,100 @@
+# Lane w4-frame-oracle (wave 4): stack-frame oracle for 0x5b3b0, 0x22a10, 0x72810
+
+Base: origin/main 630a074 (1023 normalized / 277 raw). Enabling lane: a tool that predicts
+and explains the r10 frame layout from rustc's IR, and names the allocas the original places
+differently.
+
+## Tool: `frameoracle.py`
+
+```
+python3 frameoracle.py --ir pump_recovered.ll --sym '_ZN14pump_recovered5sweep7execute17h[0-9a-f]+E' \
+    --win 0x72810 --name sweep-base [--edit edit.py] [--so unstripped.so]
+```
+
+Capture the IR with `--emit=link,llvm-ir` (any of the prior capture scripts; the
+module keeps its value names). The tool runs the SDK llc exactly like fastbuild
+(`-O3 -relocation-model=pic -mattr=+store-imm,+jmp-ext`) twice, about 12 s in all:
+
+1. Normal run: dumps the frame before stack-coloring, after stack-coloring and after
+   prologepilog. From these it reads every alloca's IR name, whether it has LIFETIME_START,
+   which slot StackColoring merged it into, and the final `[SP-T]` of every surviving slot.
+   `--so` checks that llc reproduces the fastbuild bytes (true on all three targets).
+2. `-no-stack-coloring` run: every alloca keeps its own slot. Code is unchanged apart from
+   offsets, and offsets are masked in the alignment. So aligning this run against the
+   ORIGINAL window gives each alloca its own implied original slot. Allocas that share an
+   implied T are the original's StackColoring groups, written in our names.
+
+The output has four sections:
+- the frame table in layout order: T ours, T implied for the original, delta, size,
+  lifetime flag and merged members;
+- delta breaks: where the delta changes between consecutive slots. This is exactly the
+  number of bytes the original has more (or fewer) between those two slots;
+- ORIGINAL StackColoring groups, with `!` on allocas that we put in a different group;
+- ALLOCA ORDER: original slot representatives, in original order, that fall outside the
+  longest increasing subsequence of our frame indices. These allocas need a different
+  position, which means a different MIR local order or inlining.
+
+`--edit` applies an IR edit (`edit(fn_text)`) first, so the tool doubles as an IR oracle
+that also reports the frame. `--what-if 'ins:FI:SIZE,del:FI,size:FI:SIZE'` re-lays-out the
+frame without llc.
+
+## Rules (verified on all three targets; `PEI rule check: ok`)
+
+1. **PEI is sequential.** Surviving slots are placed in frame-index order:
+   `T = alignup(T_prev + size, align)`. SBF has no reordering. An object of size 1 at SP-1
+   prints with no location (`SPOffset == -1`), and the first 8-aligned object follows it at
+   T=8+size.
+2. **Frame-index order is alloca order.** Allocas of inlined callees come first, ahead of
+   the function's own allocas (the inliner hoists them to the top of the entry block).
+   The function's own allocas follow in reverse MIR-local order (`_554` before `_503`), then
+   ISel 16-byte temporaries, then 8-byte spills.
+3. **A merged group sits at its representative's position.** StackColoring sorts slots by
+   size (largest first, stable on frame index). Each slot then absorbs every later slot
+   whose live range is disjoint from the whole group. The group's position is that of its
+   largest, lowest-index member. An alloca with no LIFETIME_START is never merged (the `*`
+   marker). An alloca whose live range overlaps every larger slot stays a separate slot at
+   its own index.
+4. **A delta break of +N between slots A and B** means the original has N more bytes at
+   frame indices between A and B. That is either an alloca we merged away, one we lack, or
+   one the original has at that index instead of ours.
+
+## Findings per target (base 630a074)
+
+### 0x5b3b0 swap_hop (reports/fo-swaphop-base.txt)
+- **`completion` (CompleteEvent, 136 B) is a separate slot in the original** at orig
+  T=0x498, and `_443` and `_27` merge into it. Ours merges it into the 232-byte `_503`
+  slot (the post_complete_buy_event result). This is the +136 break between
+  `authority_info46` (fi47) and `_433` (fi55). The original's completion therefore has
+  lifetime markers but a live range that overlaps the 232/224-byte slots. That fits the
+  nested form, where completion is still in scope across the post call. IR proof
+  (reports/nolt_completion.py: drop completion's lifetime markers, so it is never merged):
+  the +136 break vanishes, aligned r10 offsets equal 142 -> 172 of 723, and group
+  mismatches drop from 12 to 10.
+- Remaining top-of-frame mismatches: the original has two 32-byte slots after post_event
+  (orig 0x360 and 0x380: `_493`+`ix_data` sit at 0x380). Ours folds them into `_547` (fi19)
+  at the top. `user` (#86) belongs to the event group (0x6d0) in the original. Ours puts
+  it in the `_503` group.
+- The bottom of the frame (16-byte ISel temporaries and 8-byte spills) is offset +184 and
+  follows from the deltas above.
+
+### 0x22a10 admin_cto::execute (reports/fo-admincto-base.txt)
+- `_109.i` (16 B, the wallet emit_cpi signer slice) implies orig T=0x680, between
+  `old_creator` (fi122) and `holder_key` (fi145). This is the "24 B outer object at
+  r10-0x680" from w3-adminCTO's next ideas: the original merges the slice into a slot whose
+  representative sits between those two allocas, not among the inlined-callee allocas at
+  the top.
+- The original keeps `_160` (336 B) between `_121.i` and `_112.i` (orig 0x450 group),
+  `dest.i` (32 B) between `inner_data.i` and `val.sroa.6.i`, and `target.sroa.8` (9 B)
+  merged with `_116.i` at 0x548 (ours has it in a different group).
+- The `buf.i18.i` and `buf.i39.i` 24-byte formatter buffers are swapped between the two 24 B
+  groups at 0x488 and 0x4b8.
+
+### 0x72810 sweep::execute (reports/fo-sweep-base.txt)
+- The tool rediscovers w3-sweep's a37 result automatically: `quote_token_program.i` and
+  `quote_mint.i` (inlined token-admit allocas, fi8/fi9 at the top) belong between
+  `authority_info` (fi24) and `_37` in the original (orig 0x180/0x1a0). So the token code
+  is not an inlined callee in the original.
+- `_7.sroa.5.i` (24 B, no lifetime marker in ours) is in the original's 80-byte `ix` group,
+  and `_6.i` is in the `_138` group (0x68), not in `ix`.
+
+Ledger rows: see `log_attempt.py search --lane w4-frame-oracle`.
