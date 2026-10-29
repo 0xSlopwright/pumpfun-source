@@ -98,7 +98,7 @@ Family B -- creator-fee override masks the tier creator leg:
   (receipt 168,953) and sell2 pays A (receipt 171,160);
   sweep/collect drain 141,644.
 
-Family C -- mayhem pins the top tier for the whole chain:
+Family C -- mayhem chains stay in the top tier (cap far above the thresholds):
 
 - `c-mayhem-top-tier-swc-col`: mayhem pool, buy1 and buy2
   both pay B with buyback 0 (spends 1,950,178 / 1,950,236,
@@ -152,36 +152,57 @@ Family E -- sweep neutrality and the sell control:
   trip flips it up and then back down.
 - The inclusive boundary holds mid-chain: a cap exactly equal
   to the threshold still selects the upper tier, on both the
-  buy side and the sell side.
+  buy side and the sell side; `verify.py` recomputes each
+  trade's cap from the receipt's before-snapshot and checks it
+  equals the threshold exactly.
 - The mixed bucket is exact: sweep/collect drain precisely
   seed + tier-A creator fee + tier-B creator fee (buy cross
-  265,198, sell cross 137,575, round trip 488,031), never a
-  blended or recomputed amount.
+  265,198, sell cross 137,575, round trip 488,031), in every case here
+  (no blended or recomputed amount).
 - The creator-fee override is orthogonal to the tier: with
   pool `creator_fee_bps` = 500, the lp/proto legs still cross
   while the creator leg stays at 500bps in both tiers.
-- Mayhem never crosses down: the 10^15 supply substitution
-  keeps the cap above every threshold in this packet, so
-  mayhem trades pay the top tier for the whole chain with
-  buyback 0.
-- Transfer fee does not disturb the crossing: tf100 trades
-  cross at the same caps with the same tier bps, and the
-  sweep/collect legs show the usual per-hop withholding on
-  top of the mixed bucket.
+- Mayhem did not cross in either measured chain: the 10^15
+  supply substitution lifts the starting cap to
+  182,495,506,260 (about 145M above cap0, far above
+  T = cap0 + 3,000,000), and the mayhem chains move it by at
+  most ~5.4M, so every mayhem trade here paid B with buyback
+  0. No case places a threshold near the mayhem cap, so this
+  does not show that a mayhem pool cannot cross a tier.
+- Transfer fee does not disturb the crossing: tf100 buy and
+  sell trades cross at the same caps with the same tier bps;
+  the tf100 exact path lands at slightly lower caps (the second buyx at 182,378,260,434 vs
+  182,378,544,348) because withholding
+  cuts the net quote, and still selects the same tiers. The
+  sweep/collect legs show the usual per-hop withholding on top
+  of the mixed bucket.
 - A sweep is tier-neutral: it moves creator_fees into
   virtual_quote_reserves 1:1, leaving the effective quote,
   the cap, and therefore the tier exactly unchanged.
-- No original-vs-rebuilt divergence: all 18 cases agree
-  across the original, control (#424), and candidate (#427)
-  images (observed surface, error codes, rollback, events).
-  Error sites are recorded per image in the report and are
-  not compared across images, because original and rebuilt
-  sources differ in line numbers.
+- All 18 cases show the same observed surface on the
+  original, control (#424), and candidate (#427) images: step,
+  error, event count, and the before/after account snapshots
+  with fee-payer lamports zeroed; the decoded event fields match
+  the same expected values on every image. No step in this
+  packet fails, so error codes and rollback are not exercised,
+  and raw event bytes are not compared across images.
 
-## Verification
+## Verify and provenance
 
-Run `python3 verify.py` from this directory. It checks, from the
-packet files alone (plus the three program images):
+From the repository root:
+
+    python3 -I -B research/amm-fee-tier-crossing-chains-20261029/verify.py
+
+`verify.py` needs only `solders` plus files in the repository:
+this packet, `evidence/original/pump_amm/deployed.so`, and the
+two retained rebuilt images
+`research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz`
+(control, #424) and
+`research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz`
+(candidate, #427), whose decompressed sha256 values match the
+`images` block of `runtime/report.json.gz`. It re-checks the
+recorded receipts; it does not re-execute any transaction. It
+checks:
 
 - MANIFEST.json lists every packet file with a matching sha256.
 - runtime/report.json.gz: 18 cases, 237 receipts, 24 parts
@@ -191,12 +212,33 @@ packet files alone (plus the three program images):
 - Every receipt's recorded before/after snapshots reproduce the
   report's expected values: fee-payer lamport deltas, the
   token-leg deltas, lamport deltas for the quote accounts,
-  withheld balances after each step, pool state, volume
+  withheld balances where the report records them, pool state,
+  volume
   accumulator state, and decoded event fields.
-- The observed surface of every case is identical across the
-  original, control, and candidate images.
+- Every watched token account not listed in a step's expected
+  deltas moves by exactly 0 (this pins buyback 0 on mayhem
+  trades), and every collect's destination withholding equals
+  the creator-vault outflow minus the destination inflow.
+- Live-cap tier model: before every trade it recomputes
+  `cap = supply * (vault_quote + virtual_quote_reserves) //
+  vault_base` from the receipt (supply = 999,203,529,491,389,
+  or 10^15 on mayhem pools), picks the last patched tier whose
+  threshold is `<=` cap, and requires the event's lp/protocol
+  bps to match; in each `exact` case at least one trade's cap
+  equals a threshold exactly and pays the tier at that
+  threshold. The cap values quoted above are these recomputed
+  caps; the program's own cap is not logged.
+- The observed surface of every case (step, error, event
+  count, snapshots with fee-payer lamports zeroed) is identical
+  across the original, control, and candidate images.
 - The three program images hash to the values recorded in the
   report.
+
+`producer.py` is the script that generated the receipts and is
+kept as a provenance record. It is not runnable as committed: it
+hard-codes a private workspace layout (`~/workspace/pumpfun-sparse`
+for the harness scripts and `~/workspace/slop-verify` for the
+control/candidate `.so` files) and chdirs there on start.
 
 ## Limits
 
@@ -205,10 +247,10 @@ packet files alone (plus the three program images):
   exotic tables are not varied here because the fixture quote
   is the native mint, which routes to the fee tiers, and the
   quote mint cannot change mid-chain.
-- The mayhem mode is exercised through the fixture pool's
-  `is_mayhem` flag; the mayhem program itself is not in the
-  sparse checkout, so the mayhem buyback-zero result is
-  recorded as observed behavior only.
+- The mayhem mode is exercised only by setting the fixture
+  pool's `is_mayhem` byte; no mayhem-program flow is involved.
+  The buyback-zero result is the observed zero buyback-ATA delta
+  on those trades.
 - The transfer-fee override applies to the quote mint only
   with max fee 2**64-1; the tf100 sweep/collect legs use the
   178-byte override accounts (withheld at offset 170) and the
