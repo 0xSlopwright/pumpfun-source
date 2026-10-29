@@ -34,6 +34,13 @@ The output has four sections:
   longest increasing subsequence of our frame indices. These allocas need a different
   position, which means a different MIR local order or inlining.
 
+IR what-ifs that need no edit script: `--move-alloca A:B` moves alloca `%A` to just before
+`%B` (the frame-index order, which is the MIR-local order in source terms).
+`--drop-lifetime A` deletes A's lifetime markers, so A is never merged. `--mir out.mir
+--mir-fn '^fn sweep::execute\('` (and a second `--mir-fn` for a closure that is inlined once)
+labels every `_N` alloca with its MIR type and debug name, so `_72` prints as
+`_72{Result<Rent,..>}`.
+
 `--edit` applies an IR edit (`edit(fn_text)`) first, so the tool doubles as an IR oracle
 that also reports the frame. `--what-if 'ins:FI:SIZE,del:FI,size:FI:SIZE'` re-lays-out the
 frame without llc.
@@ -96,5 +103,25 @@ frame without llc.
   is not an inlined callee in the original.
 - `_7.sroa.5.i` (24 B, no lifetime marker in ours) is in the original's 80-byte `ix` group,
   and `_6.i` is in the `_138` group (0x68), not in `ix`.
+
+### IR alloca-move oracle (admin_cto, reports/fo-adm-mv3.txt)
+`--move-alloca _109.i:holder_key --move-alloca sharing_update2.sroa.3:_213
+--move-alloca target1:sharing_update2.sroa.3 --move-alloca target.sroa.0:target.i.sroa.0`
+makes the whole frame from T=0 to val6 (0x651) equal to the original's. Equal r10
+offsets go from 528 to 641 of 877. The original then has one more 24 B slot between val6
+and a 16 B slot at T=0x680 (the slot that holds `_109.i`), and holder_key and mint follow at
++0. The votes for `_109.i` are 3/5, so treat its exact identity as tentative.
+
+### Other lanes' heads (analysis only)
+- w4-swaphop aa9acd6 (ratio 0.5698), reports/fo-x-swaphop.txt: the frame from the top
+  through `event` (T 0..0x6d0) equals the original's (446/744 equal). The residual: two
+  16 B SROA pieces with no lifetime markers (`val18.sroa.10.sroa.0.sroa.3`,
+  `val18.sroa.10.sroa.3.sroa.2`) sit between event and post_fill.sroa.16. Moving them
+  after `bump` in the IR (reports/fo-xs-mv1.txt) makes post_fill.sroa.16 and .20 exact. The
+  original then still has 48 B more before quote_token_program.
+- w4-sweep 60914be (ratio 0.822), reports/fo-x-sweep.txt: 340/354 equal. The only group
+  mismatch is `_72{Result<Rent>}`. In the original its 24 B tail (offset 8) is merged into
+  the 80 B ix slot, which means the original SROA-splits the Result<Rent> and promotes the
+  tag. Ours keeps a whole 32 B alloca in the event group.
 
 Ledger rows: see `log_attempt.py search --lane w4-frame-oracle`.

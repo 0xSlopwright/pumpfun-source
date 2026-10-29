@@ -2,21 +2,21 @@
 cand bytes 27416 orig 27400  abstracted-ratio 0.5025  r10 pairs 877 equal 528  max-off cand 0x1000 orig 0x1000
 objects: allocas 180  surviving 166  merged 114  no-lifetime 41  PEI rule check: ok
   fi      T   orig  delta  size al lt   votes  name  [merged: ...]
-   0    0x1    0x1     +0     1  1 11   1/1   _11.i307 ~
-  15   0x38   0x38     +0    48  8  1  48/51  _70.i101  [buf.i.i94#4 buf.i.i68#35 _106.i#42 _94.i#44 _76.i69#51 buf.i#65 _217#108 _205#110 _187#117 st#140]
-  22  0x2d0  0x2d0     +0   664  8  1 311/323 _49.i102  [_132.i#5 _117.i96#7 _106.i97#8 _102.i98#9 _97.i#10 _94.i99#11 _80.i#12 _38.i#23 _34.i103#24 _29.i104#25 _22.i#26 _15.i#28 _12.i#29 _5.i#31 _3.i#33 _209.i#36 _121.i#38 ix.i#45 _78.i#50 _70.i70#52 _57.i#55 _44.i#57 _39.i71#58 _33.i#59 _23.i#60 _17.i#61 _8.i#63 _119.i#80 _108.i#81 _98.i#82 _88.i#83 _76.i#85 _70.i#86 _62.i#88 _59.i#89 _48.i#92 _39.i#94 _29.i#98 _19.i#100 _9.i#102 _4.i#103 e#119 _158#121 _133#124 _64#130 _49#133 _17#142 _8#144]
-  37  0x450  0x450     +0   384  8  1 112/120 _123.i  [formatter.i308#1 formatter.i.i93#3 _119.i95#6 _78.i100#14 _8.i105#30 formatter.i.i67#34 e.i#53 _46.i#56 formatter.i#64 formatter.i45.i#66 formatter.i38.i#68 formatter.i31.i#70 formatter.i24.i#72 formatter.i17.i#74 formatter.i10.i#76 formatter.i.i#78 _431#104 ix#111 _189#116 _172#118 _160#120 _23#141 _11#143]
-  40  0x470  0x470     +0    32  8  1  15/17  _112.i  [_79.sroa.5.i#13 _9.i72#62 ix_data#113 _40#136]
-  41  0x480  0x680   +512    16  8  1   3/5   _109.i
-  43  0x498  0x488    -16    24  8  1  18/26  _102.i  [bump.i#17 buf.i39.i#69 buf.i32.i#71 _49.i#91 _40.i#93 _30.i#97 _20.i#99 _10.i#101 _220#107]
-  46  0x4c8  0x4b8    -16    48  8  1  46/56  _86.i  [buf.i309#2 old.i#16 _16.i#27 buf.i46.i#67 buf.i25.i#73 buf.i18.i#75 buf.i11.i#77 buf.i.i#79 t.i#90 _121#127 _65#129]
-  47  0x4e0  0x4d0    -16    24  8  1   3/7   ix_data.i ~  [_77.i#84 _63.i#87 _128#126]
-  48  0x4f8  0x4e8    -16    24  8  1   5/5   inner_data.i  [_227#105]
-  49  0x528  0x518    -16    48  8  1  15/18  authority_info.i  [dest.i#32 _223#106 _41#135]
+   0    0x1    0x1     +0     1  1 11   1/1   _11.i307{std::string::String} ~
+  15   0x38   0x38     +0    48  8  1  48/51  _70.i101{std::result::Result<anchor_lang::prelude::Clock,anchor_l}  [buf.i.i94#4 buf.i.i68#35 _106.i{[anchor_lang::prelude::AccountInfo<'_>}#42 _94.i{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#44 _76.i69{[&[u8]}#51 buf.i#65 _217{[anchor_lang::prelude::AccountInfo<'_>}#108 _205{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#110 _187{[&[u8]}#117 st#140]
+  22  0x2d0  0x2d0     +0   664  8  1 311/323 _49.i102{anchor_lang::prelude::AccountInfo<'_>}  [_132.i{std::result::Result<std::convert::Infallible,anchor_lang}#5 _117.i96{std::result::Result<std::convert::Infallible,anchor_lang}#7 _106.i97{[anchor_lang::prelude::AccountInfo<'_>}#8 _102.i98{std::result::Result<(),anchor_lang::prelude::ProgramErro}#9 _97.i{std::boxed::Box<[anchor_lang::prelude::AccountMeta}#10 _94.i99{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#11 _80.i{anchor_lang::prelude::AccountInfo<'_>[authority_info]}#12 _38.i{std::ops::ControlFlow<std::result::Result<std::convert::}#23 _34.i103{&anchor_lang::prelude::AccountInfo<'_>}#24 _29.i104{&anchor_lang::prelude::AccountInfo<'_>}#25 _22.i{bool[collection_native]}#26 _15.i{std::option::Option<anchor_lang::error::ComparedValues>}#28 _12.i{std::option::Option<anchor_lang::error::ErrorOrigin>}#29 _5.i{&str}#31 _3.i{&str}#33 _209.i{anchor_lang::prelude::ProgramError}#36 _121.i{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_amm::i}#38 ix.i#45 _78.i{std::vec::Vec<u8>}#50 _70.i70{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#52 _57.i{std::result::Result<std::option::Option<(u64,anchor_lang}#55 _44.i{anchor_lang::context::CpiContext<'_,'_,'_,'_,anchor_spl:}#57 _39.i71{std::result::Result<bool,anchor_lang::error::Error>}#58 _33.i{std::result::Result<bool,anchor_lang::error::Error>}#59 _23.i{anchor_lang::prelude::Pubkey}#60 _17.i{std::result::Result<bool,anchor_lang::error::Error>}#61 _8.i{anchor_lang::error::AnchorError}#63 _119.i{std::ops::ControlFlow<std::result::Result<std::convert::}#80 _108.i{&[&[&[u8]]}#81 _98.i{anchor_lang::prelude::AccountMeta}#82 _88.i{std::slice::Iter<'_,u8>}#83 _76.i{[&[u8]}#85 _70.i{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#86 _62.i{&anchor_lang::prelude::AccountInfo<'_>}#88 _59.i{&anchor_lang::prelude::AccountInfo<'_>}#89 _48.i{anchor_lang::prelude::AccountInfo<'_>}#92 _39.i{std::result::Result<bool,anchor_lang::error::Error>}#94 _29.i{&anchor_lang::prelude::AccountInfo<'_>}#98 _19.i{std::result::Result<std::convert::Infallible,anchor_lang}#100 _9.i{std::string::String}#102 _4.i{bool}#103 e#119 _158{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_amm::i}#121 _133{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_fees::}#124 _64{anchor_lang::error::AnchorError}#130 _49{anchor_lang::prelude::Pubkey}#133 _17{anchor_lang::prelude::Pubkey}#142 _8{(anchor_lang::prelude::Pubkey,u8)}#144]
+  37  0x450  0x450     +0   384  8  1 112/120 _123.i{pump_amm::internal::__cpi_client_accounts_collect_coin_c}  [formatter.i308#1 formatter.i.i93#3 _119.i95{std::ops::ControlFlow<std::result::Result<std::convert::}#6 _78.i100{std::vec::Vec<u8>}#14 _8.i105{anchor_lang::error::AnchorError}#30 formatter.i.i67#34 e.i#53 _46.i{anchor_spl::associated_token::Create<'_>}#56 formatter.i#64 formatter.i45.i#66 formatter.i38.i#68 formatter.i31.i#70 formatter.i24.i#72 formatter.i17.i#74 formatter.i10.i#76 formatter.i.i#78 _431{anchor_lang::prelude::ProgramError}#104 ix#111 _189{std::vec::Vec<u8>}#116 _172{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#118 _160{pump_amm::internal::__cpi_client_accounts_admin_cto_pool}#120 _23{anchor_lang::prelude::Pubkey}#141 _11{[&[u8]}#143]
+  40  0x470  0x470     +0    32  8  1  15/17  _112.i{[&[u8]}  [_79.sroa.5.i{&creator::collect_creator_fee::CollectCreatorFeeEvent}#13 _9.i72{std::string::String}#62 ix_data#113 _40{anchor_lang::prelude::Pubkey}#136]
+  41  0x480  0x680   +512    16  8  1   3/5   _109.i{[&[&[u8]]}
+  43  0x498  0x488    -16    24  8  1  18/26  _102.i{std::result::Result<(),anchor_lang::prelude::ProgramErro}  [bump.i#17 buf.i39.i#69 buf.i32.i#71 _49.i{anchor_lang::prelude::AccountInfo<'_>}#91 _40.i{std::result::Result<std::convert::Infallible,anchor_lang}#93 _30.i{bool[source_frozen]}#97 _20.i{bool[val]}#99 _10.i{u32}#101 _220{[&[&[u8]]}#107]
+  46  0x4c8  0x4b8    -16    48  8  1  46/56  _86.i{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,}  [buf.i309#2 old.i#16 _16.i{std::ops::ControlFlow<std::result::Result<std::convert::}#27 buf.i46.i#67 buf.i25.i#73 buf.i18.i#75 buf.i11.i#77 buf.i.i#79 t.i#90 _121{[&[u8]}#127 _65{std::string::String}#129]
+  47  0x4e0  0x4d0    -16    24  8  1   3/7   ix_data.i ~  [_77.i{&[u8]}#84 _63.i{std::result::Result<std::convert::Infallible,anchor_lang}#87 _128{[&[&[u8]]}#126]
+  48  0x4f8  0x4e8    -16    24  8  1   5/5   inner_data.i  [_227{[u8}#105]
+  49  0x528  0x518    -16    48  8  1  15/18  authority_info.i  [dest.i#32 _223{[&[u8]}#106 _41{anchor_lang::prelude::Pubkey}#135]
   54  0x540  0x530    -16    24  8  1   6/7   val.sroa.6.i  [pb#128]
-  95  0x548  0x548     +0     7  4  2   2/2   target.i.sroa.0  [_116.i#39]
- 109  0x560  0x598    +56    24  8  0   3/3   _213*
- 112  0x590  0x5c8    +56    48  8  0   7/7   _198*
+  95  0x548  0x548     +0     7  4  2   2/2   target.i.sroa.0  [_116.i{[u8}#39]
+ 109  0x560  0x598    +56    24  8  0   3/3   _213{std::result::Result<(),anchor_lang::prelude::ProgramErro}*
+ 112  0x590  0x5c8    +56    48  8  0   7/7   _198{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,}*
  114  0x5a8  0x5e0    +56    24  8  0   4/4   inner_data*
  115  0x5d8  0x610    +56    48  8  0   1/1   authority_info* ~
  122  0x5f8  0x630    +56    32  8  0   4/4   old_creator*
@@ -170,10 +170,10 @@ objects: allocas 180  surviving 166  merged 114  no-lifetime 41  PEI rule check:
  288  0xc20      ?      ?     8  8  0   0/0   * ~
 
 # delta breaks (orig has DIFF more bytes between A and B):
-   +512 between fi40 _112.i (T 0x470) and fi41 _109.i (T 0x480)
-   -528 between fi41 _109.i (T 0x480) and fi43 _102.i (T 0x498)
+   +512 between fi40 _112.i{[&[u8]} (T 0x470) and fi41 _109.i{[&[&[u8]]} (T 0x480)
+   -528 between fi41 _109.i{[&[&[u8]]} (T 0x480) and fi43 _102.i{std::result::Result<(),anchor_lang::prelude::ProgramErro} (T 0x498)
     +16 between fi54 val.sroa.6.i (T 0x540) and fi95 target.i.sroa.0 (T 0x548)
-    +56 between fi95 target.i.sroa.0 (T 0x548) and fi109 _213 (T 0x560)
+    +56 between fi95 target.i.sroa.0 (T 0x548) and fi109 _213{std::result::Result<(),anchor_lang::prelude::ProgramErro} (T 0x560)
     -32 between fi122 old_creator (T 0x5f8) and fi145 holder_key (T 0x688)
    +432 between fi147  (T 0x6b8) and fi150  (T 0x6e8)
    -496 between fi151  (T 0x6f8) and fi153  (T 0x718)
@@ -192,21 +192,21 @@ objects: allocas 180  surviving 166  merged 114  no-lifetime 41  PEI rule check:
      +8 between fi234  (T 0xa70) and fi238  (T 0xa90)
 
 # original layout implied by confident objects (sorted by orig T); gaps = orig bytes ours does not place there
-  orig    0x8..  0x38  fi15   _70.i101                     size 48   ours T 0x38   gap +8
-  orig   0x38.. 0x2d0  fi22   _49.i102                     size 664  ours T 0x2d0
-  orig  0x2d0.. 0x450  fi37   _123.i                       size 384  ours T 0x450
-  orig  0x450.. 0x470  fi40   _112.i                       size 32   ours T 0x470
-  orig  0x470.. 0x488  fi43   _102.i                       size 24   ours T 0x498
-  orig  0x488.. 0x4b8  fi46   _86.i                        size 48   ours T 0x4c8
+  orig    0x8..  0x38  fi15   _70.i101{std::result::Result<anchor_lang::prelude::Clock,anchor_l} size 48   ours T 0x38   gap +8
+  orig   0x38.. 0x2d0  fi22   _49.i102{anchor_lang::prelude::AccountInfo<'_>} size 664  ours T 0x2d0
+  orig  0x2d0.. 0x450  fi37   _123.i{pump_amm::internal::__cpi_client_accounts_collect_coin_c} size 384  ours T 0x450
+  orig  0x450.. 0x470  fi40   _112.i{[&[u8]}               size 32   ours T 0x470
+  orig  0x470.. 0x488  fi43   _102.i{std::result::Result<(),anchor_lang::prelude::ProgramErro} size 24   ours T 0x498
+  orig  0x488.. 0x4b8  fi46   _86.i{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,} size 48   ours T 0x4c8
   orig  0x4d0.. 0x4e8  fi48   inner_data.i                 size 24   ours T 0x4f8   gap +24
   orig  0x4e8.. 0x518  fi49   authority_info.i             size 48   ours T 0x528
   orig  0x518.. 0x530  fi54   val.sroa.6.i                 size 24   ours T 0x540
   orig  0x541.. 0x548  fi95   target.i.sroa.0              size 7    ours T 0x548   gap +17
-  orig  0x580.. 0x598  fi109  _213                         size 24   ours T 0x560   gap +56
-  orig  0x598.. 0x5c8  fi112  _198                         size 48   ours T 0x590
+  orig  0x580.. 0x598  fi109  _213{std::result::Result<(),anchor_lang::prelude::ProgramErro} size 24   ours T 0x560   gap +56
+  orig  0x598.. 0x5c8  fi112  _198{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,} size 48   ours T 0x590
   orig  0x5c8.. 0x5e0  fi114  inner_data                   size 24   ours T 0x5a8
   orig  0x610.. 0x630  fi122  old_creator                  size 32   ours T 0x5f8   gap +48
-  orig  0x670.. 0x680  fi41   _109.i                       size 16   ours T 0x480   gap +64
+  orig  0x670.. 0x680  fi41   _109.i{[&[&[u8]]}            size 16   ours T 0x480   gap +64
   orig  0x680.. 0x6a0  fi145  holder_key                   size 32   ours T 0x688
   orig  0x6a0.. 0x6c0  fi146  mint                         size 32   ours T 0x6a8
   orig  0x6c0.. 0x6d0  fi147  -                            size 16   ours T 0x6b8
@@ -251,22 +251,22 @@ objects: allocas 180  surviving 166  merged 114  no-lifetime 41  PEI rule check:
 
 # ORIGINAL StackColoring groups (per-alloca implied orig T from the -no-stack-coloring run)
 #   T_orig  members (ours: slot fi->T) ; "!" = alloca sits in a different group in ours; "*" = no lifetime marker in ours
-    0x38  ours slot fi15@0x38: buf.i.i94#4/24 _70.i101#15/48 buf.i.i68#35/24 _106.i#42/48 _94.i#44/24 _76.i69#51/16 buf.i#65/24 _217#108/48 _205#110/24 _187#117/16
-   0x2d0  ours slot fi22@0x2d0: _106.i97#8/160 _102.i98#9/16 _97.i#10/16 _22.i#26/64 _15.i#28/160 _12.i#29/32 _5.i#31/33 _3.i#33/32 _121.i#38/472 _78.i#50/24 _70.i70#52/48 _44.i#57/376 _33.i#59/16 _23.i#60/32 _8.i#63/160 _119.i#80/160 _88.i#83/160 _70.i#86/64 _62.i#88/160 _59.i#89/32 _48.i#92/160 _39.i#94/160 _29.i#98/160 _9.i#102/160 _4.i#103/32 e#119/200 _158#121/424 _133#124/424 _64#130/160 _49#133/32 _17#142/32 _8#144/33
-   0x450  ours slot fi37@0x450: formatter.i.i93#3/64 _119.i95#6/288 _78.i100#14/24 _8.i105#30/32 formatter.i.i67#34/64 e.i#53/80 _46.i#56/288 formatter.i#64/64 formatter.i45.i#66/64 formatter.i38.i#68/64 formatter.i17.i#74/64 formatter.i10.i#76/64 formatter.i.i#78/64 _431#104/24 _189#116/24 _172#118/48 _160#120/336 _134.sroa.11#123/5! _11#143/32
-   0x470  ours slot fi40@0x470: _79.sroa.5.i#13/24 _112.i#40/32 _9.i72#62/24 ix_data#113/24
-   0x488  ours slot fi43@0x498: _102.i#43/24 buf.i18.i#75/24! _40.i#93/24 _30.i#97/24 _10.i#101/24 _220#107/16
-   0x4b8  ours slot fi46@0x4c8: buf.i309#2/24 old.i#16/32 _16.i#27/24 _86.i#46/48 buf.i46.i#67/24 buf.i39.i#69/24! buf.i11.i#77/24 buf.i.i#79/24 t.i#90/32 _65#129/24
-   0x4d0  ours slot fi47@0x4e0: _128#126/16
+    0x38  ours slot fi15@0x38: buf.i.i94#4/24 _70.i101{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#15/48 buf.i.i68#35/24 _106.i{[anchor_lang::prelude::AccountInfo<'_>}#42/48 _94.i{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#44/24 _76.i69{[&[u8]}#51/16 buf.i#65/24 _217{[anchor_lang::prelude::AccountInfo<'_>}#108/48 _205{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#110/24 _187{[&[u8]}#117/16
+   0x2d0  ours slot fi22@0x2d0: _106.i97{[anchor_lang::prelude::AccountInfo<'_>}#8/160 _102.i98{std::result::Result<(),anchor_lang::prelude::ProgramErro}#9/16 _97.i{std::boxed::Box<[anchor_lang::prelude::AccountMeta}#10/16 _22.i{bool[collection_native]}#26/64 _15.i{std::option::Option<anchor_lang::error::ComparedValues>}#28/160 _12.i{std::option::Option<anchor_lang::error::ErrorOrigin>}#29/32 _5.i{&str}#31/33 _3.i{&str}#33/32 _121.i{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_amm::i}#38/472 _78.i{std::vec::Vec<u8>}#50/24 _70.i70{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#52/48 _44.i{anchor_lang::context::CpiContext<'_,'_,'_,'_,anchor_spl:}#57/376 _33.i{std::result::Result<bool,anchor_lang::error::Error>}#59/16 _23.i{anchor_lang::prelude::Pubkey}#60/32 _8.i{anchor_lang::error::AnchorError}#63/160 _119.i{std::ops::ControlFlow<std::result::Result<std::convert::}#80/160 _88.i{std::slice::Iter<'_,u8>}#83/160 _70.i{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#86/64 _62.i{&anchor_lang::prelude::AccountInfo<'_>}#88/160 _59.i{&anchor_lang::prelude::AccountInfo<'_>}#89/32 _48.i{anchor_lang::prelude::AccountInfo<'_>}#92/160 _39.i{std::result::Result<bool,anchor_lang::error::Error>}#94/160 _29.i{&anchor_lang::prelude::AccountInfo<'_>}#98/160 _9.i{std::string::String}#102/160 _4.i{bool}#103/32 e#119/200 _158{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_amm::i}#121/424 _133{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_fees::}#124/424 _64{anchor_lang::error::AnchorError}#130/160 _49{anchor_lang::prelude::Pubkey}#133/32 _17{anchor_lang::prelude::Pubkey}#142/32 _8{(anchor_lang::prelude::Pubkey,u8)}#144/33
+   0x450  ours slot fi37@0x450: formatter.i.i93#3/64 _119.i95{std::ops::ControlFlow<std::result::Result<std::convert::}#6/288 _78.i100{std::vec::Vec<u8>}#14/24 _8.i105{anchor_lang::error::AnchorError}#30/32 formatter.i.i67#34/64 e.i#53/80 _46.i{anchor_spl::associated_token::Create<'_>}#56/288 formatter.i#64/64 formatter.i45.i#66/64 formatter.i38.i#68/64 formatter.i17.i#74/64 formatter.i10.i#76/64 formatter.i.i#78/64 _431{anchor_lang::prelude::ProgramError}#104/24 _189{std::vec::Vec<u8>}#116/24 _172{std::result::Result<anchor_lang::prelude::Clock,anchor_l}#118/48 _160{pump_amm::internal::__cpi_client_accounts_admin_cto_pool}#120/336 _134.sroa.11{anchor_lang::prelude::AccountInfo<'_>}#123/5! _11{[&[u8]}#143/32
+   0x470  ours slot fi40@0x470: _79.sroa.5.i{&creator::collect_creator_fee::CollectCreatorFeeEvent}#13/24 _112.i{[&[u8]}#40/32 _9.i72{std::string::String}#62/24 ix_data#113/24
+   0x488  ours slot fi43@0x498: _102.i{std::result::Result<(),anchor_lang::prelude::ProgramErro}#43/24 buf.i18.i#75/24! _40.i{std::result::Result<std::convert::Infallible,anchor_lang}#93/24 _30.i{bool[source_frozen]}#97/24 _10.i{u32}#101/24 _220{[&[&[u8]]}#107/16
+   0x4b8  ours slot fi46@0x4c8: buf.i309#2/24 old.i#16/32 _16.i{std::ops::ControlFlow<std::result::Result<std::convert::}#27/24 _86.i{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,}#46/48 buf.i46.i#67/24 buf.i39.i#69/24! buf.i11.i#77/24 buf.i.i#79/24 t.i#90/32 _65{std::string::String}#129/24
+   0x4d0  ours slot fi47@0x4e0: _128{[&[&[u8]]}#126/16
    0x4e8  ours slot fi48@0x4f8: inner_data.i#48/24
-   0x518  ours slot fi49@0x528: dest.i#32/32 _223#106/32
+   0x518  ours slot fi49@0x528: dest.i#32/32 _223{[&[u8]}#106/32
    0x530  ours slot fi54@0x540: val.sroa.6.i#54/24
-   0x548  ours slot fi95@0x548: _116.i#39/1 target.sroa.8#139/9!
-   0x598  ours slot fi109@0x560: _213#109/24*
-   0x5c8  ours slot fi112@0x590: _198#112/48*
+   0x548  ours slot fi95@0x548: _116.i{[u8}#39/1 target.sroa.8#139/9!
+   0x598  ours slot fi109@0x560: _213{std::result::Result<(),anchor_lang::prelude::ProgramErro}#109/24*
+   0x5c8  ours slot fi112@0x590: _198{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,}#112/48*
    0x5e0  ours slot fi114@0x5a8: inner_data#114/24*
    0x630  ours slot fi122@0x5f8: old_creator#122/32*
-   0x680  ours slot fi41@0x480: _109.i#41/16
+   0x680  ours slot fi41@0x480: _109.i{[&[&[u8]]}#41/16
    0x6a0  ours slot fi145@0x688: holder_key#145/32
    0x6c0  ours slot fi146@0x6a8: mint#146/32
    0x6d0  ours slot fi147@0x6b8: ##147/16*
@@ -310,20 +310,20 @@ objects: allocas 180  surviving 166  merged 114  no-lifetime 41  PEI rule check:
    0xac0  ours slot fi242@0xab0: ##242/8*
 
 # OUR groups whose members the original places in different slots
-  ours fi43@0x498: orig 0x488: _102.i#43,_40.i#93,_30.i#97,_10.i#101,_220#107 | orig 0x4b8: buf.i39.i#69
-  ours fi46@0x4c8: orig 0x488: buf.i18.i#75 | orig 0x4b8: buf.i309#2,old.i#16,_16.i#27,_86.i#46,buf.i46.i#67,buf.i11.i#77,buf.i.i#79,t.i#90,_65#129
+  ours fi43@0x498: orig 0x488: _102.i{std::result::Result<(),anchor_lang::prelude::ProgramErro}#43,_40.i{std::result::Result<std::convert::Infallible,anchor_lang}#93,_30.i{bool[source_frozen]}#97,_10.i{u32}#101,_220{[&[&[u8]]}#107 | orig 0x4b8: buf.i39.i#69
+  ours fi46@0x4c8: orig 0x488: buf.i18.i#75 | orig 0x4b8: buf.i309#2,old.i#16,_16.i{std::ops::ControlFlow<std::result::Result<std::convert::}#27,_86.i{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,}#46,buf.i46.i#67,buf.i11.i#77,buf.i.i#79,t.i#90,_65{std::string::String}#129
 
 # ALLOCA ORDER: original slot reps in orig-T order; out-of-order ones (not in the LIS of our fi) need a different alloca position
-  _160#120/336 at orig 0x450: orig puts it between fi38 _121.i and fi40 _112.i
-  _128#126/16 at orig 0x4d0: orig puts it between fi46 _86.i and fi48 inner_data.i
+  _160{pump_amm::internal::__cpi_client_accounts_admin_cto_pool}#120/336 at orig 0x450: orig puts it between fi38 _121.i{anchor_lang::context::CpiContext<'_,'_,'_,'_,pump_amm::i} and fi40 _112.i{[&[u8]}
+  _128{[&[&[u8]]}#126/16 at orig 0x4d0: orig puts it between fi46 _86.i{std::iter::Chain<std::iter::Map<std::slice::Iter<'_,u8>,} and fi48 inner_data.i
   dest.i#32/32 at orig 0x518: orig puts it between fi48 inner_data.i and fi54 val.sroa.6.i
-  target.sroa.8#139/9 at orig 0x548: orig puts it between fi54 val.sroa.6.i and fi109 _213
-  _109.i#41/16 at orig 0x680: orig puts it between fi122 old_creator and fi145 holder_key
+  target.sroa.8#139/9 at orig 0x548: orig puts it between fi54 val.sroa.6.i and fi109 _213{std::result::Result<(),anchor_lang::prelude::ProgramErro}
+  _109.i{[&[&[u8]]}#41/16 at orig 0x680: orig puts it between fi122 old_creator and fi145 holder_key
   ##179/16 at orig 0x700: orig puts it between fi153  and fi155 
   ##178/16 at orig 0x740: orig puts it between fi155  and fi156 
   ##150/16 at orig 0x8b0: orig puts it between fi176  and fi180 
   ##151/16 at orig 0x8c0: orig puts it between fi176  and fi180 
   ##196/8 at orig 0x918: orig puts it between fi186  and fi188 
 
-# allocas without a confident orig slot: 52: _11.i307#0 formatter.i308#1 _132.i#5 _117.i96#7 _94.i99#11 _80.i#12 bump.i#17 _51.sroa.20.sroa.11.i#18 _51.sroa.21.sroa.11.i#19 _51.sroa.22.sroa.11.i#20 _50.sroa.11.i#21 _49.i102#22 _38.i#23 _34.i103#24 _29.i104#25 _209.i#36 _123.i#37 ix.i#45 ix_data.i#47 authority_info.i#49 _57.i#55 _39.i71#58 _17.i#61 formatter.i31.i#70 buf.i32.i#71 formatter.i24.i#72 buf.i25.i#73 _108.i#81 _98.i#82 _77.i#84 _76.i#85 _63.i#87 _49.i#91 target.i.sroa.0#95 target.i.sroa.9#96 _20.i#99 _19.i#100 _227#105 ix#111 authority_info#115 val6#125 _121#127 pb#128 sharing_update2.sroa.3#131 target1#132 sharing_update.sroa.5#134 _41#135 _40#136 _37.sroa.11#137 target.sroa.0#138 st#140 _23#141
+# allocas without a confident orig slot: 52: _11.i307{std::string::String}#0 formatter.i308#1 _132.i{std::result::Result<std::convert::Infallible,anchor_lang}#5 _117.i96{std::result::Result<std::convert::Infallible,anchor_lang}#7 _94.i99{std::vec::Vec<anchor_lang::prelude::AccountMeta>}#11 _80.i{anchor_lang::prelude::AccountInfo<'_>[authority_info]}#12 bump.i#17 _51.sroa.20.sroa.11.i{anchor_lang::prelude::AccountInfo<'_>}#18 _51.sroa.21.sroa.11.i{anchor_lang::prelude::AccountInfo<'_>}#19 _51.sroa.22.sroa.11.i{anchor_lang::prelude::AccountInfo<'_>}#20 _50.sroa.11.i{anchor_lang::prelude::AccountInfo<'_>}#21 _49.i102{anchor_lang::prelude::AccountInfo<'_>}#22 _38.i{std::ops::ControlFlow<std::result::Result<std::convert::}#23 _34.i103{&anchor_lang::prelude::AccountInfo<'_>}#24 _29.i104{&anchor_lang::prelude::AccountInfo<'_>}#25 _209.i{anchor_lang::prelude::ProgramError}#36 _123.i{pump_amm::internal::__cpi_client_accounts_collect_coin_c}#37 ix.i#45 ix_data.i#47 authority_info.i#49 _57.i{std::result::Result<std::option::Option<(u64,anchor_lang}#55 _39.i71{std::result::Result<bool,anchor_lang::error::Error>}#58 _17.i{std::result::Result<bool,anchor_lang::error::Error>}#61 formatter.i31.i#70 buf.i32.i#71 formatter.i24.i#72 buf.i25.i#73 _108.i{&[&[&[u8]]}#81 _98.i{anchor_lang::prelude::AccountMeta}#82 _77.i{&[u8]}#84 _76.i{[&[u8]}#85 _63.i{std::result::Result<std::convert::Infallible,anchor_lang}#87 _49.i{anchor_lang::prelude::AccountInfo<'_>}#91 target.i.sroa.0#95 target.i.sroa.9#96 _20.i{bool[val]}#99 _19.i{std::result::Result<std::convert::Infallible,anchor_lang}#100 _227{[u8}#105 ix#111 authority_info#115 val6#125 _121{[&[u8]}#127 pb#128 sharing_update2.sroa.3#131 target1#132 sharing_update.sroa.5#134 _41{anchor_lang::prelude::Pubkey}#135 _40{anchor_lang::prelude::Pubkey}#136 _37.sroa.11{std::ops::ControlFlow<std::result::Result<std::convert::}#137 target.sroa.0#138 st#140 _23{anchor_lang::prelude::Pubkey}#141
 # group mismatches: 4

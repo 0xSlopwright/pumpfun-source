@@ -155,6 +155,36 @@ def merge_map(before, after):
 
 
 # ---------------------------------------------------------------- llc
+def ir_move_alloca(fn, a, b):
+    lines = fn.split('\n')
+    ia = next(k for k, l in enumerate(lines) if re.match(r'\s*%' + re.escape(a) + r' = alloca ', l))
+    la = lines.pop(ia)
+    if b == 'END':
+        ib = max(k for k, l in enumerate(lines) if re.match(r'\s*%\S+ = alloca ', l)) + 1
+    else:
+        ib = next(k for k, l in enumerate(lines) if re.match(r'\s*%' + re.escape(b) + r' = alloca ', l))
+    lines.insert(ib, la)
+    return '\n'.join(lines)
+
+
+def ir_drop_lifetime(fn, a):
+    out, n = re.subn(r'\n\s*call void @llvm\.lifetime\.(?:start|end)\.p0\(i64 \d+, ptr (?:nonnull )?%' + re.escape(a) + r'\)', '', fn)
+    assert n, 'no lifetime markers for ' + a
+    return out
+
+
+def mir_locals(path, rx):
+    t = Path(path).read_text()
+    m = re.search(rx, t, flags=re.M)
+    if not m: return {}
+    body = t[m.start(): t.index('\n}\n', m.start())]
+    ty = {}
+    for x in re.finditer(r'^\s*let (?:mut )?(_\d+): ([^;]+);', body, flags=re.M): ty[x.group(1)] = x.group(2)
+    for x in re.finditer(r'^\s*debug (\S+) => (_\d+);', body, flags=re.M):
+        ty[x.group(2)] = ty.get(x.group(2), '') + '  [' + x.group(1) + ']'
+    return ty
+
+
 def run_llc(mod_path, sym, d, extra=()):
     o = d / 'm.o'
     cmd = [str(SDK / 'llc'), '-O3', '-relocation-model=pic', '-mattr=+store-imm,+jmp-ext', str(mod_path),
@@ -356,6 +386,12 @@ def main():
     ap.add_argument('--so'); ap.add_argument('--what-if'); ap.add_argument('--minv', type=int, default=2)
     ap.add_argument('--json'); ap.add_argument('--llc', nargs='*', default=[])
     ap.add_argument('--quiet', action='store_true')
+    ap.add_argument('--move-alloca', action='append', default=[], metavar='A:B',
+                    help='IR what-if: move alloca %%A to just before alloca %%B (B="END": after the last alloca)')
+    ap.add_argument('--drop-lifetime', action='append', default=[], metavar='A',
+                    help='IR what-if: delete llvm.lifetime.start/end of alloca %%A (it then never merges)')
+    ap.add_argument('--mir', help='rustc --emit=mir output: annotate _N allocas with their MIR type / debug name')
+    ap.add_argument('--mir-fn', action='append', default=[], help='regex selecting the function header line in --mir (e.g. "^fn swap_hop\\(")')
     ap.add_argument('--no-partition', action='store_true', help='skip the -no-stack-coloring per-alloca run')
     a = ap.parse_args()
     d = Path(a.out) / a.name; d.mkdir(parents=True, exist_ok=True)
@@ -364,9 +400,11 @@ def main():
     if not m: sys.exit('no function matching ' + a.sym)
     sym = m.group(1)
     mod_path = Path(a.ir)
-    if a.edit:
+    if a.edit or a.move_alloca or a.drop_lifetime:
         i = m.start(); j = mod.index('\n}\n', i) + 3
-        fn = mod[i:j]; fn2 = runpy.run_path(a.edit)['edit'](fn)
+        fn = mod[i:j]; fn2 = runpy.run_path(a.edit)['edit'](fn) if a.edit else fn
+        for mv in a.move_alloca: fn2 = ir_move_alloca(fn2, *mv.split(':'))
+        for nm in a.drop_lifetime: fn2 = ir_drop_lifetime(fn2, nm)
         assert fn2 != fn, 'edit changed nothing'
         mod_path = d / 'm.ll'; mod_path.write_text(mod[:i] + fn2 + mod[j:])
     text, cand = run_llc(mod_path, sym, d, a.llc)
@@ -375,6 +413,15 @@ def main():
     before = dumps[('Before', 'stack-coloring')]; after = dumps[('After', 'stack-coloring')]
     pei = dumps[('After', 'prologepilog')]
     names, lt = names_and_marks(before)
+    if a.mir and a.mir_fn:
+        # first --mir-fn: the function itself; second (optional): the LLVM-inlined callee whose
+        # locals carry one '.i' suffix (e.g. a closure); deeper inlines are left unannotated
+        tys = [mir_locals(a.mir, rx) for rx in a.mir_fn]
+        for fi, nm in list(names.items()):
+            parts = nm.split('.'); base = parts[0]
+            depth = sum(1 for x in parts[1:] if re.fullmatch(r'i\d*', x))
+            if depth < len(tys) and base in tys[depth] and (depth == 0 or re.fullmatch(r'i\d*', parts[-1])):
+                names[fi] = nm + '{' + re.sub(r'\s+', '', tys[depth][base])[:56] + '}'
     mm = merge_map(before, after)
     final = frame_objects(pei)
     pre = frame_objects(before)
