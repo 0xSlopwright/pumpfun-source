@@ -1,6 +1,7 @@
 {
   "base_revision": "328e7368959988edee12003072c92b3b1de83720",
   "reviewed_source_sha256": "a35097bc16fdc9a9f051b00671c523136d7d3a17467de33806f95cec707f54d4",
+  "reviewed_source_sha256_lf": "805379ab5b529f77fd9207155f3bf0f19442a818749d3a55152f83007b861310",
   "checks": {
     "regressions": "3 passed",
     "original_captures": "9 passed",
@@ -82,6 +83,8 @@
   },
   "limits": "Printable-run inventory only, not source literal boundaries, dependency code recovery, execution or equivalence.",
   "cli_receipt_sha256": "e3ec1dea2200ad53d97f1717ba105a1949d13c80abaea947d973dc8a743e4da9",
+  "cli_receipt_sha256_lf": "ca6843cb961563da180240e5c27cc899381b84d4855637c1c25e8ac6b4cbbeac",
+  "hash_note": "reviewed_source_sha256 and cli_receipt_sha256 were produced from a CRLF checkout of scripts/deep_section_analysis.py (the receipt embeds the source hash). On the repository LF checkout the source hashes to reviewed_source_sha256_lf and `generate.py --capture spl_token` writes a receipt hashing to cli_receipt_sha256_lf. Per-capture data_layout_sha256 values are SHA-256 of json.dumps(data_layout, indent=2) + newline and are line-ending independent.",
   "added_run": {
     "capture": "spl_token",
     "section": ".rodata",
