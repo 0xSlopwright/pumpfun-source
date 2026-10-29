@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Independent re-verification for amm-boost-chains-20261029.
 
-Checks, from the packet files alone (plus the three program images):
+Checks, from the packet files alone (plus the three program images
+retained in the repository: evidence/original/pump_amm/deployed.so and
+the two candidate.so.gz artifacts named in IMAGE_PATHS, hashed
+decompressed):
 - MANIFEST.json lists every packet file with a matching sha256.
 - runtime/report.json.gz: 23 cases, 171 receipts, 18 parts
   (17x10 + 1), part sha256/byte counts match the part files.
@@ -24,6 +27,17 @@ Checks, from the packet files alone (plus the three program images):
   base_after/remaining, v2 buy/sell/exact, deposit/withdraw
   base/quote, sweep amount/bucket/recipient, collect
   fee/creator/vault-ATA/dest).
+- Token deltas for every watched token account NOT listed in a
+  step's expected deltas are exactly zero (so a boost moves only the
+  pool vaults and the boost vault ATA, and no fee bucket ATA moves).
+- Every successful boost step leaves the pool account byte-identical
+  (lamports, owner and data), not just the four decoded pool fields.
+- The number of "Program data:" event lines in each receipt's logs
+  equals the expected event count, including the two ghost events
+  logged by the read-only-mint drain failure; that failure's logged
+  BoostBuyAndBurnEvent is checked to carry the full 10^12 drain
+  (used 10^12, burned 599,402,446,286,043, remaining 0) although
+  state rolls back.
 - Failure steps roll back every watched account except the fee
   payer (fee 5,000) and carry the expected error code plus the
   recorded per-image site line in their logs. Site lines are
@@ -35,7 +49,8 @@ Checks, from the packet files alone (plus the three program images):
 - The three program images hash to the values recorded in the
   report.
 
-Usage: python3 verify.py   (run from this packet directory)
+Usage (from the repository root):
+    python3 -I -B research/amm-boost-chains-20261029/verify.py
 """
 import base64
 import gzip
@@ -49,12 +64,13 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
+# The three program images are retained in the repository; the two
+# rebuilt images are stored gzip-compressed and hashed decompressed.
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -205,7 +221,10 @@ def main():
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
     for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        if sha(data) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -268,7 +287,20 @@ def main():
                 if exp.get("ata_none"):
                     if rec["after"][str(BOOST_ATA22)] is not None:
                         fail(f"{tag}: boost ATA not closed")
+                for role, key in ROLE_KEY.items():
+                    if role not in exp["deltas"] and tok_delta(rec, key) != 0:
+                        fail(f"{tag}: unlisted delta {role} {tok_delta(rec, key)} != 0")
+                if rec["step"].startswith("boost") and exp["error"] is None:
+                    if rec["before"][str(POOL)] != rec["after"][str(POOL)]:
+                        fail(f"{tag}: boost changed the pool account")
                 raws = ev_list(rec["logs"])
+                if len(raws) != exp["events"]:
+                    fail(f"{tag}: logged events {len(raws)} != {exp['events']}")
+                if label == "a-boost-drain-nowrite-fail":
+                    ghost = decode_event("boost", raws[1])
+                    if (ghost["disc"] != "3f451c16305cc2b9" or ghost["used"] != 10 ** 12
+                            or ghost["burned"] != 599402446286043 or ghost["remaining"] != 0):
+                        fail(f"{tag}: ghost boost event {ghost}")
                 if exp.get("boost_event") is not None:
                     if len(raws) != 2:
                         fail(f"{tag}: boost events {len(raws)} != 2")
@@ -313,7 +345,7 @@ def main():
             for rec, site in zip(recs, sites):
                 if site is not None and site not in "\n".join(rec["logs"]):
                     fail(f"{label}/{image}: recorded site line not in logs: {site}")
-    print("PASS: 23 cases, 171 receipts, 18 parts, 3 images agree (signatures, deltas, withheld, events, error codes/sites, rollback)")
+    print("PASS: 23 cases, 171 receipts, 18 parts, 3 images agree (signatures, deltas, unlisted deltas zero, withheld, events, ghost events, boost pool unchanged, error codes/sites, rollback)")
 
 
 if __name__ == "__main__":
