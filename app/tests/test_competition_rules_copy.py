@@ -1,5 +1,10 @@
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,11 +15,25 @@ SPEC.loader.exec_module(COPY)
 
 
 class RulesCopy(unittest.TestCase):
+    def test_cli_round_trip_without_utf8_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for file in ['evidence/web/manifest.json', COPY.SOURCE]:
+                destination = root / file
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / file, destination)
+            (root / COPY.OUTPUT).parent.mkdir(parents=True)
+            command = [sys.executable, '-X', 'utf8=0', str(ROOT / 'scripts/extract-competition-rules-copy.py'), '--root', str(root)]
+            environment = dict(os.environ, PYTHONUTF8='0')
+            subprocess.run(command, check=True, env=environment, capture_output=True)
+            self.assertEqual((root / COPY.OUTPUT).read_bytes(), COPY.generate(ROOT).encode('utf-8'))
+            subprocess.run(command + ['--check'], check=True, env=environment, capture_output=True)
+
     def test_authenticated_output_matches(self):
-        self.assertEqual(COPY.generate(ROOT), (ROOT / COPY.OUTPUT).read_text())
+        self.assertEqual(COPY.generate(ROOT), (ROOT / COPY.OUTPUT).read_text(encoding='utf-8'))
 
     def test_selects_web_namespace_not_conflicting_mobile_copy(self):
-        labels = COPY.extract((ROOT / COPY.SOURCE).read_text())
+        labels = COPY.extract((ROOT / COPY.SOURCE).read_text(encoding='utf-8'))
         self.assertEqual(len(labels), 32)
         self.assertIn("registration closes", labels["rule_join_solo"])
         self.assertIn("every position you hold at the start", labels["scoring_default"])
