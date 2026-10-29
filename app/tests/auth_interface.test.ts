@@ -447,3 +447,18 @@ test("closing synchronously on loading does not leave an orphan timer", async ()
   assert.equal(reads, 0);
   controller.dispose();
 });
+
+test('listeners registered during a publication wait for the next state',()=>{
+  const clock=manualTimer();const controller=new AuthDialogController(unavailableAuthAdapter,{timer:clock.timer});
+  let added=false,lateCalls=0;
+  controller.subscribe(()=>{if(!added){added=true;controller.subscribe(()=>{lateCalls++;});}});
+  try {controller.open();assert.equal(lateCalls,0);controller.close();assert.equal(lateCalls,1);}
+  finally {controller.dispose();}
+});
+
+test('a listener removed during publication is not invoked from the snapshot',()=>{
+  const clock=manualTimer();const controller=new AuthDialogController(unavailableAuthAdapter,{timer:clock.timer});
+  let calls=0,remove=()=>{};
+  controller.subscribe(()=>remove());remove=controller.subscribe(()=>{calls++;});
+  try {controller.open();assert.equal(calls,0);} finally {controller.dispose();}
+});
