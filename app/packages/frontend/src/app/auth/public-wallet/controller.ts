@@ -200,16 +200,18 @@ export class PublicWalletController {
   };
   private address(wallet: Wallet) {
     const accounts = wallet.raw.accounts;
-    if (
-      !Array.isArray(accounts) ||
-      !record(accounts[0]) ||
-      !Array.isArray(accounts[0].chains) ||
-      !accounts[0].chains.some(
-        (chain) => typeof chain === "string" && chain.startsWith("solana:"),
-      )
-    )
-      throw new Error("No Solana account");
-    return publicAddress(accounts[0].address);
+    if (!Array.isArray(accounts)) throw new Error("No Solana account");
+    const account = accounts.find(
+      (candidate) =>
+        record(candidate) &&
+        Array.isArray(candidate.chains) &&
+        candidate.chains.some(
+          (chain: unknown) =>
+            typeof chain === "string" && chain.startsWith("solana:"),
+        ),
+    );
+    if (!record(account)) throw new Error("No Solana account");
+    return publicAddress(account.address);
   }
   connect = async (id: number) => {
     if (
