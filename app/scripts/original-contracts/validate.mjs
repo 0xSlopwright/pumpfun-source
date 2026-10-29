@@ -8,7 +8,9 @@ export function validateDeclared(document, schema, value) {
     if (input === undefined && rule['x-zod-optional']) return;
     if (rule.$ref) {
       if (!rule.$ref.startsWith('#/$defs/')) throw new Error('unsupported external schema reference');
-      const target = document.$defs[rule.$ref.slice('#/$defs/'.length)];
+      const name = rule.$ref.slice('#/$defs/'.length);
+      if (!document.$defs || !Object.hasOwn(document.$defs, name)) throw new Error(`unresolved schema ${rule.$ref}`);
+      const target = document.$defs[name];
       if (!target) throw new Error(`unresolved schema ${rule.$ref}`);
       visit(target, input, path, depth + 1);
     }
