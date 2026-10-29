@@ -42,6 +42,16 @@ Approach: semantic reconstruction (callgraph census first, then the IR oracle).
      gives the original's polarity. The target goes from 7656 B / ratio 0.3129 / masked 0.7100 to
      **7664 B / 0.3287 / masked 0.7415**. buy_v3 and sell_v3 are unchanged (3680/0.8774, 6040/0.9871). Score is 1022/276, no losses.
 
+3. **Post-merge retest and MIR JumpThreading (h01).** In rustc's pre-optimization IR the join after
+   `let (post,costs)=if ..` (destructuring plus `if can_cross`) was duplicated into all three arms
+   (guard false, estimate None, fit Some). MIR JumpThreading knows `post`'s discriminant on the None
+   paths and threads the `match post{..}` that computes base_out. The original has one join with one
+   `ldxdw [can_cross]; and64 1; jne` retest. `match &post{Some(p)=>p.base_out,None=>0}`
+   (or `post.as_ref().map_or(0,|p|p.base_out)`) borrows `post`, which takes the local out of JumpThreading's tracked places.
+   Together with the original's hoisted `let rest=available.saturating_sub(first)` and bitwise
+   `can_cross & (available>first)` guard (x01, which was worse on its own), the target goes to **7776 B, ratio 0.6135, masked 0.8532**.
+   With `&&` (h02) it gets worse, so the bitwise guard and the borrow belong together.
+
 ## Attempts (ledger keys `0x1489f8-main-6654999-*-v1`)
 
 | trial | mechanism | bytes | ratio | masked | result |
@@ -58,4 +68,12 @@ Approach: semantic reconstruction (callgraph census first, then the IR oracle).
 | c08 | `#[inline]` hint | 7656 | = base | | identical |
 | c09 | non-inline `v3_can_cross` (direct) | 7664 | 0.3287 | 0.7415 | partial |
 | c10 | c07 + exempt local | 7656 | 0.2650 | 0.6344 | = c07 |
-| **c11** | non-inline `v3_can_cross{!v3_fee_exempt}` | 7664 | 0.3287 | 0.7415 | **kept** |
+| **c11** | non-inline `v3_can_cross{!v3_fee_exempt}` | 7664 | 0.3287 | 0.7415 | kept |
+| g01 | c11 + rest local + `can_cross & (available>first)` | 7720 | 0.2883 | 0.7112 | locally right guard; fit moved to end |
+| g02 | c11 + `can_cross && rest>0` | 7664 | 0.3138 | 0.6830 | rejected |
+| g03 | c11 + `can_cross & (rest>0)` | 7720 | = g01 | | identical |
+| g04/g05 | `let est=estimate(..)?; match est` | | = g01 / = c11 | | identical |
+| g06 | est local + `Some(ref mut post)` | 7664 | 0.2915 | 0.6819 | 65 calls, rejected |
+| **h01** | g01 + `match &post{..}` for base_out | 7776 | 0.6135 | 0.8532 | **kept** |
+| h02 | c11 (&& guard) + `match &post` | 7688 | 0.3038 | 0.6543 | rejected |
+| h03 | g01 + `post.as_ref().map_or(0,..)` | 7776 | = h01 | | identical |
