@@ -43,3 +43,13 @@ Target: original window `0x6cd78` (8,544 B), `legacy_sell::process_cashback_inne
 
 Ledger attempt ids: 92dba45b (try_from_unchecked), b02ee191/143f1c62 (inline else), b7fe3455 (inline(always)),
 1adf199b (early-taildup diagnostic), ada66214 (keyif), efa2b36a (named bump array); sweep rows for 0x6cd78 by lane cashback-inner-reconstruction.
+
+## Round 2
+
+PR #1234 merged step 1 only (0.7611). Branch merged with origin/main (1020 normalized, which includes the
+coordinate-archaeology Location realign of the `copy_from_slice` lines). Step 2 (named bump array) re-applied on top:
+
+| build | cand bytes | ratio | official normalized / raw | gains / losses vs d2cb88d |
+| --- | ---: | ---: | --- | --- |
+| origin/main 60bdd8a | 8,584 | 0.7611 | 1020 / 188 | 0x14f4e0 / none |
+| round 2 t00 (bump_seed) | 8,584 | 0.8031 | 1020 / 188 | 0x14f4e0 / none |
