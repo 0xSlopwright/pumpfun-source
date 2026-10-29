@@ -1,4 +1,4 @@
-# research: multi-hop fee-table split — hop 1 follows fee-tier cap selection, the tail hop follows exotic flat fees
+# research: multi-hop fee-table split — hop 1 follows fee-tier cap selection, the tail creator accrual tracks the exotic flat fees
 
 ## Problem
 
@@ -15,7 +15,7 @@ isolation but never asked whether the hops share one table:
   vault_base`, last tier whose threshold is `<= cap`, inclusive),
   and a chain crosses thresholds mid-sequence.
 
-Open questions this packet closes: does hop 1 of a multi-hop route
+Questions this packet addresses: does hop 1 of a multi-hop route
 follow the same cap-based tier selection as a v2 trade, and does
 it cross mid-chain when the main cap moves? Does the tail hop
 follow the fee tiers too, the stable tiers, or something else?
@@ -32,9 +32,9 @@ token amounts unless noted. Pool state is
 lp_supply). The fixture pools are main (-125,882, 2,488, 123,394,
 4,194,352,106,721), POOL2 (-125,882, 2,488, 123,394, same supply),
 P3 (-125,882, 2,488, 123,394, same supply). The main pool's
-starting cap is exactly 182,350,153,971. The two custom tiers are
-A = (lp 10, protocol 111, creator 333) and B = (lp 20, protocol
-222, creator 444); feeconfig is patched in place (tiers replaced,
+starting cap is exactly 182,350,153,971. The custom tiers are
+A = (lp 10, protocol 111, creator 333), B = (lp 20, protocol
+222, creator 444) and C = (lp 30, protocol 333, creator 555); feeconfig is patched in place (tiers replaced,
 stable and exotic sections preserved) unless a case says
 otherwise. The default exotic flat fees are (lp 20, protocol 5,
 creator 5); the default flat fees are (25, 5, 0).
@@ -45,7 +45,8 @@ Family A -- hop-1 tier crossing inside a multi-hop chain:
   A (out 5,305,797,837,698, buyback 5,489,071, main protocol
   5,491,560); buy2 pays B (out 5,058,267,896,137, buyback
   10,858,932, main protocol 16,350,492). One multi-hop buy moves
-  the main cap by ~2.9B (vs ~5.4M per v2 buy), so the threshold
+  the main cap by ~2.9B (vs ~5.4M per v2 buy in 3rd #35/#36;
+  that figure is not re-measured here), so the threshold
   sits between the two chain caps. The full sweep-all drains
   exactly: tail creator 5,236,452,906, tail protocol 2,488,
   P2 creator 123,394, P2 protocol 2,488, main creator 123,394,
@@ -78,32 +79,43 @@ tiers (all cases: one 10^9 buy, then tail sweep/collect):
   buyback 4,607,153, tail creator 2,671,866,295 (seed 123,394 +
   accrual 2,671,742,901); sweep/collect drain 2,671,866,295.
 - `b-exotic-zero`: exotic flat set to (0, 0, 0). Out
-  5,315,084,721,959 (one more than default: the tail fee is
-  gone), tail creator stays at the seed 123,394; sweep/collect
-  drain only 123,394.
+  5,315,084,721,959 (one more than default), tail creator stays
+  at the seed 123,394; sweep/collect drain only 123,394. The
+  creator accrual disappears but the user's tail output moves by
+  only 1, so zeroing the whole exotic row did not remove a
+  ~30 bps lp+protocol load from the output (compare
+  `b-exotic-lp-proto`, where raising lp/protocol to (50, 10)
+  cuts the output by ~13.2B). One reading consistent with this,
+  not tested here, is that an all-zero exotic row falls back to
+  a row with the same lp+protocol total (the flat fees
+  (25, 5, 0) also total 30 bps); no mechanism is asserted.
 - `b-exotic-creator333`: exotic flat set to (25, 5, 333). Out
   5,145,088,892,634, tail creator 172,217,658,022 (seed +
   172,217,534,628); sweep/collect drain the full amount. The
-  tail accrual scales with the exotic creator parameter, not
-  with any tier creator leg (333 bps of the tail amount would
-  be ~177B at this scale; the observed 172.2B tracks the
-  exotic parameter through the curve feedback).
+  tail accrual scales with the exotic creator parameter (no
+  tier was changed in this case). 333 bps of this case's tail
+  output would be ~171.3B, and of the default tail output
+  ~177.0B; the observed 172.2B lies between them, and the exact
+  rounding path is not pinned.
 - `b-exotic-lp-proto`: exotic flat set to (50, 10, 0). Out
   5,301,933,218,234, tail creator stays at the seed 123,394:
   the lp/proto legs move the output while the zero creator leg
   leaves the bucket empty.
 - `b-stable-allA` / `b-stable-allC`: all 25 stable tiers replaced
-  with A (resp. C). Byte-identical to default (out
-  5,315,084,721,958, tail creator 2,671,866,295): the stable
-  table does not drive the tail hop at all.
+  with A (resp. C). Same transactions, logs and raw event bytes
+  as `b-default-tail` (out 5,315,084,721,958, tail creator
+  2,671,866,295); only the patched feeconfig account differs.
+  Rewriting the stable tier rows did not change the tail hop
+  in this fixture. (`b-stable-allC` runs the buy only.)
 - `b-tiers-allA`: all 25 fee tiers replaced with A. Out
   5,305,797,837,698 (the hop-1 tier-A legs), tail creator
   2,667,173,140 (seed + 2,667,049,746). The tail accrual as a
   share of tail output is 2,667,049,746 / 5,305,797,837,698
   vs default 2,671,742,901 / 5,315,084,721,958 -- both about
-  0.0503%, i.e. the exotic flat creator rate of 5 bps, not a
-  tier creator rate (333 bps would be ~66x larger). The tiers
-  move hop 1 only; the tail rate is independent of them.
+  0.0503%, close to the exotic flat creator rate of 5 bps and
+  far from the tier creator rate (333 bps would be ~66x
+  larger). Replacing the tiers changed hop 1's legs; the tail
+  creator rate stayed at about the same share.
 - `b-stable-count0`: only the stable count field patched to 0
   (exotic untouched). Out 5,327,241,861,485, tail creator
   1,071,278,067 (seed + 1,071,154,673) -- neither the default
@@ -114,38 +126,59 @@ tiers (all cases: one 10^9 buy, then tail sweep/collect):
   shape). Out 5,305,797,837,699, tail creator stays at the seed
   123,394: rebuilding the config with tiers only silently
   zeroes the tail fee. A reimplementation that copies only the
-  tier table gets the tail hop wrong.
+  tier table does not reproduce the tail creator accrual.
 
 ## Result
 
-- Hop 1 of a multi-hop route selects its fee tier exactly like a
-  v2 trade: cap-based, inclusive at the threshold, crossing up
-  on buys and down on sells inside one chain, and sticky across
-  a direction change while the cap stays on the same side of
-  the threshold.
-- The tail hop does not use the fee tiers or the stable tiers:
-  it uses the exotic flat fees. The evidence is the rate (about
-  0.0503% of tail output, matching the exotic creator parameter
-  5, not any tier creator leg), the zeroing under exotic
-  creator 0, the ~64x scaling under exotic creator 333, and
-  the byte-identical results under every stable-tier rewrite.
-- The feeconfig rebuild trap is real: a config with only
-  fee_tiers (stable + exotic zeroed) passes hop 1 exactly and
-  silently drops the entire tail creator fee to the seed.
+- In every case measured, hop 1 of a multi-hop route paid the
+  tier that the v2 cap rule selects: inclusive at the
+  threshold, crossing up on buys and down on sells inside one
+  chain, and staying on the upper tier across a buy-to-sell
+  direction change while the cap stayed above the threshold.
+  The tier is inferred from the buyback and pool protocol legs
+  (B's ~2x A's); this packet does not recompute the cap from
+  each receipt.
+- The tail hop's creator accrual tracks the exotic flat-fee
+  creator parameter, not the fee tiers or the stable tier rows:
+  about 0.0503% of tail output under exotic creator 5, the
+  seed only under exotic creator 0, ~64x under exotic creator
+  333, unchanged when all fee tiers become A, and identical
+  logs and events when all stable rows are rewritten. It is not
+  the whole story: patching only the stable count to 0 (exotic
+  untouched) changes the accrual to 1,071,154,673, and zeroing
+  the whole exotic row leaves the tail output within 1 of the
+  default (see `b-exotic-zero`).
+- The feeconfig rebuild trap: a config with only fee_tiers
+  (stable + exotic zeroed) gave hop 1 the same legs as
+  `b-tiers-allA` and left the tail creator bucket at the seed.
 - No original-vs-rebuilt divergence: all 15 cases agree across
   the original, control (#424), and candidate (#427) images
-  (observed surface, error codes, events). The fee-table split
-  is the same on all three images.
-- The sweep/collect pipes are unaffected by the split: every
-  bucket (tail creator, tail protocol, P2 buckets, main
-  buckets) drains exactly, including the mixed two-tier main
+  (step, error, raw event bytes, and before/after snapshots
+  with fee-payer lamports zeroed). No step in this packet
+  fails, so no error path is compared.
+- Every sweep/collect measured drained its bucket exactly: all
+  six buckets in `a-buy-cross-swc` (tail creator, tail
+  protocol, P2 buckets, main buckets) and the tail creator
+  bucket in the other sweep cases, including the mixed two-tier main
   protocol bucket (16,350,492) and the exotic-driven tail
   bucket (172,217,658,022).
 
-## Verification
+## Verify and provenance
 
-Run `python3 verify.py` from this directory. It checks, from the
-packet files alone (plus the three program images):
+From the repository root:
+
+    python3 -I -B research/amm-multi-hop-fee-table-split-chains-20261029/verify.py
+
+`verify.py` needs only `solders` plus files in the repository:
+this packet, `evidence/original/pump_amm/deployed.so`, and the
+two retained rebuilt images
+`research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz`
+(control, #424) and
+`research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz`
+(candidate, #427), whose decompressed sha256 values match the
+`images` block of `runtime/report.json.gz`. It re-checks the
+recorded receipts; it does not re-execute any transaction. It
+checks:
 
 - MANIFEST.json lists every packet file with a matching sha256.
 - runtime/report.json.gz: 15 cases, 156 receipts, 16 parts
@@ -154,12 +187,29 @@ packet files alone (plus the three program images):
   verify.
 - Every receipt's recorded before/after snapshots reproduce the
   report's expected values: fee-payer lamport deltas, the
-  token-leg deltas, pool states, volume accumulator state, and
-  decoded event fields.
-- The observed surface of every case is identical across the
-  original, control, and candidate images.
+  token-leg deltas (every watched token account not listed
+  moves by 0), the three pool states, volume accumulator
+  state, and decoded event fields (multi-hop events by
+  discriminator and length only).
+- No step fails or is a silent no-op.
+- The observed surface of every case (step, error, raw event
+  bytes, snapshots with fee-payer lamports zeroed) is identical
+  across the original, control, and candidate images.
 - The three program images hash to the values recorded in the
   report.
+
+The tier each trade paid and the cap values quoted above come
+from the producer's setup and the buyback/protocol legs; verify.py
+does not recompute the live cap.
+
+`producer.py` is the script that generated the receipts and the
+report and is kept as a provenance record. It is not runnable as
+committed: it hard-codes a private workspace layout
+(`~/workspace/pumpfun-sparse` for the harness scripts and
+`~/workspace/slop-verify` for the control/candidate `.so` files)
+and chdirs there on start. It does not write MANIFEST.json (it
+prints a reminder to regenerate it); the manifest was sealed
+separately.
 
 ## Limits
 

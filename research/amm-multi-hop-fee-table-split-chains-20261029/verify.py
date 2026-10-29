@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Independent re-verification for amm-multi-hop-fee-table-split-chains-20261029.
 
-Checks, from the packet files alone (plus the three program images):
+Checks, from the packet files alone (plus the three program images retained in the
+repository: evidence/original/pump_amm/deployed.so and the two
+candidate.so.gz artifacts named in IMAGE_PATHS):
 - MANIFEST.json lists every packet file (except itself) with a matching sha256.
- - runtime/report.json.gz: 15 cases, 156 receipts, 16 parts
+- runtime/report.json.gz: 15 cases, 156 receipts, 16 parts
   (15x10 + 6), part sha256/byte counts match the part files.
 - Every receipt transaction parses (solders) and all signatures verify.
 - Every receipt's recorded before/after snapshots reproduce the
@@ -16,20 +18,21 @@ Checks, from the packet files alone (plus the three program images):
   payer user after it), and the decoded event fields (multi-hop
   disc/len per hop event, sweep amount/bucket/recipient, collect
   fee/creator/vault-ATA/dest).
-- Failure steps roll back every watched account except the fee
-  payer (fee 5,000) and carry the expected error code plus the
-  recorded per-image site line in their logs. A sweep/collect
-  after a drained bucket is a silent no-op (0 events, payer
-  5,000 only). Site lines are checked per image, never compared
-  across images, because original and rebuilt sources differ in
-  line numbers.
- - All three observed surfaces are identical in every case: the
+- No step in this packet fails or is a silent no-op: every
+  step expects no error and at least one event, and verify.py
+  checks that. (The rollback and per-image error-site checks
+  below are kept from the shared template but no step here
+  exercises them.)
+- All three observed surfaces are identical in every case: the
   report flags no case divergent, and verify.py checks that the
-  computed divergence is False for every case. Control and
-  candidate are identical as well.
+  computed divergence is False for every case. The surface is
+  step, error, the raw event bytes decoded from the logs, and
+  the before/after snapshots with fee-payer lamports zeroed.
+  Control and candidate are identical as well.
 - The three program images hash to the values recorded in the report.
 
-Usage: python3 verify.py   (run from this packet directory)
+Usage (from the repository root):
+    python3 -I -B research/amm-multi-hop-fee-table-split-chains-20261029/verify.py
 """
 import base64
 import gzip
@@ -43,12 +46,13 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
+# The three program images are retained in the repository; the two
+# rebuilt images are stored gzip-compressed and hashed decompressed.
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -173,6 +177,7 @@ def surface(recs):
             return d
         out.append({"step": rec["step"], "error": rec["error"],
                     "events": len(rec["events"]),
+                    "event_bytes": [e.hex() for e in ev_list(rec["logs"])],
                     "before": strip(rec["before"]), "after": strip(rec["after"])})
     return out
 
@@ -194,7 +199,10 @@ def main():
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
     for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        if sha(data) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -224,6 +232,8 @@ def main():
                 fail(f"{label}/{image}: {0 if recs is None else len(recs)} receipts, expected {len(expect)}")
             for rec, exp in zip(recs, expect):
                 tag = f"{label}/{image}/{rec['step']}"
+                if exp["error"] is not None or exp["events"] < 1 or exp.get("rollback"):
+                    fail(f"{tag}: unexpected failure/no-op expectation")
                 tx = Transaction.from_bytes(base64.b64decode(rec["transaction_base64"]))
                 if not all(tx.verify_with_results()):
                     fail(f"{tag}: signature verification failed")
@@ -285,7 +295,7 @@ def main():
                 if site is not None and site not in "\n".join(rec["logs"]):
                     fail(f"{label}/{image}: recorded site line not in logs: {site}")
     print(f"PASS: 15 cases, 156 receipts, 16 parts, 3 images agree "
-          f"(signatures, deltas, events, error codes/sites, rollback)")
+          f"(signatures, deltas, pool states, event fields and raw event bytes)")
 
 
 if __name__ == "__main__":
