@@ -114,6 +114,10 @@ export class LeaderboardStore {
     // The store documents deterministic read-only data: snapshot the seed so
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.boards = structuredClone(seed ?? (seedData as unknown as RawSeed));
+    for (const period of PERIODS) {
+      const wallets = this.boards[period].map((entry) => entry.walletAddress);
+      if (new Set(wallets).size !== wallets.length) throw new TypeError('Duplicate leaderboard wallet');
+    }
     this.userStore = userStore ?? defaultStore;
   }
 

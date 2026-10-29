@@ -477,6 +477,7 @@ export class PositionsStore {
       pageSize > 200 ||
       (options.chainId !== undefined &&
         !Number.isSafeInteger(options.chainId)) ||
+      [options.totalsOnly, options.filterSpam, options.spamOnly].some(value => value !== undefined && typeof value !== "boolean") ||
       (options.filterSpam && options.spamOnly)
     )
       throw new RangeError("Invalid portfolio selection");

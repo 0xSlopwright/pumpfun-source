@@ -22,6 +22,7 @@ export function localMintPositionClient({ baseUrl, fetchImplementation }) {
     async (operation, { params, query, hooks }) => {
       if (operation !== "GET /user-positions/{userId}")
         throw new TypeError("Unsupported position operation");
+      if ([".", ".."].includes(String(params.userId))) throw new TypeError("Invalid path segment");
       const url = new URL(
         `user-positions/${encodeURIComponent(String(params.userId))}`,
         base,

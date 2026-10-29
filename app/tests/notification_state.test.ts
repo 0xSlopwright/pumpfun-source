@@ -762,3 +762,35 @@ test("retry actions keep submitted topic A after pending B is ignored", async ()
   assert.equal(actions.hasTopicRetry(), false);
   assert.equal(actions.retryTopic(), undefined);
 });
+
+test("a listener removed during publication is not invoked from the snapshot", () => {
+  const controller = createNotificationController();
+  let removedCalls = 0;
+  let stopRemoved = () => {};
+  controller.subscribe(() => {
+    stopRemoved();
+  });
+  stopRemoved = controller.subscribe(() => {
+    removedCalls++;
+  });
+  controller.reset();
+  assert.equal(removedCalls, 0);
+});
+
+test("a listener added during publication waits for the next publication", () => {
+  const controller = createNotificationController();
+  let lateCalls = 0;
+  let added = false;
+  controller.subscribe(() => {
+    if (!added) {
+      added = true;
+      controller.subscribe(() => {
+        lateCalls++;
+      });
+    }
+  });
+  controller.reset();
+  assert.equal(lateCalls, 0);
+  controller.reset();
+  assert.equal(lateCalls, 1);
+});

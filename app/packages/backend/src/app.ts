@@ -186,7 +186,7 @@ function validateFixture(
   const status = candidate.status as number;
   if (
     candidate.body !== null &&
-    (status === 204 || status === 304)
+    (status === 204 || status === 205 || status === 304)
   ) {
     throw new Error(
       `Invalid fixture registration (${provenance}): status ${status} responses cannot carry a body; use null`,
@@ -466,6 +466,8 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
       });
     }
     if (fixture.headers) reply.headers(fixture.headers);
+    // RFC 9110 section 15.3.6 forbids content in a 205 response.
+    if (fixture.status === 205) return reply.code(205).send();
     // Fixture bodies are JSON by default; explicit non-JSON types stay verbatim.
     const contentType = reply.getHeader("content-type");
     if (

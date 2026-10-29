@@ -21,6 +21,7 @@ export function localPortfolioPolicyClient({ baseUrl, fetchImplementation }) {
     if (operation === "GET /user-portfolio/dust-floor")
       url = new URL("user-portfolio/dust-floor", base);
     else if (operation === "GET /user-portfolio/{userId}") {
+      if ([".", ".."].includes(String(options.params.userId))) throw new TypeError("Invalid path segment");
       url = new URL(
         `user-portfolio/${encodeURIComponent(String(options.params.userId))}`,
         base,
@@ -44,6 +45,7 @@ export function localPortfolioPolicyClient({ baseUrl, fetchImplementation }) {
       const replacement = await hook(new Request(url, init), {}, response);
       if (replacement instanceof Response) response = replacement;
     }
+    if (!response.ok) throw Object.assign(new Error(`Local portfolio HTTP ${response.status}`), { response });
     const text = response.status === 204 ? "" : await response.text();
     return text === "" ? "" : JSON.parse(text);
   };
