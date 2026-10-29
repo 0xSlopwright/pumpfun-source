@@ -1,0 +1,2 @@
+import runpy
+EDITS=runpy.run_path('ed/r1nc.py')['EDITS']+[(" let virtual_quote_reserves=if quote_mint==Pubkey::default() {global.initial_virtual_sol_reserves} else {reserves.unwrap_or(global.initial_virtual_quote_reserves)};\n"," let quote_reserves=reserves.unwrap_or(global.initial_virtual_quote_reserves);let virtual_quote_reserves=if quote_mint==Pubkey::default() {global.initial_virtual_sol_reserves} else {quote_reserves};\n")]

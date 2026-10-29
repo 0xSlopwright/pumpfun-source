@@ -10,7 +10,13 @@ Base: origin/main 630a074 (1023 normalized / 277 raw); target 0.75114, 15,632 B,
 | base 630a074 | 15,632 | 0.75114 | 125 | 1023/277 | x27 form |
 | r1nc (R1 rep: `Option<u64>` reserves, `Nested(u8)`) | 15,528 | 0.50862 | 125 | 1023/276 | raw loses 0xa868 |
 | s1 = r1nc + `let initial_virtual_quote_reserves=global.…;` before the test | 15,544 | 0.54281 | 125 | 1023/276 | source form of the w3 "sel" IR edit |
-| **t3 = s1 + curve init moved into `fn init_curve(...)` taking `quote_mint: Pubkey` by value** | **15,600** | **0.80355** | 125 | 1023/276 | frame layout = original; raw loses 0xa868 (layout) |
+| t3 = s1 + curve init moved into `fn init_curve(...)` taking `quote_mint: Pubkey` by value | 15,600 | 0.80355 | 125 | 1023/276 | frame layout = original; raw loses 0xa868 (layout) |
+| v9 = t3 with the helper taking the accounts struct (global/bonding_curve bound inside) | 15,592 | 0.80484 | 125 | 1023/276 | |
+| **w1 = v9 + `let sol=Pubkey::default();` before the ivqr let (`impl CreateV2 { fn init_curve(&mut self, ..) }`)** | **15,544** | **0.81260** | 125 | 1023/276 | ivqr load now after the memcmp, in the else block, as in the original |
+
+Other trials (all 1023/276, raw -0xa868): plain `unwrap_or` in helper 0.75485 (sink.split back); ivqr let inside
+else 0.7558; depth computed inside helper 0.80365/0.80829; creator stored after tts / `OptionBool` holder /
+`&mut Account` param / method form: byte-identical; legacy-create store order 0.80237 (15,584 B, raw 283 by layout luck).
 
 ## Mechanisms
 
@@ -26,7 +32,10 @@ Base: origin/main 630a074 (1023 normalized / 277 raw); target 0.75114, 15,632 B,
    LLVM-inlined `.i` allocas, before all MIR-local allocas); after LLVM inlining the callee compares that copy
    in place and stores it into the curve. In the caller `quote_mint` is no longer borrowed, so it is SROA'd to
    `_83.sroa.12` (the original's untouched 24 B object at -0x4d8). Frame now equals the original through -0x508.
-3. Remaining diff is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
+3. **default first**: with `let sol=Pubkey::default();` before the eager ivqr load, the memset precedes the
+   load and only the readonly memcmp follows it, so after SimplifyCFG has formed the select InstCombine sinks
+   the load into the non-SOL block (original: `ldxdw r3,[global+0x428]` after the memcmp branch).
+4. Remaining diff is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
    -0x720, depth as `jlt tag,3; mov r9,r5`) and the curve-store schedule.
 
 ## Raw-layout caveat
