@@ -15,8 +15,9 @@ Distance = masked instruction diff (call/lddw immediates and branch offsets mask
 | main 66549991 | 15,488 / 0.95334 | 72 | 1022 / 276 |
 | `let whitelisted=a.global.whitelist_pda==a.user.key();` bound before the fee tuple (f24ce58f) | 15,488 / 0.95597 | 67 | 1022 / 276, no gains/losses |
 | + `if _size != 0 { unsafe { core::hint::unreachable_unchecked() } }` in v2 `ensure_rent_exempt` (c948be9c) | 15,512 / 0.97629 | 52 | 1022 / 276, no gains/losses |
+| + `complete_and_prepare` ends `prepare_bonding_curve(..)?;Ok(())` (3a49f3ef) | 15,512 / 0.97682 | 50 | 1022 / 276, no gains/losses |
 
-The second step also moves the siblings: exact-quote handler 0x13f630 0.97829 -> 0.99351 (20,216 B)
+The second step also moves the siblings: exact-quote handler 0x13f630 0.97829 -> 0.99351 (20,216 B; 0.99392 after the third step)
 and sell_v2 0x144508 0.95152 -> 0.96294 (13,968 B). The callee window 0x3b598 stays normalized.
 
 ### Why the `_size` hint works
