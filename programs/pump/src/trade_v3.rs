@@ -772,7 +772,7 @@ pub fn buy(mut ctx:Context<SellV3>,amount:u64,max_sol_cost:u64,partial_fill:bool
     crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.user)?;
     validate_trade(a.bonding_curve.complete as u8,a.bonding_curve.is_cashback_coin as u64,0)?;
     let real=a.bonding_curve.real_token_reserves;
-    let exempt=v3_fee_exempt(&a.global,&a.bonding_curve,&a.user.key());let (amount,excess)=if amount>real && !exempt{(real,amount-real)}else{(if partial_fill{amount.min(real)}else{amount},0)};
+    let can_cross=v3_can_cross(&a.global,&a.bonding_curve,&a.user.key());let (amount,excess)=if amount>real && can_cross{(real,amount-real)}else{(if partial_fill{amount.min(real)}else{amount},0)};
 
 // layout-pad(24): aligns the next Source site with the original line
 
@@ -1178,7 +1178,7 @@ pub fn sell(ctx:Context<SellV3>,amount:u64,min_sol_output:u64)->Result<()> {sell
 
 
 
-    let event=crate::multi_hop_curve::trade_event(&a.bonding_curve,&a.global,&a.user_volume_accumulator,&a.user.key(),&a.base_mint.key(),false,amount,quote,&fees,crate::transfer_fee_recovered::post_fee_amount(&quote_fee,buyback_fee)?,quote_transfer_fee,"sell",Clock::get()?.unix_timestamp);
+    let event=sell_event(&a.bonding_curve,&a.global,&a.user_volume_accumulator,&a.user.key(),&a.base_mint.key(),amount,quote,fees,crate::transfer_fee_recovered::post_fee_amount(&quote_fee,buyback_fee)?,quote_transfer_fee,Clock::get()?.unix_timestamp);
 
 
 
@@ -1221,7 +1221,7 @@ pub fn sell(ctx:Context<SellV3>,amount:u64,min_sol_output:u64)->Result<()> {sell
 // layout-pad
 // layout-pad
 // layout-pad
-fn quote_is_native(curve:&BondingCurve)->bool{curve.quote_mint==Pubkey::default()}
+fn quote_is_native(curve:&BondingCurve)->bool{curve.quote_mint==Pubkey::default()}  fn sell_event(curve:&BondingCurve,global:&Global,volume:&crate::UserVolumeAccumulator,user:&Pubkey,mint:&Pubkey,amount:u64,quote:u64,fees:TradeFees,buyback_fee:u64,quote_transfer_fee:u64,timestamp:i64)->TradeEvent{crate::multi_hop_curve::trade_event(curve,global,volume,user,mint,false,amount,quote,&fees,buyback_fee,quote_transfer_fee,"sell",timestamp)}
 
 
 
