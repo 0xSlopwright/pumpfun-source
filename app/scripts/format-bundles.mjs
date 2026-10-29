@@ -5,9 +5,15 @@ import { createHash } from 'node:crypto';
 import prettier from 'prettier';
 export async function formatBundles(root=fileURLToPath(new URL('..',import.meta.url))){
 const manifest=JSON.parse(await fs.readFile(path.join(root,'evidence/web/manifest.json'),'utf8'));
+const sources=manifest.records.filter(x=>x.status===200&&new URL(x.url).pathname.endsWith('.js'));
+const seenUrls=new Set();
+for(const record of sources){
+ if(seenUrls.has(record.url))throw new Error('Duplicate captured JavaScript URL in formatting inventory');
+ seenUrls.add(record.url);
+}
 const output=path.join(root,'recovered/pretty');await fs.mkdir(output,{recursive:true});
 const records=[];
-for(const record of manifest.records.filter(x=>x.status===200&&new URL(x.url).pathname.endsWith('.js'))){
+for(const record of sources){
  const file=createHash('sha256').update(record.url).digest('hex')+'-'+path.basename(new URL(record.url).pathname);
  try { const bytes=await fs.readFile(path.join(root,record.path));if(createHash('sha256').update(bytes).digest('hex')!==record.sha256)throw new Error('Captured source SHA-256 mismatch');const source=new TextDecoder('utf-8',{fatal:true}).decode(bytes);const formatted=await prettier.format(source,{parser:'babel'}); await fs.writeFile(path.join(output,file),formatted);records.push({url:record.url,source:record.path,output:`recovered/pretty/${file}`,sha256:record.sha256,status:'formatted'}); }
  catch(error){records.push({url:record.url,status:'failed',error:String(error)});}
