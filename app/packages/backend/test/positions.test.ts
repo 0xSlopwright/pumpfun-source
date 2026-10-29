@@ -920,3 +920,11 @@ for (const nested of [false, true])
     );
     assert.throws(() => new PositionsStore(data), /non-spot enrichment/);
   });
+
+test('position state timestamps cannot exceed their observation checkpoint',()=>{
+  for(const field of ['updatedAt','openedAt'] as const){
+    const data=dataset();(data.subjects[0].positions[0].facts as any)[field]='2026-10-29T00:00:00Z';
+    assert.throws(()=>new PositionsStore(data),/observedAt/);
+  }
+  assert.doesNotThrow(()=>new PositionsStore(dataset()));
+});
