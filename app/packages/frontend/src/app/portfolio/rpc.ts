@@ -722,6 +722,24 @@ export async function readPortfolioWithRpc(
   const balance = contextResult(balanceValue, "balance response");
   const lamports = u64(balance.value, "balance response.value");
   const allAccountIds = new Set<string>();
+  const splToken = parseProgramHoldings(
+      splValue,
+      address,
+      "spl-token",
+      SPL_TOKEN_PROGRAM_ID,
+      allAccountIds,
+  );
+  const token2022 = parseProgramHoldings(
+      token2022Value,
+      address,
+      "token-2022",
+      TOKEN_2022_PROGRAM_ID,
+      allAccountIds,
+  );
+  const splMints = new Set(splToken.mints.map((mint) => mint.mint));
+  if (token2022.mints.some((mint) => splMints.has(mint.mint))) {
+    throw new PortfolioRpcError("RPC_RESPONSE_INVALID", "A mint was reported under both token programs.", true);
+  }
   return {
     ok: true,
     address,
@@ -738,20 +756,8 @@ export async function readPortfolioWithRpc(
         "balance response.context.slot",
       ),
     },
-    splToken: parseProgramHoldings(
-      splValue,
-      address,
-      "spl-token",
-      SPL_TOKEN_PROGRAM_ID,
-      allAccountIds,
-    ),
-    token2022: parseProgramHoldings(
-      token2022Value,
-      address,
-      "token-2022",
-      TOKEN_2022_PROGRAM_ID,
-      allAccountIds,
-    ),
+    splToken,
+    token2022,
     snapshotAtomic: false,
   };
 }
