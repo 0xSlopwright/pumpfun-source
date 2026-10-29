@@ -43,7 +43,14 @@ const localReferenceRoutes = new Set<string>([
 ]);
 
 /** Preserve the source origin for documents that have no local archive. */
+function assertReferenceHref(href: string): void {
+  if (href.includes("\\") || /[\u0000-\u001f\u007f]/.test(href)) {
+    throw new ReferenceEvidenceError("Unsafe reference link characters");
+  }
+}
+
 export function referenceLinkHref(href: string): string {
+  assertReferenceHref(href);
   if (!href.startsWith("/") || href.startsWith("//")) return href;
   const official = new URL(href, REFERENCE_SOURCES.fees.officialUrl);
   return localReferenceRoutes.has(official.pathname) ? href : official.href;
@@ -120,6 +127,7 @@ function safeText(value: unknown, label: string): string {
 
 function safeHref(value: unknown): string {
   const href = safeText(value, "Reference link");
+  assertReferenceHref(href);
   if (href.startsWith("/") && !href.startsWith("//")) return href;
   if (href.startsWith("mailto:")) {
     const address = href.slice("mailto:".length);
