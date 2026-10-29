@@ -2,15 +2,19 @@
 
 Base: origin/main 6654999 (1022 normalized / 276 raw). Target: 7,832 B, 39 direct calls.
 
-| metric | base (main) | r1 (a08) | now (a22) |
-|---|---|---|---|
-| ratio (target_metric) | 0.46947 | 0.46985 | **0.48150** |
-| cand bytes (orig 7832) | 7688 | 7744 | 7840 |
-| direct calls (orig 39) | 38 | 39 | 39 |
-| structural ratio (regs + stack offsets masked) | 0.8084 | 0.8096 | **0.8723** |
-| official normalized / raw | 1022 / 276 | 1022 / 276 | 1022 / **282** |
-| gains / losses | - | none / none | raw gains 0xd300 0xd4c0 0xd878 0xdbf8 0xe858 0xe9c0 / none |
-| unstripped sha256 | | b25e6708.. | eb96c799.. |
+| metric | base (main) | r1 (a08) | r2 (a22) | now (a23) |
+|---|---|---|---|---|
+| ratio (target_metric) | 0.46947 | 0.46985 | 0.48150 | **0.49139** |
+| cand bytes (orig 7832) | 7688 | 7744 | 7840 | 7824 |
+| direct calls (orig 39) | 38 | 39 | 39 | 39 |
+| structural ratio (regs + stack offsets masked) | 0.8084 | 0.8096 | 0.8723 | **0.8805** |
+| official normalized / raw | 1022 / 276 | 1022 / 276 | 1022 / 282 | 1022 / 276 |
+| gains / losses vs main | - | none / none | 6 incidental raw gains (call-distance at 7840 B) / none | none / none |
+| unstripped sha256 | | b25e6708.. | eb96c799.. | b7005220e751980610ffc30b5b52cfe6bdbd1bff9d5b0ce52113aa7759fe1cc5 |
+
+a23 = a22 with `admit_quote_accounts(a: &mut SweepFees)`: a `&mut` param (like execute's own `a`) makes
+LLVM reload payer/system_program from the accounts struct for each admit (orig +0xdd0), instead of
+caching them across the calls as it may for a noalias-readonly `&`.
 
 ## Mechanisms found
 

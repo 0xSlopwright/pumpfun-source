@@ -170,7 +170,7 @@ fn ensure_rent_exempt<'info>(system_program:&Program<'info,System>,payer:&Signer
  if destination.lamports()<minimum{crate::legacy_buy::native_payments::transfer(system_program.as_ref(),payer,destination,minimum)}else{Ok(())}
 }
 #[inline(always)]
-fn admit_quote_accounts<'info>(a:&SweepFees<'info>)->Result<()>{
+fn admit_quote_accounts<'info>(a:&mut SweepFees<'info>)->Result<()>{
   let quote_mint=a.quote_mint.key();let quote_token_program=a.quote_token_program.key();let quote_mint_info=a.quote_mint.to_account_info();let quote_token_program_info=a.quote_token_program.to_account_info();
   crate::buy_v2::admit_associated_token_account(a.associated_quote_bonding_curve.as_ref(),&a.bonding_curve.to_account_info(),quote_mint,quote_token_program,&quote_mint_info,&quote_token_program_info,false,a.payer.as_ref(),a.system_program.as_ref())?;
   crate::buy_v2::admit_associated_token_account(a.associated_quote_recipient.as_ref(),a.recipient.as_ref(),quote_mint,quote_token_program,&quote_mint_info,&quote_token_program_info,true,a.payer.as_ref(),a.system_program.as_ref())?;
