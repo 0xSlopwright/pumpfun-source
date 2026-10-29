@@ -762,7 +762,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
             move_lamports(&h.bonding_curve.to_account_info(),&a.user.to_account_info(),output)?;
         }
         let c = &h.bonding_curve;
-        let event = trade_event(c,&a.global,&crate::UserVolumeAccumulator::default(),&a.user.key(),&mint_key,buy,base_amount,quote_amount,&(pf,cf,p_rate,c_rate),buyback,adapter_difference,"multi_hop_swap",Clock::get()?.unix_timestamp);
+        let timestamp = Clock::get()?.unix_timestamp; let event = trade_event(c,&a.global,&crate::UserVolumeAccumulator::default(),&a.user.key(),&mint_key,buy,base_amount,quote_amount,&(pf,cf,p_rate,c_rate),buyback,adapter_difference,"multi_hop_swap",timestamp);
 
 
 
@@ -782,12 +782,12 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
         route_event(a,&event,event_bump)?;
         if completed {
             let completion=crate::trade_types::CompleteEvent { user:a.user.key(),mint:mint_key,
-                bonding_curve:h.bonding_curve.key(),timestamp:Clock::get()?.unix_timestamp,quote_mint:c.quote_mint };
+                bonding_curve:h.bonding_curve.key(),timestamp,quote_mint:c.quote_mint };
             route_event(a,&completion,event_bump)?;
         }
         if let Some(post)=post_fill.as_ref() {
             let post_event=crate::trade::PostCompleteBuyEvent { user:a.user.key(),mint:mint_key,
-                bonding_curve:h.bonding_curve.key(),quote_mint:c.quote_mint,timestamp:Clock::get()?.unix_timestamp,
+                bonding_curve:h.bonding_curve.key(),quote_mint:c.quote_mint,timestamp,
                 base_out:post.base,quote_in:post.quote,fee_basis_points:p_rate,fee:post.protocol,
                 creator_fee_basis_points:c_rate,creator_fee:post.creator,buyback_fee:post_buyback,
                 pool_base_reserves_before:post.pool_base,pool_quote_reserves_before:post.pool_quote,
