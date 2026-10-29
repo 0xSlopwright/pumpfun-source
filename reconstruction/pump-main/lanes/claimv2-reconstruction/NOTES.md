@@ -134,3 +134,30 @@ ratio **0.81661**. Ledger `1b851d5c`.
 
 Residual: register assignment. The original computes `&a.user` (accounts+0xa8) once right
 after `Clock::get` and spills it to -0x4c0; the candidate rematerializes it at each use.
+
+### Account bindings and event fields (ratio 0.817 -> 0.938)
+
+| trial | change | bytes | ratio | opcode-only |
+| --- | --- | ---: | ---: | ---: |
+| r6U2 | `ctx.accounts.X` everywhere, no `a` | 8,776 | 0.7886 | |
+| r6U3 | v1 style `let user_volume_accumulator=&mut ctx.accounts.user_volume_accumulator;`, rest via `ctx.accounts` | 8,856 | 0.81848 | 0.978 |
+| r6U4/U4b | U3 + `let user=&ctx.accounts.user` | byte-identical to U3 (shared ref propagated by MIR) | | |
+| r7X3 | U3 + `let user=&mut ctx.accounts.user` after timestamp | 8,824 | 0.9266 | 0.991 |
+| r7X4 | destructure `let ClaimCashbackV2{user,user_volume_accumulator,..}=&mut *ctx.accounts` | compile error E0502 | | |
+| r8F1 | X3 + v1 `let total_cashback_earned` | 8,824 | 0.9210 | |
+| r8F2 | X3 + `let total_claimed=..;let total_cashback_earned=..;` then the event literal | 8,824 | 0.93502 | 0.993 |
+| r8Pa | X3 with `let user=&mut ..` as the first statement | 8,824 | 0.92941 | 0.994 |
+| **r9FP** | F2 + Pa | 8,824 | **0.93782** | 0.9958 |
+
+Mechanism: a `&mut` binding of `ctx.accounts.user` is not propagated away by MIR
+(a shared `&` binding is), so `&user` (accounts+0xa8) becomes one SSA value defined at
+the entry and spilled to -0x4c0 as in the original. Binding the two totals before the event
+literal puts their loads ahead of the user key copy, as in the original.
+
+Residual (r9FP): (1) the original has `jeq ok,+1; ja err` at the `try_borrow_data()?` of the
+token amount decode where the candidate has one `jne`; the extra instruction shifts every later
+jump offset. (2) the `try_borrow_data` result and `Ref` temporaries of both token decodes sit in
+different stack-coloring groups (original: result in the 280 B group at -0x2d0, Ref at -0x1b8;
+candidate: result at -0x1b8, Ref at -0x68). (3) emit_cpi seed store order.
+Ledger: U2 `449607fc`, U3 `130220a4`, U4 `173d39a6`, X3 `137aae75`, X4 `2e9c66ca`, F1 `75459852`,
+F2 `774081e6`, Pa `b15e6736`, FP `aca9d7bd`.
