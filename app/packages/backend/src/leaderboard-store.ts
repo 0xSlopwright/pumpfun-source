@@ -115,6 +115,13 @@ export class LeaderboardStore {
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.boards = structuredClone(seed ?? (seedData as unknown as RawSeed));
     for (const period of PERIODS) {
+      for (const entry of this.boards[period]) {
+        for (const key of ['pnlSol', 'pnlUsd', 'pnlPercent', 'realizedPnlSol',
+          'realizedPnlUsd', 'unrealizedPnlSol', 'unrealizedPnlUsd', 'buySpendSol',
+          'lastRefreshedAtMs'] as const) {
+          if (!Number.isFinite(entry[key])) throw new TypeError(`Leaderboard ${key} must be finite`);
+        }
+      }
       const wallets = this.boards[period].map((entry) => entry.walletAddress);
       if (new Set(wallets).size !== wallets.length) throw new TypeError('Duplicate leaderboard wallet');
     }
