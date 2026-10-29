@@ -1,5 +1,5 @@
 import sys,re,runpy,os
-t=open(sys.argv[1]).read(); os.environ.setdefault('SYM',sys.argv[2] if len(sys.argv)>2 else 'trade15buy_exact_quote17h')
+t=open(sys.argv[1]).read(); os.environ.setdefault('RSYM',sys.argv[2] if len(sys.argv)>2 else 'trade15buy_exact_quote17h')
 ns=runpy.run_path(os.path.expanduser('~/.cache/pumpfun-reconstruction/lanes/w4-buyexactquote-v3/iredits/reorder.py'))
 L,s,e,bl=ns['blocks_of'](t)
 for n,b in bl:

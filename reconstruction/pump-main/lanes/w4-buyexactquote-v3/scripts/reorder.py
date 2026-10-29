@@ -1,5 +1,5 @@
 import os,re
-SYMP=os.environ.get('SYM','trade15buy_exact_quote17h')
+SYMP=os.environ.get('RSYM','trade15buy_exact_quote17h')
 def blocks_of(t):
     L=t.split('\n'); s=next(i for i,l in enumerate(L) if l.startswith('define') and SYMP in l); e=next(i for i in range(s,len(L)) if L[i]=='}')
     body=L[s+1:e]; bl=[]; cur=['start',[]]
