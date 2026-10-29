@@ -225,6 +225,10 @@ export class CompetitionStore {
     // The store documents deterministic read-only data: snapshot the seed so
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.competitions = structuredClone(seed ?? (seedData as unknown as RawCompetition[]));
+    if (new Set(this.competitions.map(c => c.id)).size !== this.competitions.length ||
+        new Set(this.competitions.map(c => c.slug.toLowerCase())).size !== this.competitions.length) {
+      throw new TypeError('Duplicate competition ID or slug');
+    }
     this.byId = new Map(this.competitions.map(c => [c.id, c]));
     this.bySlug = new Map(this.competitions.map(c => [c.slug.toLowerCase(), c]));
     this.userStore = userStore ?? defaultStore;
