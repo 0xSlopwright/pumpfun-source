@@ -211,18 +211,18 @@ export class LocalMediaStore {
   private lock?: FileHandle;
   private closed = false;
   private closing?: Promise<void>;
-  readonly limits: Required<LocalMediaLimits>;
+  readonly limits: Readonly<Required<LocalMediaLimits>>;
   private constructor(
     private readonly directory: string,
     limits: LocalMediaLimits,
   ) {
     this.file = join(directory, "media.json");
     this.lockPath = join(directory, ".media-owner");
-    this.limits = {
+    this.limits = Object.freeze({
       maxBytes: limits.maxBytes ?? 16_000_000,
       maxImages: limits.maxImages ?? 128,
       maxMetadata: limits.maxMetadata ?? 128,
-    };
+    });
     for (const n of Object.values(this.limits))
       if (!Number.isSafeInteger(n) || n <= 0)
         throw new Error("Invalid local media quota.");
