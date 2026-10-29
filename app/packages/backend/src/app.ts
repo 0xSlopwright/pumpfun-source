@@ -241,7 +241,7 @@ function registerFixtures(fixtures: Fixture[]) {
   }
   const fixtureMap = new Map<string, Fixture>();
   const provenanceByKey = new Map<string, string>();
-  fixtures.forEach((fixture, index) => {
+  for (const [index, fixture] of fixtures.entries()) {
     validateFixture(fixture, index);
     const provenance = fixtureProvenance(fixture, index);
     if (reservedFixturePaths.has(fixture.path)) {
@@ -269,7 +269,7 @@ function registerFixtures(fixtures: Fixture[]) {
     if (Buffer.isBuffer(fixture.body)) snapshot.body = Buffer.from(fixture.body);
     fixtureMap.set(key, snapshot);
     provenanceByKey.set(key, provenance);
-  });
+  }
   return fixtureMap;
 }
 
