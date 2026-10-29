@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Independent re-verification for amm-legacy-buyexact-mode-pools-tf-chains-20261029.
 
-Checks, from the packet files alone (plus the three program images):
+Checks, from the packet files alone (plus the three program images retained in the
+repository: evidence/original/pump_amm/deployed.so and the two
+candidate.so.gz artifacts named in IMAGE_PATHS, hashed gzip-decompressed):
 - MANIFEST.json lists every packet file with a matching sha256.
 - runtime/report.json.gz: 17 cases, 207 receipts, 21 parts
   (20x10 + 7), part sha256/byte counts match the part files.
@@ -25,17 +27,22 @@ Checks, from the packet files alone (plus the three program images):
   vault-ATA/dest).
 - Failure steps roll back every watched account except the fee
   payer (fee 5,000) and carry the expected error code plus the
-  recorded per-image site line in their logs. A collect after
-  a drained protocol bucket is a silent no-op (0 events, payer
-  5,000 only). Site lines are checked per image, never compared
-  across images, because original and rebuilt sources differ in
-  line numbers.
+  recorded per-image site line in their logs. A silent no-op
+  collect (no error, 0 events; the tf10000 case, after the creator
+  sweep netted 0 into the creator ATA) leaves every watched account
+  except the fee payer unchanged and costs the payer 5,000. Site
+  lines are checked per image, never compared across images,
+  because original and rebuilt sources differ in line numbers.
 - The observed surface of every case (step, error, event count,
   and snapshots with fee-payer lamports zeroed) is identical
   across the original, control, and candidate images.
 - The three program images hash to the values recorded in the report.
 
-Usage: python3 verify.py   (run from this packet directory)
+Event checks compare the decoded fields listed in each step's
+expectation; other raw event words are not checked.
+
+Usage (from the repository root):
+    python3 -I -B research/amm-legacy-buyexact-mode-pools-tf-chains-20261029/verify.py
 """
 import base64
 import gzip
@@ -49,12 +56,14 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
+# The three program images are retained in the repository; the two
+# rebuilt images (#424 control, #427 candidate) are stored
+# gzip-compressed and hashed decompressed.
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -227,7 +236,10 @@ def main():
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
     for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        if sha(data) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -283,7 +295,13 @@ def main():
                     fail(f"{tag}: volume {vol_state(rec['after'][str(VOLUME)])} != {exp['volume']}")
                 if uva_fields(rec["after"][str(VOLUME)]) != exp["uva"]:
                     fail(f"{tag}: uva {uva_fields(rec['after'][str(VOLUME)])} != {exp['uva']}")
-                if exp.get("rollback"):
+                # A silent no-op collect (no error, 0 events) must leave every
+                # watched account except the fee payer unchanged and cost 5,000.
+                silent_noop = (rec["step"] == "col" and exp["error"] is None
+                               and exp["events"] == 0)
+                if silent_noop and exp["dPAYER"] != -5000:
+                    fail(f"{tag}: silent no-op collect expected dPAYER {exp['dPAYER']}")
+                if exp.get("rollback") or silent_noop:
                     for k, b in rec["before"].items():
                         if k == str(PAYER_KEY):
                             continue
@@ -321,7 +339,7 @@ def main():
             for rec, site in zip(recs, sites):
                 if site is not None and site not in "\n".join(rec["logs"]):
                     fail(f"{label}/{image}: recorded site line not in logs: {site}")
-    print("PASS: 17 cases, 207 receipts, 21 parts, 3 images agree (signatures, deltas, withheld, events, error codes/sites, rollback)")
+    print("PASS: 17 cases, 207 receipts, 21 parts, 3 images agree (signatures, deltas, withheld, events, error codes/sites, rollback, silent no-op collect)")
 
 
 if __name__ == "__main__":
