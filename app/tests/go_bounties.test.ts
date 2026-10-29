@@ -155,3 +155,8 @@ test('archived bounty dates require real ISO instants',()=>{
   for(const field of ['createdAt','expiresAt']) for(const value of ['1','10/29/2026','2026-02-30T00:00:00Z','2025-02-29T00:00:00Z','2026-10-29T24:00:00Z']) assert.throws(()=>validateArchivedBounty({...base,[field]:value},'2026-10-29T12:00:00Z'),/invalid/);
   assert.doesNotThrow(()=>validateArchivedBounty({...base,expiresAt:'2026-10-30T00:00:00+05:30'},'2026-10-29T12:00:00Z'));
 });
+
+test('atomic display never coerces already-rounded numeric inputs',()=>{
+  for(const value of [9007199254740992,1,{},true,null])assert.equal(formatAtomicAmount(value as any,0),undefined);
+  assert.equal(formatAtomicAmount('9007199254740993',0),'9007199254740993');
+});
