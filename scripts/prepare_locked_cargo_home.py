@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import tomllib
@@ -11,7 +12,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--lockfile', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
 args = parser.parse_args()
-source = Path.home() / '.cargo/registry'
+source = Path(os.environ.get('CARGO_HOME') or Path.home() / '.cargo').expanduser() / 'registry'
 args.output = args.output.resolve()
 args.output.mkdir(parents=True, exist_ok=False)
 raw_lock = args.lockfile.read_bytes()
@@ -53,11 +54,18 @@ for package in lock['package']:
     records.append({'package': name, 'version': version,
                     'archive_sha256': package['checksum'],
                     'index_sha256': sha(indexes[0])})
-config = source / 'index/index.crates.io-1949cf8c6b5b557f/config.json'
-for namespace in namespaces:
-    shutil.copyfile(config, args.output / 'registry/index' / namespace / 'config.json')
+config = None
+if records:
+    configs = [source / 'index' / namespace / 'config.json'
+               for namespace in reversed(namespaces)
+               if (source / 'index' / namespace / 'config.json').is_file()]
+    if not configs:
+        raise RuntimeError('No local crates.io registry configuration')
+    config = configs[0]
+    for namespace in namespaces:
+        shutil.copyfile(config, args.output / 'registry/index' / namespace / 'config.json')
 manifest = {'scope': 'Existing local archives verified against a fixed Cargo.lock; no network download.',
             'lockfile_sha256': hashlib.sha256(raw_lock).hexdigest(),
-            'registry_config_sha256': sha(config), 'packages': records}
+            'registry_config_sha256': sha(config) if config is not None else None, 'packages': records}
 (args.output / 'cache-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 print(f'Prepared {len(records)} checksum-verified packages in {args.output}')

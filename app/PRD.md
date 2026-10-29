@@ -12,7 +12,7 @@ Make a new agent productive without rediscovering the product surface, package l
 
 - Official SDK 4.3.1 archive, registry metadata, SHA-512 verification, unchanged `src/`, root and `/swap` builds in CommonJS/ESM with declarations.
 - Public page and asset capture: 688 records, including 648 JS files; URL/hash/headers manifest and original bytes retained. All recorded requests in this crawl succeeded. The asset graph is exhausted within the configured scope. This does not cover authenticated states, unvisited routes, unlinked dynamic resources or future deployments.
-- Babel-based recovery of 4,915 unique literal Turbopack factory variants with original module IDs, hash variants and exact source ranges. Readable factories are research artifacts, not a reconstructed runnable original application.
+- Babel-based recovery of 5,947 unique literal Turbopack factory variants across 7,337 captured occurrences, including the runtime's leading nested registration format, with original module IDs, hash variants and exact source ranges. Readable factories are research artifacts, not a reconstructed runnable original application.
 - Next.js 16.4.1 / React 19.2.3 / Turbopack build; local navigation shell and placeholders for included routes, using captured design tokens and Geist fonts.
 - Official developer OpenAPI snapshot and generated TypeScript declarations; 330 strict static operation candidates from website JS. Those include shared, excluded, privileged and possibly unreachable code.
 - Backend fixture harness, service boundary convention and explicit 501 fallback. No live trading, authentication, persistence, indexer or realtime implementation.
@@ -76,7 +76,7 @@ app/
   infra/               optional local containers; not upstream infrastructure
 ```
 
-Package manager: local pin pnpm 10.24.0. SDK publication metadata says pnpm 11.5.0; its historical lockfile was not available. Node >=22 for this workspace; the SDK publisher reports Node 24.22.1, while the verified local host uses 24.15.0. `pnpm-lock.yaml` pins our actual dependency resolution, not upstream transitive resolutions.
+Package manager: local pin pnpm 10.24.0. SDK publication metadata says pnpm 11.5.0; its historical lockfile was not available. Node >=22 for this workspace; the SDK publisher reports Node 24.22.1, while the verified local host uses 24.15.0. `pnpm-lock.yaml` pins our actual dependency resolution, not upstream transitive resolutions. `patches/@pump-fun__agent-payments-sdk@1.0.7.patch` changes one statement of that dependency's ESM entry, the named `BN` import from CommonJS `@coral-xyz/anchor`, to a default import, because Node releases before 24.14.0 (including 22.x) cannot detect that named export and fail to load the SDK's ESM entry.
 
 SDK: tsup 8.5.0 and TypeScript 5.9.3 are local build choices within published major ranges. Original tsup/tsconfig files are not in the tarball. The declared repository/commit returned 404 during this research. Do not substitute a similarly named third-party SDK. Root and `/swap` stay separate because their exported names overlap. Local ESM output uses `.mjs`; the official package's original exports metadata is preserved in `evidence/sdk/registry.json`. Source fidelity is verified independently from build-output identity.
 

@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 **/dist/
 **/.next/
 **/*.tsbuildinfo
@@ -6,3 +6,5 @@ node_modules/
 .env.local
 artifacts/
 recovered/pretty/
+playwright-report/
+test-results/

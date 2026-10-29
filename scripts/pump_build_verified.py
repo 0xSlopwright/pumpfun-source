@@ -60,6 +60,8 @@ def main():
         default=Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo")),
     )
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--target", choices=["sbf-solana-solana", "sbpf-solana-solana"],
+                   help="Native SDK target; must agree with an explicitly selected target-library profile.")
     p.add_argument("--data-order-certificate", type=Path,
                    help="Opt in to the two-object data-order certificate derived from this source's identity build.")
     p.add_argument("--target-library-profile", choices=["linux-v1.44-sbf", "linux-v1.44-sbpf"],
@@ -89,6 +91,10 @@ def main():
     a = p.parse_args()
     if a.dependency_cache_seed and not a.dependency_cache:
         p.error("--dependency-cache-seed requires --dependency-cache")
+    if a.target_library_profile and a.target and a.target != pump_target_library_profile.PROFILE_TARGETS[a.target_library_profile]:
+        p.error("--target disagrees with --target-library-profile")
+    if a.target == "sbpf-solana-solana" and a.dependency_cache and not a.target_library_profile:
+        p.error("native sbpf --target does not support --dependency-cache; use a target-library profile")
     if bool(a.target_library_profile) != bool(a.target_library_directory):
         p.error("--target-library-profile and --target-library-directory must be supplied together")
     if a.data_order_certificate and not (a.text_section_order and a.dependency_cache):
@@ -113,8 +119,14 @@ def main():
         sdk, target_library_profile = pump_target_library_profile.prepare(
             a.target_library_profile, sdk, a.target_library_directory, out / "profile-sdk"
         )
-    target = target_library_profile["cache_context"]["target"] if target_library_profile else "sbf-solana-solana"
+    target = target_library_profile["cache_context"]["target"] if target_library_profile else (a.target or "sbf-solana-solana")
+    if a.target and a.target != target:
+        p.error("--target disagrees with --target-library-profile")
     target_flags_key = "CARGO_TARGET_" + target.upper().replace("-", "_") + "_RUSTFLAGS"
+    target_libdir = sdk / "rust/lib/rustlib" / target / "lib"
+    target_libraries_before = pump_target_library_profile.inventory(target_libdir)
+    assert target_libraries_before, "selected SDK target libraries are missing"
+
     primary = crate
     primary_before = source_manifest(primary, primary, ROOT)
     workspace = crate
@@ -247,6 +259,8 @@ def main():
         "source_wrapper_sha256": sha(wrapper),
         "builder_sha256": sha(Path(__file__)),
         "selected_toolchain": "v1.44",
+        "target": target,
+        "target_libraries_sha256": target_libraries_before,
         "tool_sha256": {k: sha(v) for k, v in tools.items()},
         "command": command,
         "environment": {
@@ -295,6 +309,8 @@ def main():
         returncode=result.returncode,
         source_after_sha256=source_manifest(crate, workspace, ROOT, cwd=workspace),
     )
+    record["target_libraries_unchanged"] = pump_target_library_profile.inventory(target_libdir) == target_libraries_before
+    assert record["target_libraries_unchanged"], "selected SDK target libraries changed during compilation"
     record["source_unchanged"] = record[
         "source_after_sha256"
     ] == before and primary_before == source_manifest(primary, primary, ROOT)

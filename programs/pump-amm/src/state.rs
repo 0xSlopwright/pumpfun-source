@@ -1,5 +1,4 @@
-mod global_config;
-mod pool;
+pub use volume_accumulator::{GlobalVolumeAccumulator, UserVolumeAccumulator};
 use anchor_lang::Discriminator;
 use anchor_lang::prelude::*;
 #[event]
@@ -141,18 +140,7 @@ impl AccountSerialize for GlobalConfig {
         Ok(())
     }
 }
-
-#[event]
-#[derive(Clone)]
-pub struct UpdateFeeConfigEvent {
-    pub timestamp: i64,
-    pub admin: Pubkey,
-    pub lp_fee_basis_points: u64,
-    pub protocol_fee_basis_points: u64,
-    pub protocol_fee_recipients: [Pubkey; 8],
-    pub coin_creator_fee_basis_points: u64,
-    pub admin_set_coin_creator_authority: Pubkey,
-}
+mod global_config;
 
 #[event]
 #[derive(Clone)]
@@ -197,19 +185,6 @@ pub struct InitUserVolumeAccumulatorEvent {
     pub user: Pubkey,
     pub timestamp: i64,
 }
-#[account]
-pub struct UserVolumeAccumulator {
-    pub user: Pubkey,
-    pub needs_claim: bool,
-    pub total_unclaimed_tokens: u64,
-    pub total_claimed_tokens: u64,
-    pub current_sol_volume: u64,
-    pub last_update_timestamp: i64,
-    pub has_total_claimed_tokens: bool,
-    pub cashback_earned: u64,
-    pub total_cashback_claimed: u64,
-}
-
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct Pool {
     pub pool_bump: u8,
@@ -230,50 +205,6 @@ pub struct Pool {
     pub is_holder_reward: bool,
     pub protocol_fees: u64,
     pub creator_fees: u64,
-}
-
-#[event]
-#[derive(Clone)]
-pub struct DepositEvent {
-    pub timestamp: i64,
-    pub lp_token_amount_out: u64,
-    pub max_base_amount_in: u64,
-    pub max_quote_amount_in: u64,
-    pub user_base_token_reserves: u64,
-    pub user_quote_token_reserves: u64,
-    pub pool_base_token_reserves: u64,
-    pub pool_quote_token_reserves: u64,
-    pub base_amount_in: u64,
-    pub quote_amount_in: u64,
-    pub lp_mint_supply: u64,
-    pub pool: Pubkey,
-    pub user: Pubkey,
-    pub user_base_token_account: Pubkey,
-    pub user_quote_token_account: Pubkey,
-    pub user_pool_token_account: Pubkey,
-    pub quote_transfer_fee: u64,
-}
-
-#[event]
-#[derive(Clone)]
-pub struct WithdrawEvent {
-    pub timestamp: i64,
-    pub lp_token_amount_in: u64,
-    pub min_base_amount_out: u64,
-    pub min_quote_amount_out: u64,
-    pub user_base_token_reserves: u64,
-    pub user_quote_token_reserves: u64,
-    pub pool_base_token_reserves: u64,
-    pub pool_quote_token_reserves: u64,
-    pub base_amount_out: u64,
-    pub quote_amount_out: u64,
-    pub lp_mint_supply: u64,
-    pub pool: Pubkey,
-    pub user: Pubkey,
-    pub user_base_token_account: Pubkey,
-    pub user_quote_token_account: Pubkey,
-    pub user_pool_token_account: Pubkey,
-    pub quote_transfer_fee: u64,
 }
 
 impl Owner for Pool { fn owner() -> Pubkey { crate::ID } }
@@ -510,3 +441,5 @@ impl AccountSerialize for Pool {
         Ok(())
     }
 }
+mod pool;
+mod volume_accumulator;

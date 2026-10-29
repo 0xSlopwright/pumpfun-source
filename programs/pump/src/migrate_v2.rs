@@ -16,7 +16,7 @@ pub struct MigrateV2<'info>{
  #[account(mut,seeds=[bonding_curve.key().as_ref(),quote_token_program.key().as_ref(),quote_mint.key().as_ref()],bump,seeds::program=associated_token_program.key())]pub associated_quote_bonding_curve:UncheckedAccount<'info>,
  #[account(mut)]pub user:Signer<'info>,
  pub system_program:Program<'info,System>,
- pub pump_amm:Program<'info,admin_cto::Amm>,
+ pub pump_amm:Program<'info,crate::pump_amm::program::PumpAmm>,
  /// CHECK: canonical PDA.
  #[account(mut,seeds=[b"pool",&0u16.to_le_bytes(),pool_authority.key().as_ref(),base_mint.key().as_ref(),quote_mint.key().as_ref()],bump,seeds::program=pump_amm.key())]pub pool:UncheckedAccount<'info>,
  /// CHECK: canonical PDA.
@@ -45,44 +45,44 @@ pub struct MigrateV2<'info>{
  /// CHECK: constrained sysvar address.
  #[account(address=anchor_lang::solana_program::sysvar::rent::ID)]pub rent:UncheckedAccount<'info>,
 }
-fn call<'a>(program:&AccountInfo<'a>,accounts:&[(&AccountInfo<'a>,bool,bool)],data:Vec<u8>,seeds:&[&[&[u8]]])->Result<()>{let ix=Instruction{program_id:*program.key,accounts:accounts.iter().map(|(a,s,w)|if *w{AccountMeta::new(*a.key,*s)}else{AccountMeta::new_readonly(*a.key,*s)}).collect(),data};let mut infos:Vec<AccountInfo>=accounts.iter().map(|(a,_,_)|(*a).clone()).collect();infos.push(program.clone());invoke_signed(&ix,&infos,seeds)?;Ok(())}
-fn create_associated_account<'a>(program:&AccountInfo<'a>,payer:&AccountInfo<'a>,destination:&AccountInfo<'a>,authority:&AccountInfo<'a>,mint:&AccountInfo<'a>,system:&AccountInfo<'a>,token:&AccountInfo<'a>,extra:Option<&AccountInfo<'a>>,seeds:&[&[&[u8]]])->Result<()>{
- let mut accounts=vec![AccountMeta::new(*payer.key,true),AccountMeta::new(*destination.key,false),AccountMeta::new_readonly(*authority.key,false),AccountMeta::new_readonly(*mint.key,false),AccountMeta::new_readonly(*system.key,false),AccountMeta::new_readonly(*token.key,false)];
- if let Some(extra)=extra{accounts.push(AccountMeta::new_readonly(*extra.key,false));}
- let ix=Instruction{program_id:*program.key,accounts,data:vec![1]};
- if let Some(extra)=extra {
-  let infos=[payer.clone(),destination.clone(),authority.clone(),mint.clone(),system.clone(),token.clone(),extra.clone()];
-  invoke_signed(&ix,&infos,seeds)?;
- } else {
-  let infos=[payer.clone(),destination.clone(),authority.clone(),mint.clone(),system.clone(),token.clone()];
-  invoke_signed(&ix,&infos,seeds)?;
- }
- Ok(())
-}
-fn move_lamports(from:&AccountInfo,to:&AccountInfo,n:u64)->Result<()>{let l=from.lamports().checked_sub(n).ok_or(ProgramError::ArithmeticOverflow)?;let r=to.lamports().checked_add(n).ok_or(ProgramError::ArithmeticOverflow)?;**from.try_borrow_mut_lamports()?=l;**to.try_borrow_mut_lamports()?=r;Ok(())}
-fn quote_extensions(a:&AccountInfo)->Result<Vec<u16>>{
- use anchor_spl::token_2022::spl_token_2022::{extension::{StateWithExtensions,BaseStateWithExtensions},state::Mint};
- if *a.owner!=anchor_spl::token_2022::ID{return Ok(vec![])}
- let d=a.try_borrow_data()?;
- let parsed=StateWithExtensions::<Mint>::unpack(&d)?;
- let tlv=parsed.get_tlv_data();
- let mut cursor=0usize;
- let mut types=Vec::new();
- while tlv.len()-cursor>=2 {
-  let kind=u16::from_le_bytes([tlv[cursor],tlv[cursor+1]]);
-  if kind==0{break}
-  if tlv.len()-cursor<4{return Err(ProgramError::InvalidAccountData.into())}
-  let length=u16::from_le_bytes([tlv[cursor+2],tlv[cursor+3]]) as usize;
-  cursor=cursor.checked_add(4).and_then(|v|v.checked_add(length)).ok_or(ProgramError::InvalidAccountData)?;
-  if cursor>tlv.len(){return Err(ProgramError::InvalidAccountData.into())}
-  types.push(kind);
- }
- Ok(types)
-}
-fn quote_account_size(a:&AccountInfo)->Result<usize>{
- if *a.owner!=anchor_spl::token_2022::ID{return Ok(165)}
- required_quote_account_len(&a.try_borrow_data()?).ok_or_else(||ProgramError::InvalidAccountData.into())
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #[inline(never)]
 pub fn required_quote_account_len(data:&[u8])->Option<usize>{
@@ -105,50 +105,255 @@ pub fn required_quote_account_len(data:&[u8])->Option<usize>{
   cursor=cursor.checked_add(end)?;
  }
 }
-fn amount(a:&AccountInfo)->Result<u64>{Ok(u64::from_le_bytes(a.try_borrow_data()?[64..72].try_into().unwrap()))}
-fn quote_amount(a:&AccountInfo)->Result<u64>{let d=a.try_borrow_data()?;let t=TokenAccount::try_deserialize(&mut &d[..])?;Ok(t.amount)}
+#[inline(never)]fn transfer_base_to_pool_authority<'info>(a:&MigrateV2<'info>,bump:u8)->Result<()>{transfer_from_curve(a,&a.associated_base_bonding_curve,&a.base_mint,&a.bonding_curve,a.associated_base_bonding_curve.amount,&[&[b"bonding-curve",a.base_mint.key().as_ref(),&[bump]]])}#[inline(always)]fn transfer_from_curve<'info>(a:&MigrateV2<'info>,from:&InterfaceAccount<'info,TokenAccount>,mint:&InterfaceAccount<'info,Mint>,authority:&Account<'info,crate::trade_types::BondingCurve>,amount:u64,signer_seeds:&[&[&[u8]]])->Result<()>{if amount==0{return Ok(())}let decimals=mint.decimals;anchor_spl::token_2022::transfer_checked(CpiContext::new_with_signer(a.base_token_program.to_account_info(),anchor_spl::token_2022::TransferChecked{from:from.to_account_info(),to:a.pool_authority_mint_account.to_account_info(),authority:authority.to_account_info(),mint:mint.to_account_info()},signer_seeds),amount,decimals)}fn amount(a:&AccountInfo)->Result<u64>{Ok(u64::from_le_bytes(a.try_borrow_data()?[64..72].try_into().unwrap()))}
+#[inline(always)]fn burn_with_seeds<'info>(a:&MigrateV2<'info>,amount:u64,signer_seeds:&[&[&[u8]]])->Result<()>{anchor_spl::token_2022::burn(CpiContext::new_with_signer(a.token_2022_program.to_account_info(),anchor_spl::token_2022::Burn{mint:a.lp_mint.to_account_info(),from:a.user_pool_token_account.to_account_info(),authority:a.pool_authority.to_account_info()},signer_seeds),amount)}fn quote_amount(a:&AccountInfo)->Result<u64>{let d=a.try_borrow_data()?;let t=TokenAccount::try_deserialize(&mut &d[..])?;Ok(t.amount)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub fn execute<'info>(ctx:Context<'_, '_, '_, 'info,MigrateV2<'info>>)->Result<()>{
- let a=&ctx.accounts;crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.user)?;let expected_event_authority=Pubkey::find_program_address(&[b"__event_authority"],&a.pump_amm.key()).0;require_keys_eq!(a.pump_amm_event_authority.key(),expected_event_authority,anchor_lang::error::ErrorCode::ConstraintSeeds);let curve=a.bonding_curve.to_account_info();require!(a.bonding_curve.complete,PumpError::BondingCurveNotComplete);if a.bonding_curve.virtual_token_reserves==0&&a.bonding_curve.virtual_quote_reserves==0&&a.bonding_curve.real_token_reserves==0&&a.bonding_curve.real_quote_reserves==0{msg!("Bonding curve already migrated");return Ok(());}
- let native=a.bonding_curve.quote_mint==Pubkey::default();let real_quote=a.bonding_curve.real_quote_reserves;let fee=a.global.pool_migration_fee;let base=a.associated_base_bonding_curve.amount;let mayhem=a.bonding_curve.is_mayhem_mode;
- let pa=a.pool_authority.to_account_info();let user=a.user.to_account_info();let base_mint=a.base_mint.to_account_info();let sys=a.system_program.to_account_info();let tok=a.base_token_program.to_account_info();let qt=a.quote_token_program.to_account_info();let ata=a.associated_token_program.to_account_info();let am=a.pump_amm.to_account_info();let pool=a.pool.to_account_info();let pb=a.pool_base_token_account.to_account_info();let pq=a.pool_quote_token_account.to_account_info();let tmpb=a.pool_authority_mint_account.to_account_info();let tmpq=a.pool_authority_quote_account.to_account_info();let wsol=a.quote_mint.to_account_info();let lp=a.lp_mint.to_account_info();let ulp=a.user_pool_token_account.to_account_info();let t22=a.token_2022_program.to_account_info();let cfg=a.amm_global_config.to_account_info();let ev=a.pump_amm_event_authority.to_account_info();let wa=a.withdraw_authority.to_account_info();let cb=a.associated_base_bonding_curve.to_account_info();let rent=Rent::get()?;
- let mintkey=a.base_mint.key();let pab=[ctx.bumps.pool_authority];let pas:&[&[u8]]=&[b"pool-authority",mintkey.as_ref(),&pab];let curveb=[ctx.bumps.bonding_curve];let cs:&[&[u8]]=&[b"bonding-curve",mintkey.as_ref(),&curveb];
- // Original transfers migration liquidity to its signer PDA before paying CPI rents.
- if native{move_lamports(&curve,&pa,fee)?;}else{crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,&a.pool_authority,fee)?;}
- let quote_preexisting=*tmpq.owner==a.quote_token_program.key() && tmpq.data_len()>0;
- for (dest,wallet,m,tp) in [(&pb,&pool,&base_mint,&tok),(&pq,&pool,&wsol,&qt),(&tmpb,&pa,&base_mint,&tok),(&tmpq,&pa,&wsol,&qt)]{if native{create_associated_account(&ata,&pa,dest,wallet,m,&sys,tp,Some(&curve),&[pas])?;}else{create_associated_account(&ata,&user,dest,wallet,m,&sys,tp,None,&[])?;}}
-
- let quote_before=quote_amount(&tmpq)?;
- if base>0{let mut transfer=vec![12];transfer.extend_from_slice(&base.to_le_bytes());transfer.push(a.base_mint.decimals);call(&tok,&[(&cb,false,true),(&base_mint,false,false),(&tmpb,false,true),(&curve,true,false)],transfer,&[cs])?;}
- let quote=real_quote.checked_add(a.bonding_curve.post_complete_quote_in)
-  .ok_or_else(||error!(PumpError::Overflow))?;
- let quote=if native{quote.checked_sub(fee).ok_or_else(||error!(PumpError::Overflow))?}else{quote};
- // Allocate quote funding from signer PDA into native token account.
- if native{move_lamports(&curve,&tmpq,quote)?;call(&qt,&[(&tmpq,false,true),(&a.rent.to_account_info(),false,false),(&curve,false,false)],vec![17],&[])?;}else if quote>0{let mut transfer=vec![12];transfer.extend_from_slice(&quote.to_le_bytes());transfer.push(a.quote_mint.decimals);call(&qt,&[(&a.associated_quote_bonding_curve.to_account_info(),false,true),(&wsol,false,false),(&tmpq,false,true),(&curve,true,false)],transfer,&[cs])?;}
-
- let base=pool_authority_mint_token_account(a)?.amount;let quote=quote_amount(&tmpq)?.checked_sub(quote_before).ok_or_else(||error!(PumpError::Overflow))?;
- create_pool(&ctx,base,
-  quote)?;
- if !mayhem && (ctx.remaining_accounts.len()==2 || crate::migrate::native_payments::boost_enabled(&cfg)) {
-  require!(ctx.remaining_accounts.len()==2,PumpError::NotEnoughRemainingAccounts);
-  let boost=&ctx.remaining_accounts[0];let vault=&ctx.remaining_accounts[1];
-  let initial_balance=pa.lamports();let boost_rent=Rent::get()?;
-  let funding=boost_rent.minimum_balance(quote_account_size(&wsol)?);
-  crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,&a.pool_authority,funding)?;
-  call(&am,&[(&pool,false,true),(&cfg,false,false),(&pa,true,true),(&base_mint,false,false),(&wsol,false,false),(&pb,false,true),(&pq,false,true),(boost,false,false),(vault,false,true),(&qt,false,false),(&sys,false,false),(&ata,false,false),(&ev,false,false),(&am,false,false)],vec![140,233,33,94,132,90,194,143],&[pas])?;
-  let after_balance=pa.lamports();
-  refund_pool_authority(a,ctx.bumps.pool_authority,&user,after_balance.saturating_sub(initial_balance))?;
-  crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,&a.pool_authority,initial_balance.saturating_sub(after_balance))?;
- }
- close_pool_authority_account(a,ctx.bumps.pool_authority,&a.pool_authority_mint_account,&a.base_token_program)?;
- if !quote_preexisting{if quote_extensions(&wsol)?.contains(&1){if !wsol.is_writable{return err!(PumpError::QuoteMintNotWritable)}harvest_withheld_tokens_to_mint(&a.quote_token_program.to_account_info(),&a.quote_mint.to_account_info(),&a.pool_authority_quote_account)?;}
- close_pool_authority_account(a,ctx.bumps.pool_authority,&a.pool_authority_quote_account,&a.quote_token_program)?;}
- let burn_amount=amount(&ulp)?;anchor_spl::token_2022::burn(CpiContext::new_with_signer(t22.clone(),anchor_spl::token_2022::Burn{mint:lp.clone(),from:ulp.clone(),authority:pa.clone()},&[pas]),burn_amount)?;close_lp_account(a,ctx.bumps.pool_authority,&a.user_pool_token_account)?;
- refund_pool_authority(a,ctx.bumps.pool_authority,&wa,pa.lamports())?;
-
- {let c=&mut ctx.accounts.bonding_curve;c.real_quote_reserves=0;c.real_token_reserves=0;c.virtual_quote_reserves=0;c.virtual_token_reserves=0;}
  let a=&ctx.accounts;
- let event=CompletePumpAmmMigrationEvent{user:a.user.key(),mint:mintkey,mint_amount:base,sol_amount:quote,pool_migration_fee:fee,bonding_curve:a.bonding_curve.key(),timestamp:Clock::get()?.unix_timestamp,pool:a.pool.key(),quote_mint:a.bonding_curve.quote_mint};emit!(event.clone());let mut event_data=vec![228,69,165,46,81,203,154,29];event_data.extend_from_slice(&event.data());let eb=[ctx.bumps.event_authority];invoke_signed(&Instruction{program_id:crate::ID,accounts:vec![AccountMeta::new_readonly(a.event_authority.key(),true)],data:event_data},&[a.event_authority.to_account_info(),a.program.to_account_info()],&[&[b"__event_authority",&eb]])?;Ok(())
+ crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.user)?;
+ let (expected_event_authority,_)=Pubkey::find_program_address(&[b"__event_authority"],&pump_amm::ID);
+
+
+
+ require_keys_eq!(a.pump_amm_event_authority.key(),expected_event_authority,anchor_lang::error::ErrorCode::ConstraintSeeds);
+
+
+
+
+
+ require!(a.bonding_curve.complete,PumpError::BondingCurveNotComplete);
+ let migrated=a.bonding_curve.real_quote_reserves==0&&a.bonding_curve.virtual_quote_reserves==0&&a.bonding_curve.real_token_reserves==0&&a.bonding_curve.virtual_token_reserves==0;if migrated{msg!("Bonding curve already migrated");return Ok(());}
+ let native=a.bonding_curve.quote_mint==Pubkey::default();
+ let fee=a.global.pool_migration_fee;
+ pay_migration_fee(a,&a.pool_authority,native,fee)?;
+ let bump=ctx.bumps.pool_authority;
+ create_token_account_v2(a,bump,&a.pool_base_token_account,&a.pool,&a.base_mint,native,&a.base_token_program)?;
+ create_token_account_v2(a,bump,&a.pool_quote_token_account,&a.pool,&a.quote_mint,native,&a.quote_token_program)?;
+ create_token_account_v2(a,bump,&a.pool_authority_mint_account,&a.pool_authority,&a.base_mint,native,&a.base_token_program)?;
+ let quote_account_created=a.pool_authority_quote_account.owner==&anchor_lang::system_program::ID;
+ create_token_account_v2(a,bump,&a.pool_authority_quote_account,&a.pool_authority,&a.quote_mint,native,&a.quote_token_program)?;
+ transfer_base_to_pool_authority(a,ctx.bumps.bonding_curve)?;
+ let base=pool_authority_mint_token_account(a)?.amount;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ let quote=a.bonding_curve.real_quote_reserves.checked_add(a.bonding_curve.post_complete_quote_in)
+  .ok_or_else(||error!(PumpError::Overflow))?;
+
+
+
+ let quote=if native{quote.checked_sub(fee).ok_or_else(||error!(PumpError::Overflow))?}else{quote};
+ let quote_before=quote_amount(&a.pool_authority_quote_account)?;
+ fund_quote_token_account_v2(&ctx,quote,native)?;
+
+
+
+
+
+
+
+
+
+
+ let quote=quote_amount(&a.pool_authority_quote_account)?.checked_sub(quote_before).ok_or_else(||error!(PumpError::Overflow))?;
+ create_pool(&ctx,base,quote)?;
+ init_pump_amm_boost_v2(&ctx)?;
+ close_pool_authority_account(a,bump,&a.pool_authority_mint_account,&a.base_token_program)?;
+ if quote_account_created{
+  if crate::transfer_fee_recovered::get_transfer_fee(&a.quote_mint.to_account_info())?.is_some(){
+
+
+
+   require!(a.quote_mint.to_account_info().is_writable,PumpError::QuoteMintNotWritable);
+   harvest_withheld_tokens_to_mint(&a.quote_token_program.to_account_info(),&a.quote_mint.to_account_info(),&a.pool_authority_quote_account)?;
+  }
+  close_pool_authority_account(a,bump,&a.pool_authority_quote_account,&a.quote_token_program)?;
+ }
+ burn_lp_tokens(&ctx,bump)?;
+ close_lp_account(a,bump,&a.user_pool_token_account)?;
+ refund_pool_authority(a,bump,&a.withdraw_authority,a.pool_authority.lamports())?;
+ {let c:&mut crate::trade_types::BondingCurve=&mut ctx.accounts.bonding_curve;c.real_quote_reserves=0;c.real_token_reserves=0;c.virtual_quote_reserves=0;c.virtual_token_reserves=0;}
+ let a=&ctx.accounts;
+ let event=CompletePumpAmmMigrationEvent{user:a.user.key(),mint:a.base_mint.key(),mint_amount:base,sol_amount:quote,pool_migration_fee:fee,bonding_curve:a.bonding_curve.key(),timestamp:Clock::get()?.unix_timestamp,pool:a.pool.key(),quote_mint:a.bonding_curve.quote_mint};
+ emit!(event);emit_cpi!(event);
+ Ok(())
 }
+
+
+
+
+
+
+
+
 
 // The original migration skips an empty refund before constructing signer seeds.
 #[inline(never)]
@@ -183,9 +388,435 @@ fn close_token_account<'info>(a:&MigrateV2<'info>,account:&AccountInfo<'info>,si
  anchor_spl::token_2022::close_account(CpiContext::new_with_signer(token_program.clone(),anchor_spl::token_2022::CloseAccount{account:account.clone(),destination:a.withdraw_authority.to_account_info(),authority:a.pool_authority.to_account_info()},signer_seeds))
 }
 
-// Original: standalone pool-creation helper (window 0x502f0) calling the generated pump_amm client.
+// Original: standalone pool-creation helper (window 0x502f0) calling the generated pump_amm client (Round46 form).
 fn create_pool<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>,base:u64,quote:u64)->Result<()>{
  let bump=ctx.bumps.pool_authority;let a=&ctx.accounts;
  let create=move |signer_seeds:&[&[&[u8]];1]|pump_amm::cpi::create_pool(CpiContext::new_with_signer(a.pump_amm.to_account_info(),pump_amm::cpi::accounts::CreatePool{pool:a.pool.to_account_info(),global_config:a.amm_global_config.to_account_info(),creator:a.pool_authority.to_account_info(),base_mint:a.base_mint.to_account_info(),quote_mint:a.quote_mint.to_account_info(),lp_mint:a.lp_mint.to_account_info(),user_base_token_account:a.pool_authority_mint_account.to_account_info(),user_quote_token_account:a.pool_authority_quote_account.to_account_info(),user_pool_token_account:a.user_pool_token_account.to_account_info(),pool_base_token_account:a.pool_base_token_account.to_account_info(),pool_quote_token_account:a.pool_quote_token_account.to_account_info(),system_program:a.system_program.to_account_info(),token_2022_program:a.token_2022_program.to_account_info(),base_token_program:a.base_token_program.to_account_info(),quote_token_program:a.quote_token_program.to_account_info(),associated_token_program:a.associated_token_program.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()},signer_seeds),0,base,quote,a.bonding_curve.creator,a.bonding_curve.is_mayhem_mode,pump_amm::types::OptionBool(a.bonding_curve.is_cashback_coin),pump_amm::types::OptionU64(a.bonding_curve.creator_fee_bps),pump_amm::types::OptionBool(a.bonding_curve.can_edit_creator_fee),pump_amm::types::OptionBool(a.bonding_curve.is_holder_reward));
  create(&[&[b"pool-authority",a.base_mint.key().as_ref(),&[bump]]])
 }
+#[inline(never)]
+fn fund_quote_token_account_v2<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>,amount:u64,native:bool)->Result<()>{
+ let a=&ctx.accounts;
+ if native{
+  a.bonding_curve.sub_lamports(amount)?;a.pool_authority_quote_account.add_lamports(amount)?;
+  anchor_lang::solana_program::program::invoke(&Instruction{program_id:anchor_spl::token::ID,accounts:vec![AccountMeta::new(a.pool_authority_quote_account.key(),false),AccountMeta::new_readonly(a.rent.key(),false),AccountMeta::new(a.bonding_curve.key(),false)],data:anchor_spl::token::spl_token::instruction::TokenInstruction::SyncNative.pack()},&[a.pool_authority_quote_account.to_account_info(),a.rent.to_account_info(),a.bonding_curve.to_account_info()])?;
+ }else{
+  tq(a,&a.quote_mint,&a.associated_quote_bonding_curve,&a.bonding_curve,amount,&[&[b"bonding-curve",a.base_mint.key().as_ref(),&[ctx.bumps.bonding_curve]]])?;
+ }
+ Ok(())
+}
+#[inline(always)]
+fn tq<'info>(a:&MigrateV2<'info>,mint:&InterfaceAccount<'info,Mint>,from:&AccountInfo<'info>,authority:&Account<'info,crate::trade_types::BondingCurve>,amount:u64,signer_seeds:&[&[&[u8]]])->Result<()>{
+ if amount==0{return Ok(())}
+ let decimals=mint.decimals;let mint_info:&AccountInfo<'info>=mint.as_ref();
+ anchor_spl::token_2022::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),anchor_spl::token_2022::TransferChecked{from:from.clone(),to:a.pool_authority_quote_account.to_account_info(),authority:authority.to_account_info(),mint:mint_info.clone()},signer_seeds),amount,decimals)
+}
+#[inline(never)]
+pub fn create_token_account_v2<'info>(a:&MigrateV2<'info>,bump:u8,account:&AccountInfo<'info>,wallet:&AccountInfo<'info>,mint:&InterfaceAccount<'info,Mint>,native:bool,token_program:&AccountInfo<'info>)->Result<()>{
+ let token_program=token_program.clone();
+ if native{
+  cta_signed(a,&a.bonding_curve,account,wallet,mint,token_program,&[&[b"pool-authority",a.base_mint.key().as_ref(),&[bump]]])?;
+ }else{
+  anchor_lang::solana_program::program::invoke(&Instruction{program_id:anchor_spl::associated_token::ID,accounts:vec![AccountMeta::new(a.user.key(),true),AccountMeta::new(account.key(),false),AccountMeta::new_readonly(wallet.key(),false),AccountMeta::new_readonly(mint.key(),false),AccountMeta::new_readonly(a.system_program.key(),false),AccountMeta::new_readonly(token_program.key(),false)],data:anchor_lang::prelude::borsh::to_vec(&1u8).unwrap()},&[a.user.to_account_info(),account.clone(),wallet.clone(),mint.to_account_info(),a.system_program.to_account_info(),token_program])?;
+ }
+ Ok(())
+}
+#[inline(always)]
+fn cta_signed<'info>(a:&MigrateV2<'info>,curve:&Account<'info,crate::trade_types::BondingCurve>,account:&AccountInfo<'info>,wallet:&AccountInfo<'info>,mint:&InterfaceAccount<'info,Mint>,token_program:AccountInfo<'info>,signer_seeds:&[&[&[u8]]])->anchor_lang::solana_program::entrypoint::ProgramResult{
+ let ix=Instruction{program_id:anchor_spl::associated_token::ID,accounts:vec![AccountMeta::new(a.pool_authority.key(),true),AccountMeta::new(account.key(),false),AccountMeta::new_readonly(wallet.key(),false),AccountMeta::new_readonly(mint.key(),false),AccountMeta::new_readonly(a.system_program.key(),false),AccountMeta::new_readonly(token_program.key(),false),AccountMeta::new_readonly(curve.key(),false)],data:anchor_lang::prelude::borsh::to_vec(&1u8).unwrap()};
+ invoke_signed(&ix,&[a.pool_authority.to_account_info(),account.clone(),wallet.clone(),mint.to_account_info(),a.system_program.to_account_info(),token_program,curve.to_account_info()],signer_seeds)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#[inline(never)]
+pub fn init_pump_amm_boost_v2<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>)->Result<()>{
+ let a=&ctx.accounts;
+ if a.bonding_curve.is_mayhem_mode{return Ok(());}
+ let [boost,vault]=ctx.remaining_accounts else {
+  require!(!crate::migrate::native_payments::boost_enabled(&a.amm_global_config),PumpError::NotEnoughRemainingAccounts);
+  return Ok(());
+ };
+ let initial_balance=a.pool_authority.lamports();
+ let funding=Rent::get()?.minimum_balance(qsize(ctx)?);
+ crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,&a.pool_authority,funding)?;
+ let bump=ctx.bumps.pool_authority;{let init=move||(move|signer_seeds:&[&[&[u8]];1]|pump_amm::cpi::init_boost(CpiContext::new_with_signer(a.pump_amm.to_account_info(),pump_amm::cpi::accounts::InitBoost{pool:a.pool.to_account_info(),global_config:a.amm_global_config.to_account_info(),creator:a.pool_authority.to_account_info(),base_mint:a.base_mint.to_account_info(),quote_mint:a.quote_mint.to_account_info(),pool_base_token_account:a.pool_base_token_account.to_account_info(),pool_quote_token_account:a.pool_quote_token_account.to_account_info(),boost_vault_authority:boost.clone(),boost_vault:vault.clone(),quote_token_program:a.quote_token_program.to_account_info(),system_program:a.system_program.to_account_info(),associated_token_program:a.associated_token_program.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()},signer_seeds)))(&[&[b"pool-authority",a.base_mint.key().as_ref(),&[bump]]]);init()?;}
+ let after_balance=a.pool_authority.lamports();let user=a.user.to_account_info();
+ refund_pool_authority(a,bump,&user,after_balance.saturating_sub(initial_balance))?;
+ crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,&a.pool_authority,initial_balance.saturating_sub(after_balance))?;
+ Ok(())
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fn qsize<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>)->Result<usize>{
+ let a=&ctx.accounts;if a.quote_token_program.key()==anchor_spl::token::ID{return Ok(165)}
+ required_quote_account_len(&a.quote_mint.to_account_info().try_borrow_data()?).ok_or_else(||error!(PumpError::UnsupportedQuoteMint))
+}
+
+fn pay_migration_fee<'info>(a:&MigrateV2<'info>,pool_authority:&UncheckedAccount<'info>,native:bool,fee:u64)->Result<()>{
+ if native{a.bonding_curve.sub_lamports(fee)?;pool_authority.add_lamports(fee)?;}else{crate::migrate::native_payments::transfer_native(a.system_program.as_ref(),&a.user,pool_authority,fee)?;}
+ Ok(())
+}
+// layout-pad(62): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#[inline(never)]
+fn burn_lp_tokens<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>,bump:u8)->Result<()>{
+ let a=&ctx.accounts;
+ let amount={
+  let data=a.user_pool_token_account.data.borrow();
+  anchor_spl::token_2022::spl_token_2022::extension::StateWithExtensions::<anchor_spl::token_2022::spl_token_2022::state::Account>::unpack(&data)?.base.amount};
+ burn_with_seeds(a,amount,&[&[b"pool-authority",a.base_mint.key().as_ref(),&[bump]]])}

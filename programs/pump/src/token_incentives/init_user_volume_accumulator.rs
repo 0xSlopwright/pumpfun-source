@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 
 use super::volume_accumulator::UserVolumeAccumulator;
 
+// layout-pad(2): aligns the next Source site with the original line
+
 #[event_cpi]
 #[derive(Accounts)]
 pub struct InitUserVolume<'info>{

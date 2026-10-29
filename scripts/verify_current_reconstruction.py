@@ -78,7 +78,9 @@ def verify(root):
         selection = module('current_publication_relay_selection',
                            relay_directory / 'verify_selection.py')
         selection.authenticate()
-        relay = selection.verify(root)
+        bridge = module('current_relay_scanner_bridge', root / 'research/all-contract-completion-20261028/relay/verify_current_bridge.py')
+        relay_transition = bridge.verify(root)
+        relay = relay_transition['current_selection']
         assert relay['verified'] and relay['canonical_source60_verified']
         assert relay['all492_raw'] and relay['meaningful_elf_literal_equal']
         assert relay['selected_payload_literal_checked']
@@ -90,17 +92,25 @@ def verify(root):
         context.unchanged(root / P27)
         assert len(catalogue) == 53
 
-        # Fees still selects the same artifact/source as the P27 publication.
-        # Check its exact input set in addition to the live source verifier.
-        fees = context.F['compiled']['pump_fees']
-        layout = context.R['source_layout']['pump_fees']
-        names = historical.source_names(
-            root / layout['crate'], root / layout['workspace'], root,
-            [root / name for name in layout.get('extra_inputs', [])])
-        assert names == set(fees['source']), 'Fees source inventory changed'
-        assert initial_status['pump_fees'] == context.F['status']['pump_fees']
+        # Preserve the old Fees source map only while that historical selection
+        # is current. Exact canonical promotion has its own complete source gate.
+        if initial_status['pump_fees']['candidate_artifact'] != 'research/all-contract-completion-20261028/fees-built/canonical-01/candidate.so':
+            fees = context.F['compiled']['pump_fees']
+            layout = context.R['source_layout']['pump_fees']
+            names = historical.source_names(
+                root / layout['crate'], root / layout['workspace'], root,
+                [root / name for name in layout.get('extra_inputs', [])])
+            assert names == set(fees['source']), 'Fees source inventory changed'
+            assert initial_status['pump_fees'] == context.F['status']['pump_fees']
     finally:
         sys.path.pop(0)
+
+    relay_repeat = root / 'research/relay-current-repeat-20261028'
+    if sha(relay_repeat / 'manifest.json') != 'ad2353dec21a94f5d9a202e956d95b112f3130420301988399c845b8122aaea3':
+        raise ValueError('Current Relay repeat packet seal')
+    relay_repeat_report = run_json(root, [relay_repeat / 'verify.py', '--repo', root])[-1]
+    if not relay_repeat_report['meaningful_elf_equal'] or not relay_repeat_report['genuine_loader_payload_equal']:
+        raise ValueError('Current Relay repeat qualification')
 
     mayhem_directory = root / MAYHEM
     assert sha(mayhem_directory / 'manifest.json') == MAYHEM_SEAL
@@ -113,19 +123,23 @@ def verify(root):
         assert not path.is_symlink() and sha(path) == digest, name
     stats = read(mayhem_directory / 'stats.json')
     status = initial_status['mayhem']
-    assert status['candidate_artifact'] == MAYHEM + '/candidate.so'
-    assert status['candidate_sha256'] == stats['candidate_sha256']
-    assert status['candidate_symbols_artifact'] == MAYHEM + '/unstripped.so'
-    assert sha(root / status['candidate_symbols_artifact']) == stats['unstripped_sha256']
-    assert status['comparison_report'] == MAYHEM + '/comparison.json'
-    assert status['full_byte_equality'] is False
+    if status['candidate_artifact'] == 'research/mayhem-canonical-promotion-20261028/hosted/40770208958/candidate.so':
+        mayhem_command = [root / 'scripts/verify_mayhem_checkpoint.py', '--repo', root]
+    else:
+        assert status['candidate_artifact'] == MAYHEM + '/candidate.so'
+        assert status['candidate_sha256'] == stats['candidate_sha256']
+        assert status['candidate_symbols_artifact'] == MAYHEM + '/unstripped.so'
+        assert sha(root / status['candidate_symbols_artifact']) == stats['unstripped_sha256']
+        assert status['comparison_report'] == MAYHEM + '/comparison.json'
+        assert status['full_byte_equality'] is False
+        mayhem_command = [mayhem_directory / 'verify.py', '--current-source', root,
+                          '--expected-seal', MAYHEM_SEAL]
 
     commands = {
         'pump': [root / 'scripts/verify_pump_main_checkpoint.py', '--repo', root],
         'pump_amm': [root / 'scripts/verify_pump_amm_checkpoint.py', '--repo', root],
         'pump_fees': [root / 'scripts/verify_current_checkpoint.py', 'pump_fees', '--repo', root],
-        'mayhem': [mayhem_directory / 'verify.py', '--current-source', root,
-                   '--expected-seal', MAYHEM_SEAL],
+        'mayhem': mayhem_command,
     }
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = {name: executor.submit(run_json, root, command)
@@ -142,6 +156,8 @@ def verify(root):
         'status': 'PASS_CURRENT_RECONSTRUCTION',
         'current_source_and_artifact_reports': verified,
         'relay': relay,
+        'relay_scanner_transition': relay_transition,
+        'relay_maintained_repeat': relay_repeat_report,
         'relay_saved_replay': relay_replay,
         'historical_p27': {
             'metadata_manifest_sha256': P27_SEAL,

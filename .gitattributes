@@ -1,6 +1,24 @@
 *.so binary
 *.bin binary
 
+# Captured application artifacts and published SDK sources are byte evidence.
+app/evidence/** -text
+app/packages/sdk/src/** -text
+
+# Root capture/upstream evidence must keep exact bytes. Without -text, Windows
+# core.autocrlf rewrites *.json/*.txt and breaks scripts/verify_evidence.py.
+evidence/** -text
+
+# Preserve the source recovery's exact retained input and receipt bytes.
+research/pump-feeconfig-decoder-recovery/** -text
+research/pump-feeconfig-decoder-recovery/local-feeconfig.patch -whitespace
+research/pump-feeconfig-decoder-recovery/proposed/** -whitespace
+
+# Preserve the independent AMM replay's exact retained bytes on every checkout.
+research/amm-event-capture-independent-replay/** -text
+research/amm-event-capture-independent-replay/source.patch -whitespace
+research/amm-event-capture-independent-replay/source/** -whitespace
+
 # Preserve exact upstream source receipts, including their original whitespace.
 repro/identity-audit/2026-10-25/compiler-sdk/v1.52-build.sh -whitespace
 repro/identity-audit/2026-10-25/compiler-sdk/v1.53-build.sh -whitespace
@@ -1356,3 +1374,184 @@ programs/donation-relay/src/lib.rs -whitespace
 programs/donation-relay/src/donation_handlers.rs -whitespace
 repro/donation-relay/canonical-exact-selection/historical-source23/src/dispatch.rs -whitespace
 repro/donation-relay/canonical-exact-selection/build/link.map -whitespace
+
+# Preserve exact frozen PumpSwap source, patch and compiler receipts.
+repro/pump_amm/structural-tlv-recovery-20261027/results/** -whitespace
+research/amm-parallel-work-20261027/root-and-events/** -whitespace
+repro/pump_amm/native-fee-cpi-recovery-20261027/results/** -whitespace
+
+# Preserve exact Fees program-ID source and patch receipt bytes.
+research/fees-program-id-references/overrides/** -whitespace
+research/fees-program-id-references/source.patch -whitespace
+repro/pump_amm/account-context-recovery-20261027/results/** -whitespace
+repro/pump_amm/account-context-recovery-20261027/followup/** -whitespace
+
+# Preserve exact Fees Social source and patch receipt bytes.
+research/fees-social-claim-v2-recovery/overrides/** -whitespace
+research/fees-social-claim-v2-recovery/source.patch -whitespace
+
+# Preserve captured Windows line endings and curl progress receipts.
+research/mayhem-historical-macro-context/supplement-packages.json -whitespace
+research/mayhem-historical-macro-context/supplements/*.log -whitespace
+
+# Original submitted research is archived byte-for-byte, including whitespace.
+research/recovery-findings-20261027/submitted/** -whitespace
+research/recovery-findings-20261027/submitted-followups/** -whitespace
+
+# Preserve the exact source patches in reviewed, unpromoted research packets.
+research/claude-amm-hi-20261027/source.patch -whitespace
+research/claude-amm-lo-20261027/source.patch -whitespace
+research/claude-pump-hi-20261027/source.patch -whitespace
+repro/pump_amm/guard-data-recovery-20261027/results/** -whitespace
+repro/pump_amm/guard-data-recovery-20261027/followup/** -whitespace
+
+# Preserve exact integrated Withdraw source and patch bytes.
+research/fees-withdraw-tuple-integration/overrides/** -whitespace
+research/fees-withdraw-tuple-integration/source.patch -whitespace
+
+# Preserve the reviewed current-ownership source patch literally.
+research/mayhem-current-ownership-composition-20261027/source.patch -whitespace
+repro/pump_amm/source-abi-recovery-20261027/results/** -whitespace
+repro/pump_amm/source-abi-recovery-20261027/followup/** -whitespace
+
+# Retain the exact source bytes used by the selected AMM build.
+programs/pump-amm/src/instructions/swap/multi_hop_swap.rs whitespace=-blank-at-eof
+
+# Preserve recovered associated-token source and patch bytes.
+research/fees-ata-prefix-integration/overrides/** -whitespace
+research/fees-ata-prefix-integration/source.patch -whitespace
+repro/pump_amm/transfer-abi-recovery-20261027/results/** -whitespace
+repro/pump_amm/transfer-abi-recovery-20261027/followup/** -whitespace
+research/amm-current-event-capture-20261027/source/** -whitespace
+research/amm-current-event-capture-20261027/source.patch -whitespace
+
+# Preserve the exact reconstructed Extend source and patch bytes.
+research/fees-extend-integration/overrides/** -whitespace
+research/fees-extend-integration/source.patch -whitespace
+repro/pump_amm/quote-guard-recovery-20261027/results/** -whitespace
+repro/pump_amm/quote-guard-recovery-20261027/followup/** -whitespace
+research/mayhem-sell-current-recovery-20261027/overrides/** -whitespace
+research/mayhem-sell-current-recovery-20261027/source.patch -whitespace
+
+# Preserve the exact reconstructed Extend source and patch bytes.
+research/fees-extend-integration/overrides/** -whitespace
+research/fees-extend-integration/source.patch -whitespace
+research/amm-pool-preparation-boundaries/** -text
+research/pump-amm-migration-composition/** -text
+research/mayhem-quotes-current-recovery-20261027/overrides/** -whitespace
+research/mayhem-quotes-current-recovery-20261027/source.patch -whitespace
+research/mayhem-amm-handler-shape-controls-20261027/controls/**/overrides/** -whitespace
+research/mayhem-amm-handler-shape-controls-20261027/controls/**/source.patch -whitespace
+repro/pump_amm/event-decoder-recovery-20261027/results/** -whitespace
+repro/pump_amm/event-decoder-recovery-20261027/followup/** -whitespace
+
+# Keep sealed empty TSV fields and unified-diff context byte-identical.
+research/mayhem-current-macro-call-closure-20261027/inventory.tsv -whitespace
+research/mayhem-current-macro-call-closure-20261027/source/change.patch -whitespace
+research/mayhem-amm-sell-cfg-recovery-20261027/controls/*/source.patch -whitespace
+research/mayhem-amm-sell-cfg-recovery-20261027/controls/*/overrides/** -whitespace
+research/mayhem-trade-ownership-current-20261027/source/*.patch -whitespace
+research/mayhem-trade-ownership-current-20261027/cfg.py whitespace=-blank-at-eof
+research/mayhem-source-origin-recovery-20261027/source.patch -whitespace
+research/mayhem-source-origin-recovery-20261027/inventory.tsv -whitespace
+research/mayhem-current434-composition-20261027/source.patch -whitespace
+research/mayhem-current434-composition-20261027/inventory.tsv -whitespace
+repro/pump_amm/optional-context-recovery-20261027/results/** -whitespace
+repro/pump_amm/optional-context-recovery-20261027/followup/** -whitespace
+# Preserve exact compiled AMM source bytes in the optional-context checkpoint.
+programs/pump-amm/src/trade.rs whitespace=-blank-at-eof
+programs/pump-amm/src/transfer_creator.rs whitespace=-blank-at-eol
+
+# Preserve reconstructed Sweep source and patch bytes.
+research/fees-sweep-integration/overrides/** -whitespace
+research/fees-sweep-integration/source.patch -whitespace
+research/amm-buy-reserve-order/** -text
+research/amm-buy-reserve-order/source.patch -whitespace
+research/amm-buy-reserve-order/public-parent.patch -whitespace
+research/amm-buy-reserve-order/proposed/** -whitespace
+research/amm-buy-reserve-order/controllers/** whitespace=cr-at-eol
+# Preserve the compiled AMM quote-helper recovery and compiler receipts.
+research/amm-quote-base-recovery/** -text
+research/amm-quote-base-recovery/source.patch -whitespace
+research/amm-quote-base-recovery/proposed/** -whitespace
+research/amm-quote-base-recovery/compiler/** -whitespace
+research/amm-quote-base-recovery/controllers/** -whitespace
+research/amm-quote-base-recovery/overlap-review.json -whitespace
+# Preserve compiled AMM recipient-mode source and compiler evidence.
+research/amm-recipient-mode-recovery/** -text
+research/amm-recipient-mode-recovery/source.patch -whitespace
+research/amm-recipient-mode-recovery/proposed/** -whitespace
+research/amm-recipient-mode-recovery/compiler/** -whitespace
+research/amm-recipient-mode-recovery/controllers/** -whitespace
+research/amm-recipient-mode-recovery/overlap-review.json -whitespace
+research/amm-prepare-pool-recovery/** -text -whitespace
+repro/pump_amm/event-ownership-recovery-20261027/results/** -whitespace
+repro/pump_amm/event-ownership-recovery-20261027/followup/** -whitespace
+repro/pump_amm/admin-harvest-recovery-20261027/results/** -whitespace
+repro/pump_amm/admin-harvest-recovery-20261027/followup/** -whitespace
+# Preserve exact compiled source and empty inventory columns in the qualified436 packet.
+research/mayhem-current436-composition-20261027/source.patch -whitespace
+research/mayhem-current436-composition-20261027/overrides/** -whitespace
+research/mayhem-current436-composition-20261027/inventory.tsv -whitespace
+# Retain the sealed readers byte for byte, including their final blank line.
+research/mayhem-current434-format-route-20261027/reader.py whitespace=-blank-at-eof
+research/mayhem-current434-custom-format-route-20261027/reader.py whitespace=-blank-at-eof
+research/mayhem-current434-custom-format-route-20261027/unit_trace.py whitespace=-blank-at-eof
+# Preserve exact source diffs and linker output in the partial-control archives.
+research/mayhem-current436-v2-controls-20261027/*/source.patch -whitespace
+research/mayhem-current436-v2-controls-20261027/*/build/link.map -whitespace
+research/mayhem-current436-sweep-controls-20261027/sweep/source.patch -whitespace
+research/mayhem-current436-sweep-controls-20261027/sweep/*/link.map -whitespace
+research/mayhem-current436-*-controls-20261027/**/*.so -text
+repro/pump_amm/incentive-order-recovery-20261027/results/** -whitespace
+repro/pump_amm/incentive-order-recovery-20261027/followup/** -whitespace
+research/amm-native-transfer-fee-recovery/** -text -whitespace
+repro/pump_amm/private-sweep-recovery-20261027/results/** -whitespace
+repro/pump_amm/private-sweep-recovery-20261027/followup/** -whitespace
+research/amm-fee-value-call-recovery/** -text -whitespace
+
+repro/pump_amm/fee-helper-source-coordinates-20261028/source.patch -whitespace
+research/mayhem-current436-sweep-rent-lifetime-20261028/sweep/source.patch -whitespace
+research/mayhem-current436-sweep-rent-lifetime-20261028/sweep/**/link.map -whitespace
+
+repro/pump_amm/native-ownership-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/native-ownership-recovery-20261028/followup/** -whitespace
+
+# Preserve the exact source bytes bound by the AMM native-ownership checkpoint.
+programs/pump-amm/src/instructions/swap/mod.rs whitespace=-blank-at-eof
+research/mayhem-current436-linux-dependency-control-20261028/**/link.map -whitespace
+research/mayhem-current436-sweep-address-selection-20261028/sweep/source.patch -whitespace
+research/mayhem-current436-sweep-address-selection-20261028/sweep/**/link.map -whitespace
+
+research/mayhem-current437-composition-20261028/source.patch -whitespace
+research/mayhem-current437-composition-20261028/builds/**/link.map -whitespace
+
+research/mayhem-current437-composition-20261028/inventory.tsv -whitespace
+repro/pump_amm/inverse-route-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/inverse-route-recovery-20261028/followup/** -whitespace
+
+repro/pump_amm/native-scanners-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/native-scanners-recovery-20261028/followup/** -whitespace
+# Preserve the byte-pinned Windows manifest line endings.
+research/mayhem-current436-native-20261028/manifest.json -whitespace
+
+repro/pump_amm/create-incentive-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/create-incentive-recovery-20261028/followup/** -whitespace
+
+repro/pump_amm/create-pool-fields-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/create-pool-fields-recovery-20261028/followup/** -whitespace
+
+repro/pump_amm/boost-buyback-cashback-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/boost-buyback-cashback-recovery-20261028/followup/** -whitespace
+
+research/amm-hop-gate-recovery/** -text -whitespace
+research/amm-v2-fee-selector-recovery/** -text -whitespace
+repro/pump_amm/v2-mint-clone-recovery-20261028/results/** -whitespace
+
+repro/pump_amm/v2-mint-clone-recovery-20261028/followup/** -whitespace

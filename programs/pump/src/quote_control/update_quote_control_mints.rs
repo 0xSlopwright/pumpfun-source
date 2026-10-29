@@ -64,31 +64,31 @@ pub fn add_quote_control_mint(
     let quote_control = &mut ctx.accounts.quote_control;
     quote_control.validate_new_mint(&quote_mint)?;
 
-    let new_len = quote_control
+    let new_space = QuoteControl::space(quote_control
         .mints
         .len()
         .checked_add(1)
-        .ok_or(error!(PumpError::Overflow))?;
-    let new_space = QuoteControl::space(new_len)?;
+        .ok_or_else(|| error!(PumpError::Overflow))?)?;
+
     let info = quote_control.to_account_info();
     if new_space > info.data_len() {
-        let required = Rent::get()?.minimum_balance(new_space);
-        let lamports = info.lamports();
-        if required > lamports {
-            transfer(
-                CpiContext::new(
-                    ctx.accounts.system_program.to_account_info(),
-                    Transfer {
-                        from: ctx.accounts.authority.to_account_info(),
-                        to: info.clone(),
-                    },
-                ),
-                required - lamports,
-            )?;
-        }
+        let lamports_diff = Rent::get()?.minimum_balance(new_space).saturating_sub(info.lamports());
+        pay_rent(&ctx, &info, lamports_diff)?;
         info.realloc(new_space, false)?;
-    }
 
+
+
+
+
+
+
+
+
+
+
+
+    }
+    let quote_control = &mut ctx.accounts.quote_control;
     quote_control.mints.push(QuoteControlMint {
         mint: quote_mint,
         initial_virtual_quote_reserves,
@@ -237,5 +237,25 @@ pub fn set_quote_control_reserves_admin(
     };
     emit!(event);
     emit_cpi!(event);
+    Ok(())
+}
+
+fn pay_rent<'info>(
+    ctx: &Context<'_, '_, '_, '_, UpdateQuoteControlMints<'info>>,
+    to: &AccountInfo<'info>,
+    lamports: u64,
+) -> Result<()> {
+    if lamports > 0 {
+        transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.authority.to_account_info(),
+                    to: to.clone(),
+                },
+            ),
+            lamports,
+        )?;
+    }
     Ok(())
 }

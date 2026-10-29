@@ -91,10 +91,37 @@ def _verify_amm_owner6048(root):
 
 def verify(program, root):
     status = read(root / 'repro/status.json')[program]
-    if program == 'pump_amm' and status['candidate_artifact'] == 'repro/pump_amm/dependency-liquidity-recovery-20261027/results/build/candidate.so':
+    if program == 'pump' and status['candidate_artifact'] in ['repro/pump/canonical-frontier-20261028/candidate.so', 'research/pump-create-used-boundaries-20261028/artifacts/candidate.so', 'research/pump-final-composition-673-20261028/artifacts/candidate.so', 'research/pump-multihop-accrual-qualification-20261028/artifacts/candidate.so', 'research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so']:
+        from verify_pump_main_checkpoint import verify as verify_pump
+        return verify_pump(root)
+    if program == 'pump_amm' and status['candidate_artifact'] in ['repro/pump_amm/canonical-frontier-20261028/results/build-a/candidate.so', 'research/amm-layout-closure-20261028/results/build-a/candidate.so']:
         from verify_pump_amm_checkpoint import verify as verify_amm
         return verify_amm(root)
-    if program == 'pump' and status['candidate_artifact'] == 'repro/pump/main-contract-round48-20261027/candidate.so':
+    if program == 'mayhem' and status['candidate_artifact'] == 'research/mayhem-canonical-promotion-20261028/hosted/40770208958/candidate.so':
+        from verify_mayhem_checkpoint import verify as verify_mayhem
+        return verify_mayhem(root)
+    if program == 'pump_fees' and status['candidate_artifact'] == 'research/all-contract-completion-20261028/fees-built/canonical-01/candidate.so':
+        def require(value, message):
+            if not value:
+                raise ValueError(message)
+        packet = root / 'research/all-contract-completion-20261028'
+        require(sha(packet / 'fees-selection.json') == status['source_identity_report_sha256'], 'Fees selection binding')
+        result = subprocess.run([sys.executable, '-B', str(root / 'research/all-contract-completion-20261028/verify_current_fees.py'), '--repo', str(root)], capture_output=True, text=True, check=True)
+        detail = json.loads(result.stdout)
+        require(detail['meaningful_elf_equal'] is True and detail['meaningful_elf_bytes'] == 873256, 'Fees meaningful ELF identity')
+        require(detail['candidate_sha256'] == status['candidate_sha256'], 'Fees selected candidate hash')
+        require(detail['symbols_sha256'] == status['symbols_sha256'], 'Fees selected symbols hash')
+        require(sha(root / status['candidate_artifact']) == detail['candidate_sha256'], 'Fees literal candidate binding')
+        require(sha(root / status['candidate_symbols_artifact']) == detail['symbols_sha256'], 'Fees literal symbols binding')
+        require(sha(root / 'Cargo.toml') == status['workspace_manifest_sha256'], 'Fees workspace manifest binding')
+        require(sha(root / 'Cargo.lock') == status['workspace_lock_sha256'], 'Fees workspace lock binding')
+        runtime = subprocess.run([sys.executable, '-B', str(root / 'research/contract-completion-20261028/verify_fees_runtime.py'), '--repo', str(root)], capture_output=True, text=True, check=True)
+        detail['fresh_runtime_qualification'] = json.loads(runtime.stdout)
+        return {'status': 'PASS', 'program': program, 'candidate_sha256': detail['candidate_sha256'], 'actual_current_sources_checked': True, 'meaningful_elf_equal': True, 'source_and_build': detail}
+    if program == 'pump_amm' and status['candidate_artifact'] == 'repro/pump_amm/v2-mint-clone-recovery-20261028/results/build/candidate.so':
+        from verify_pump_amm_checkpoint import verify as verify_amm
+        return verify_amm(root)
+    if program == 'pump' and status['candidate_artifact'] == 'repro/pump/main-contract-round47-20261027/candidate.so':
         from verify_pump_main_checkpoint import verify as verify_main
         return verify_main(root)
     suffix = '/main/candidate.so'
@@ -144,11 +171,13 @@ def verify(program, root):
         proof = root / TRANSITION
         verify_manifest(proof, TRANSITION_SEAL)
         assert sha(proof / 'before.py') == OLD_HELPER and sha(proof / 'after.py') == NEW_HELPER
-        subprocess.run([sys.executable, '-B', str(proof / 'verify.py')], check=True, capture_output=True)
+        # Discard only stdout; a failing proof must report its assertion on stderr.
+        subprocess.run([sys.executable, '-B', str(proof / 'verify.py')], check=True, stdout=subprocess.DEVNULL)
         transitions.append({'path': helper, 'recorded_sha256': recorded, 'current_sha256': actual, 'proof_seal': TRANSITION_SEAL})
     # Immutable verifier retains its original helper checks and all source/artifact
     # evidence. Current-source and reviewed-helper checks are performed above.
-    subprocess.run([sys.executable, '-B', str(package / 'verify.py')], check=True, capture_output=True)
+    # Discard only stdout; a failing verifier must report its assertion on stderr.
+    subprocess.run([sys.executable, '-B', str(package / 'verify.py')], check=True, stdout=subprocess.DEVNULL)
     return {'status': 'PASS', 'program': program, 'candidate_sha256': sha(candidate), 'source_inputs': len(report['source_sha256']),
             'actual_current_sources_checked': True, 'reviewed_helper_transitions': transitions,
             'recorded_toolchain': report['selected_toolchain'], 'target_executions': 0, 'original_global_failure_exits_rewritten': False}
@@ -156,7 +185,7 @@ def verify(program, root):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('program', choices=['pump', 'pump_amm', 'pump_fees'])
+    parser.add_argument('program', choices=['pump', 'pump_amm', 'pump_fees', 'mayhem'])
     parser.add_argument('--repo', type=Path, default=ROOT)
     args = parser.parse_args()
     root = args.repo.resolve()

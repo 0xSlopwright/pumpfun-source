@@ -16,6 +16,180 @@ pub struct CollectCreatorFeeV2<'info>{
  pub associated_token_program:Program<'info,anchor_spl::associated_token::AssociatedToken>,
  pub system_program:Program<'info,System>,
 }
+// layout-pad(173): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub fn collect_creator_fee(ctx:Context<crate::CollectCreatorFee>)->Result<()>{
+ let creator_vault=&ctx.accounts.creator_vault;match *ctx.accounts.creator.owner!=crate::distribution::FEES{false=>err!(crate::PumpError::UnableToDistributeCreatorVaultMigratedToSharingConfig),true=>{
+ if ctx.accounts.creator.executable{msg!("Creator account is executable, so it cannot receive lamports");return Ok(());}
+ let rent=Rent::get()?;
+ let amount=creator_vault.lamports().saturating_sub(rent.minimum_balance(0));
+ if amount==0{msg!("No creator fee to collect");return Ok(());}
+ if ctx.accounts.creator.lamports().saturating_add(amount)<rent.minimum_balance(ctx.accounts.creator.data_len()){msg!("Creator account does not have enough rent-exemption lamports");return Ok(());}
+ let creator=ctx.accounts.creator.key();
+ transfer_lamports(&ctx.accounts.system_program,creator_vault,&ctx.accounts.creator,amount,&[&[b"creator-vault",creator.as_ref(),&[ctx.bumps.creator_vault]]])?;
+ let event=crate::CollectCreatorFeeEvent{timestamp:Clock::get()?.unix_timestamp,creator,creator_fee:amount,quote_mint:Pubkey::default()};emit!(event);emit_cpi!(event);Ok(())
+}}}
+#[inline]fn transfer_lamports<'info>(system_program:&Program<'info,System>,from:impl ToAccountInfo<'info>,to:impl ToAccountInfo<'info>,amount:u64,signer_seeds:&[&[&[u8]]])->Result<()>{anchor_lang::system_program::transfer(CpiContext::new_with_signer(system_program.to_account_info(),anchor_lang::system_program::Transfer{from:from.to_account_info(),to:to.to_account_info()},signer_seeds),amount)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub fn collect<'info>(
  creator:&AccountInfo<'info>,creator_token_account:&AccountInfo<'info>,creator_vault:&AccountInfo<'info>,
  creator_vault_bump:u8,creator_vault_token_account:&AccountInfo<'info>,decimals:u8,quote_mint:&AccountInfo<'info>,
@@ -24,23 +198,18 @@ pub fn collect<'info>(
  require!(*creator.owner!=crate::distribution::FEES,crate::PumpError::UnableToDistributeCreatorVaultMigratedToSharingConfig);
  if creator.executable{msg!("Creator account is executable, so it cannot receive lamports");return Ok(None);}
  let creator_key=creator.key();
- let quote_key=quote_mint.key();
- if quote_key!=anchor_spl::token::spl_token::native_mint::ID{
-  let data=creator_vault_token_account.try_borrow_data()?;
-  let amount=anchor_spl::token_interface::TokenAccount::try_deserialize(&mut &data[..])?.amount;
-  drop(data);
+ if quote_mint.key()==anchor_spl::token::spl_token::native_mint::ID{
+  let rent=Rent::get()?;
+  let amount=creator_vault.lamports().saturating_sub(rent.minimum_balance(0));
   if amount==0{msg!("No creator fee to collect");return Ok(None);}
-  let bump=[creator_vault_bump];let seeds:&[&[u8]]=&[b"creator-vault",creator_key.as_ref(),&bump];
-  transfer_tokens(quote_token_program,creator_vault_token_account,creator_token_account,creator_vault,decimals,quote_mint,amount,&[seeds])?;
-  return Ok(Some((amount,quote_key)));
+  if creator.lamports().saturating_add(amount)<rent.minimum_balance(creator.data_len()){msg!("Creator account does not have enough rent-exemption lamports");return Ok(None);}
+  transfer_native(system_program,creator_vault,creator,amount,&[&[b"creator-vault",creator_key.as_ref(),&[creator_vault_bump]]])?;
+  return Ok(Some((amount,Pubkey::default())));
  }
- let rent=Rent::get()?;
- let amount=creator_vault.lamports().saturating_sub(rent.minimum_balance(0));
+ let amount={let data=creator_vault_token_account.try_borrow_data()?;anchor_spl::token_interface::TokenAccount::try_deserialize(&mut &data[..])?.amount};
  if amount==0{msg!("No creator fee to collect");return Ok(None);}
- if creator.lamports().saturating_add(amount)<rent.minimum_balance(creator.data_len()){msg!("Creator account does not have enough rent-exemption lamports");return Ok(None);}
- let bump=[creator_vault_bump];let seeds:&[&[u8]]=&[b"creator-vault",creator_key.as_ref(),&bump];
- transfer_native(system_program.as_ref(),creator_vault,creator,amount,&[seeds])?;
- Ok(Some((amount,Pubkey::default())))
+ transfer_tokens(quote_token_program,creator_vault_token_account,creator_token_account,creator_vault,decimals,quote_mint,amount,&[&[b"creator-vault",creator_key.as_ref(),&[creator_vault_bump]]])?;
+ Ok(Some((amount,quote_mint.key())))
 }
 
 #[inline(never)]
@@ -116,17 +285,3 @@ pub fn transfer_user_quote_tokens<'info>(
   }),amount,decimals,
  )
 }
-
-use crate::PumpError;
-
-pub fn execute_legacy(ctx:Context<crate::CollectCreatorFee>)->Result<()>{
-      require!(*ctx.accounts.creator.owner!=crate::distribution::FEES,PumpError::UnableToDistributeCreatorVaultMigratedToSharingConfig);
-      if ctx.accounts.creator.executable{msg!("Creator account is executable, so it cannot receive lamports");return Ok(());}
-      let rent=Rent::get()?;
-      let amount=ctx.accounts.creator_vault.lamports().saturating_sub(rent.minimum_balance(0));
-      if amount==0{msg!("No creator fee to collect");return Ok(());}
-      if ctx.accounts.creator.lamports().saturating_add(amount)<rent.minimum_balance(ctx.accounts.creator.data_len()){msg!("Creator account does not have enough rent-exemption lamports");return Ok(());}
-      let creator=ctx.accounts.creator.key();let bump=[ctx.bumps.creator_vault];let seeds:&[&[u8]]=&[b"creator-vault",creator.as_ref(),&bump];
-      anchor_lang::system_program::transfer(CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(),anchor_lang::system_program::Transfer{from:ctx.accounts.creator_vault.to_account_info(),to:ctx.accounts.creator.to_account_info()},&[seeds]),amount)?;
-      let event=CollectCreatorFeeEvent{timestamp:Clock::get()?.unix_timestamp,creator,creator_fee:amount,quote_mint:Pubkey::default()};emit!(event.clone());emit_cpi!(event);Ok(())
-    }

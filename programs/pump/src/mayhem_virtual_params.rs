@@ -13,15 +13,15 @@ pub struct SetMayhemVirtualParams<'info> {
     /// CHECK: The signer constraint and foreign-program PDA seeds authenticate this account.
     #[account(mut, signer, seeds = [b"sol-vault"], bump, seeds::program = MAYHEM_ID)]
     pub sol_vault_authority: AccountInfo<'info>,
-    #[account(mut, associated_token::mint = mint, associated_token::authority = sol_vault_authority, associated_token::token_program = token_program)]
+    #[account(mut, associated_token::mint = mint, associated_token::authority = sol_vault_authority, associated_token::token_program = token_program.key())]
     pub mayhem_token_vault: InterfaceAccount<'info, TokenAccount>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(seeds = [b"global"], bump)]
     pub global: Account<'info, Global>,
     #[account(mut, seeds = [b"bonding-curve", mint.key().as_ref()], bump)]
     pub bonding_curve: Account<'info, BondingCurve>,
-    #[account(address = anchor_spl::token_2022::ID)]
-    pub token_program: Interface<'info, TokenInterface>,
+    
+    pub token_program: Program<'info, anchor_spl::token_2022::Token2022>,
 }
 
 pub(crate) fn execute(ctx: Context<SetMayhemVirtualParams>) -> Result<()> {

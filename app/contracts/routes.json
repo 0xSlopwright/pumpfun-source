@@ -43,7 +43,7 @@
     "path": "/mayhem",
     "feature": "Mayhem",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-screener",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -51,7 +51,15 @@
     "path": "/holder-rewards",
     "feature": "Holder rewards",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "public-configuration-read",
+    "behaviorQualified": false,
+    "visualQualified": false
+  },
+  {
+    "path": "/portfolio",
+    "feature": "Live Solana portfolio",
+    "scope": "included",
+    "status": "live-read",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -59,7 +67,7 @@
     "path": "/create",
     "feature": "Create coin",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-draft",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -67,7 +75,7 @@
     "path": "/profile/:id",
     "feature": "Profile/social graph",
     "scope": "included",
-    "status": "planned",
+    "status": "offline-profile",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -75,7 +83,7 @@
     "path": "/docs/fees",
     "feature": "Fees",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-reference",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -83,7 +91,7 @@
     "path": "/docs/privacy-policy",
     "feature": "Privacy notice",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-reference",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -91,7 +99,7 @@
     "path": "/docs/terms-and-conditions",
     "feature": "Terms",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-reference",
     "behaviorQualified": false,
     "visualQualified": false
   },

@@ -5,7 +5,7 @@ are preserved, candidate ELF bytes are unchanged, and only unused allocation
 is zero-filled. This is local fixture fidelity, not live-chain acceptance.
 """
 from pathlib import Path
-import hashlib,json,struct
+import functools,hashlib,json,struct
 from solders.litesvm import LiteSVM as BaseVM
 from solders.account import Account
 from solders.pubkey import Pubkey
@@ -20,6 +20,11 @@ assert hashlib.sha256(PD_CAPTURE).hexdigest()==CAPTURE['programdata_sha256']
 assert hashlib.sha256(PD_CAPTURE[45:]).hexdigest()==CAPTURE['payload_sha256']
 LOADS=[]
 def sha(b):return hashlib.sha256(b).hexdigest()
+@functools.lru_cache(maxsize=2)
+def _programdata_image(raw):
+    assert len(raw)<=CAPTURE['payload_bytes']
+    zero_tail=bytes(CAPTURE['payload_bytes']-len(raw))
+    return HEADER+raw+zero_tail,zero_tail
 class CapturedLiteSVM(BaseVM):
     def set_account(self,address,account):
         # Some fixtures snapshot transaction message accounts, which include
@@ -35,17 +40,17 @@ class CapturedLiteSVM(BaseVM):
             clock=Clock(SLOT+1,clock.epoch_start_timestamp,clock.epoch,clock.leader_schedule_epoch,clock.unix_timestamp)
         return super().set_clock(clock)
     def _add_captured_pump(self,raw,path=None):
-        assert len(raw)<=CAPTURE['payload_bytes']
-        image=raw+bytes(CAPTURE['payload_bytes']-len(raw))
+        expected_data,zero_tail=_programdata_image(raw)
         before=self.get_clock();self.warp_to_slot(SLOT+1);self.set_clock(before)
-        self.set_account(PROGRAMDATA,Account(CAPTURE['lamports'],HEADER+image,OWNER,False))
+        self.set_account(PROGRAMDATA,Account(CAPTURE['lamports'],expected_data,OWNER,False))
         # set_account recognizes upgradeable program state and loads its ELF
         # from ProgramData; no raw-loader preloading is performed here.
         self.set_account(PROGRAM,Account(Rent.default().minimum_balance(36),PROGRAM_BYTES,OWNER,True))
         program=self.get_account(PROGRAM);data=self.get_account(PROGRAMDATA)
-        assert program.data==PROGRAM_BYTES and program.owner==OWNER and program.executable
-        assert data.data==HEADER+image and data.owner==OWNER
-        LOADS.append({'input_path':path,'elf_sha256':sha(raw),'elf_bytes':len(raw),'program_owner':str(program.owner),'program_bytes':len(program.data),'program_sha256':sha(program.data),'programdata_bytes':len(data.data),'programdata_sha256':sha(data.data),'header_sha256':sha(data.data[:45]),'elf_prefix_unchanged':data.data[45:45+len(raw)]==raw,'zero_allocation_tail':not any(data.data[45+len(raw):]),'slot':self.get_clock().slot})
+        program_bytes,data_bytes=program.data,data.data
+        assert program_bytes==PROGRAM_BYTES and program.owner==OWNER and program.executable
+        assert data_bytes==expected_data and data.owner==OWNER
+        LOADS.append({'input_path':path,'elf_sha256':sha(raw),'elf_bytes':len(raw),'program_owner':str(program.owner),'program_bytes':len(program_bytes),'program_sha256':sha(program_bytes),'programdata_bytes':len(data_bytes),'programdata_sha256':sha(data_bytes),'header_sha256':sha(data_bytes[:45]),'elf_prefix_unchanged':data_bytes[45:45+len(raw)]==raw,'zero_allocation_tail':data_bytes[45+len(raw):]==zero_tail,'slot':self.get_clock().slot})
     def add_program_from_file(self,program_id,path):
         if program_id==PROGRAM:return self._add_captured_pump(Path(path).read_bytes(),str(Path(path).resolve()))
         return super().add_program_from_file(program_id,path)

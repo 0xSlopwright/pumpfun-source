@@ -35,17 +35,23 @@ impl anchor_lang::AccountSerialize for BondingCurve {
         Ok(())
     }
 }
-// Source proposal only: original checked 0x9b148 and unchecked 0x9b430.
-// Account owner/lamports/borrow checks and field-name errors belong to Anchor.
 impl anchor_lang::AccountDeserialize for BondingCurve {
     #[inline(never)]
     fn try_deserialize(buf: &mut &[u8]) -> Result<Self> {
-        if buf.len() < Self::DISCRIMINATOR.len()
-            || &buf[..Self::DISCRIMINATOR.len()] != Self::DISCRIMINATOR
-        {
-            return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into());
-        }
-        Self::try_deserialize_unchecked(buf)
+        if buf.len() < Self::DISCRIMINATOR.len() { return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into()); }
+        if &buf[..Self::DISCRIMINATOR.len()] != Self::DISCRIMINATOR { return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into()); }
+        *buf = &buf[Self::DISCRIMINATOR.len()..];
+        let n = buf.len();
+        if n < 41 { return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into()); }
+        if n < 73 { return historical_curve::decode_v0(buf); }
+        if n < 74 { return historical_curve::decode_v1(buf); }
+        if n < 75 { return historical_curve::decode_v2(buf); }
+        if n < 107 { return historical_curve::decode_v3(buf); }
+        if n < 116 { return historical_curve::decode_v4(buf); }
+        if n < 117 { return historical_curve::decode_v5(buf); }
+        if n < 133 { return historical_curve::decode_v6(buf); }
+        if n < 158 { return historical_curve::decode_v7(buf); }
+        historical_curve::decode_v8(buf)
     }
 
     fn try_deserialize_unchecked(buf: &mut &[u8]) -> Result<Self> {
@@ -53,26 +59,20 @@ impl anchor_lang::AccountDeserialize for BondingCurve {
             return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into());
         }
         *buf = &buf[Self::DISCRIMINATOR.len()..];
-        decode_original_curve_payload(buf)
+        let n = buf.len();
+        if n < 41 {
+            return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into());
+        }
+        if n < 73 { return historical_curve::decode_v0(buf); }
+        if n < 74 { return historical_curve::decode_v1(buf); }
+        if n < 75 { return historical_curve::decode_v2(buf); }
+        if n < 107 { return historical_curve::decode_v3(buf); }
+        if n < 116 { return historical_curve::decode_v4(buf); }
+        if n < 117 { return historical_curve::decode_v5(buf); }
+        if n < 133 { return historical_curve::decode_v6(buf); }
+        if n < 158 { return historical_curve::decode_v7(buf); }
+        historical_curve::decode_v8(buf)
     }
-}
-
-// Recovered historical layout dispatch. Each Borsh layout owns one complete
-// version; bytes between complete layout boundaries are not decoded.
-fn decode_original_curve_payload(buf: &mut &[u8]) -> Result<BondingCurve> {
-    let n = buf.len();
-    if n < 41 {
-        return Err(anchor_lang::solana_program::program_error::ProgramError::InvalidAccountData.into());
-    }
-    if n < 73 { return historical_curve::decode_v0(buf); }
-    if n == 73 { return historical_curve::decode_v1(buf); }
-    if n < 75 { return historical_curve::decode_v2(buf); }
-    if n < 107 { return historical_curve::decode_v3(buf); }
-    if n < 116 { return historical_curve::decode_v4(buf); }
-    if n == 116 { return historical_curve::decode_v5(buf); }
-    if n < 133 { return historical_curve::decode_v6(buf); }
-    if n < 158 { return historical_curve::decode_v7(buf); }
-    historical_curve::decode_v8(buf)
 }
 
 mod historical_curve {
@@ -322,46 +322,47 @@ pub fn prepare_bonding_curve<'info>(
     payer: &Signer<'info>,
 ) -> Result<()> {
     let current_size = curve.to_account_info().data_len();
-    let funding = fund_bonding_curve_rent(curve, system_program, payer, current_size.max(166));
-    if funding.is_ok() && current_size < 166 {
-        curve.to_account_info().realloc(166, false)?;
-    }
-    funding
-}
-
-#[inline(never)]
-pub fn fund_bonding_curve_rent<'info>(
-    curve: &Account<'info, BondingCurve>,
-    system_program: &Program<'info, System>,
-    payer: &Signer<'info>,
-    size: usize,
-) -> Result<()> {
-    let reserved = if curve.quote_mint == Pubkey::default() {
-        let fees = reserved_bonding_curve_fees(curve)?;
-        curve.real_quote_reserves.checked_add(fees)
-            .ok_or_else(|| error!(crate::PumpError::Overflow))?
-    } else {
-        0
-    };
-    let minimum = Rent::get()?.minimum_balance(size);
-    let available = curve.to_account_info().lamports().saturating_sub(reserved);
-    if minimum > available {
-        anchor_lang::system_program::transfer(
-            CpiContext::new(
-                system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: payer.to_account_info(),
-                    to: curve.to_account_info(),
-                },
-            ),
-            minimum.saturating_sub(available),
-        )?;
-    }
+    let needs_realloc = current_size < 166;
+    let new_size = current_size.max(166);
+    fund_bonding_curve_rent(curve, system_program, payer, new_size)?;
+    if needs_realloc { curve.to_account_info().realloc(166, false)?; }
     Ok(())
 }
 
+pub use crate::extend::fund_bonding_curve_rent;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub use crate::TradeEvent;
 pub use crate::pump_fees::{
+
     types::{FeeTier, Fees, Shareholder},
 };
 
@@ -378,72 +379,4 @@ pub struct FeeConfig {
     pub fee_tiers: Vec<FeeTier>,
     pub stable_fee_tiers: Vec<FeeTier>,
     pub exotic_flat_fees: Fees,
-}
-
-// Original shared event constructor 0x8bbd0. Both callers retain Clock reads.
-pub struct TradeEventFees {
-    pub fee: u64,
-    pub creator_fee: u64,
-    pub fee_basis_points: u64,
-    pub creator_fee_basis_points: u64,
-}
-
-#[inline(never)]
-pub fn make_trade_event(
-    curve: &BondingCurve,
-    global: &crate::Global,
-    volume: &crate::UserVolumeAccumulator,
-    user: &Pubkey,
-    mint: &Pubkey,
-    is_buy: bool,
-    token_amount: u64,
-    quote_amount: u64,
-    fees: &TradeEventFees,
-    unparsed_trailing_field: u64,
-    buyback_fee: u64,
-    ix_name: &str,
-    timestamp: i64,
-) -> TradeEvent {
-    let real_quote_reserves = curve.real_quote_reserves;
-    let virtual_quote_reserves = curve.virtual_quote_reserves;
-    let quote_mint = curve.quote_mint;
-    let native = quote_mint == Pubkey::default();
-    TradeEvent {
-        mint: *mint,
-        sol_amount: if native { quote_amount } else { 0 },
-        token_amount,
-        is_buy,
-        user: *user,
-        timestamp,
-        virtual_sol_reserves: if native { virtual_quote_reserves } else { 0 },
-        virtual_token_reserves: curve.virtual_token_reserves,
-        real_sol_reserves: if native { real_quote_reserves } else { 0 },
-        real_token_reserves: curve.real_token_reserves,
-        fee_recipient: Pubkey::default(),
-        fee_basis_points: fees.fee_basis_points,
-        fee: fees.fee,
-        creator: curve.creator,
-        creator_fee_basis_points: fees.creator_fee_basis_points,
-        creator_fee: fees.creator_fee,
-        track_volume: false,
-        total_unclaimed_tokens: volume.total_unclaimed_tokens,
-        total_claimed_tokens: volume.total_claimed_tokens,
-        current_sol_volume: volume.current_sol_volume,
-        last_update_timestamp: volume.last_update_timestamp,
-        ix_name: ix_name.into(),
-        mayhem_mode: curve.is_mayhem_mode,
-        cashback_fee_basis_points: 0,
-        cashback: 0,
-        buyback_fee_basis_points: if curve.is_mayhem_mode { 0 } else { global.buyback_basis_points },
-        buyback_fee,
-        shareholders: Vec::new(),
-        quote_mint,
-        quote_amount,
-        virtual_quote_reserves: virtual_quote_reserves,
-        real_quote_reserves: real_quote_reserves,
-        holder_rewards_bps: if curve.is_holder_reward { fees.creator_fee_basis_points } else { 0 },
-        holder_rewards: if curve.is_holder_reward { fees.creator_fee } else { 0 },
-        creator_fee_unclaimed: curve.creator_fee,
-        unparsed_trailing_field,
-    }
 }

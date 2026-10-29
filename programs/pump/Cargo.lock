@@ -1105,8 +1105,13 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "pump-token-ext",
  "spl-type-length-value",
 ]
+
+[[package]]
+name = "pump-token-ext"
+version = "0.1.0"
 
 [[package]]
 name = "qstring"
