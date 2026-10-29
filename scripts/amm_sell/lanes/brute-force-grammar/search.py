@@ -38,7 +38,6 @@ def score(r):
         return (9, 10**9, 10**9)
     m = r
     pen = 0 if m.get('lost') == 0 else 2
-    pen += 0 if m.get('size') == 9024 else 1
     return (pen, m.get('dist', 10**9), m.get('slots', 10**9))
 
 
@@ -128,13 +127,13 @@ def neighbors(c, sites):
 
 
 def bad_alts():
-    """alts that failed to compile alone -> skip."""
-    bad = set()
+    """alts for which every evaluated combo failed (build_failed/invalid/harness_error) -> skip."""
+    ok, badc = set(), set()
     for r in load().values():
-        c = r['choice']
-        if len(c) == 1 and r['status'] in ('build_failed', 'invalid'):
-            bad.add(next(iter(c.items())))
-    return bad
+        good = r['status'] in ('scored', 'GOAL_SELL_RAW_EQUAL') and r.get('lost') == 0
+        for kv in r['choice'].items():
+            (ok if good else badc).add(tuple(kv))
+    return badc - ok
 
 
 def beam(width, rounds, sites, per_round):

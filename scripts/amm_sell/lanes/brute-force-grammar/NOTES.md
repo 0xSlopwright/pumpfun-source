@@ -18,3 +18,16 @@ the `!=` (`PartialEq::ne`) spelling - the MIR SwitchInt target order of the owne
 changes the creation order of later blocks.
 
 `best_sell.rs` = pristine + that one line.
+
+## Outcome (12:23 UTC)
+
+The swarm goal was reached by lane semantic-reconstruction (attempt key c9f12a27649d78bb, sell
+sha f115f36e...): this lane's line-444 `!=` owner check, plus line 467
+`if ata.is_writable == false { return err!(..) }` and line 468
+`if ata.data_is_empty() == false {} else {`. This lane stopped its search at that point.
+
+Results from 153 grammar builds (see `attempts.jsonl`):
+- Of about 110 single-site alternatives, the 444 `!=` spelling (`owner != crate::ID` or `owner != &crate::ID`) is the only one that flips the borrow test. `!(a == b)`, `.eq`, `require!(!(a != b))`, `.ne()` and `crate::ID != *owner` were all tried.
+- With owner `!=` in place: ata_w `== false` / `!= true` -> 169 (9040 bytes); else-if chain + `else { Ok(()) }?` family -> 134-136 (9000/9008); data_len()==0 -> 140, but it calls data_len rather than data_is_empty, so it is not allowed.
+- `.ok_or_else(|| error!(..))` at 502 emits a second cashback closure symbol (harness_error).
+- `let Ok(data) = .. else` at 445 -> size 9024, dist 136, still not JEQ.

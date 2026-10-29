@@ -13,7 +13,7 @@ while i<len(lines):
         j=i
         while j<len(lines) and lines[j][:1] in '+-': j+=1
         h=lines[i:j]
-        if [op(l) for l in h if l[0]=='-']!=[op(l) for l in h if l[0]=='+']:
+        if [op(l) for l in h if l[0]=="-"]!=[op(l) for l in h if l[0]=="+"] or any("r9" in l for l in h):
             print('----', i)
             for l in lines[max(0,i-2):j+1]: print(l[:120])
         i=j

@@ -203,6 +203,66 @@ site('ata_if', [468, 469, 479, 480, 481],
      alt(l468=f'{I4}let ata = match ata.data_is_empty() {{ true => {{', l479=f'{I8}))?; ata }} false => ata }};', l480=''),
      )
 
+# ---- else-if chain family around reorder lane's e0dfd60d (467/468/479/480) ----
+_EA = f'return err!({E_ATA});'
+_HEADS = [
+    (f'{I4}if !ata.is_writable {{ {_EA} }} else if ata.data_is_empty() {{', '', ''),
+    (f'{I4}if ata.is_writable == false {{ {_EA} }} else if ata.data_is_empty() {{', '', ''),
+    (f'{I4}if !ata.is_writable {{ {_EA} }} else if !ata.data_is_empty() {{ Ok(()) }} else {{', '', ''),
+    (f'{I4}if !ata.is_writable {{ {_EA} }}', f'{I4}if ata.data_is_empty() {{', ''),
+    (f'{I4}require!(ata.is_writable, {E_ATA});', f'{I4}if ata.data_is_empty() {{', ''),
+    (f'{I4}let r = if !ata.is_writable {{ {_EA} }} else if ata.data_is_empty() {{', '', 'r'),
+    (f'{I4}match if !ata.is_writable {{ {_EA} }} else if ata.data_is_empty() {{', '', 'm'),
+    (f'{I4}if ata.is_writable == false {{ {_EA} }}', f'{I4}if ata.data_is_empty() {{', ''),
+    (f'{I4}if !ata.is_writable {{ {_EA} }} else {{ if ata.data_is_empty() {{', '', 'b'),
+]
+_TAILS = [
+    (f'{I8}))', f'{I4}}} else {{ Ok(()) }}?;'),
+    (f'{I8}))?;', f'{I4}}}'),
+    (f'{I8}))?; Ok::<(), {ERR}>(())', f'{I4}}} else {{ Ok(()) }}?;'),
+    (f'{I8})).map(|()| ())', f'{I4}}} else {{ Ok(()) }}?;'),
+    (f'{I8}))', f'{I4}}} else {{ Result::<()>::Ok(()) }}?;'),
+    (f'{I8}))', f'{I4}}} else {{ Ok(()) }}.map_err(|e| e)?;'),
+    (f'{I8}))', f'{I4}}} else {{ return_ok() }}?;'),
+]
+_chain = []
+for hi, (h, h2, kind) in enumerate(_HEADS):
+    for ti, (t1, t2) in enumerate(_TAILS):
+        if ti == 6:
+            continue
+        if kind == 'r':
+            t2b = t2[:-2] + '; r?;' if t2.endswith('?;') else None
+            if t2b is None or not t2.endswith('}?;'):
+                continue
+            t2b = t2[:-2] + '; r?;'
+            t2b = t2b.replace('?; r?;', '; r?;') if False else t2[:-2] + '; r?;'
+        elif kind == 'm':
+            if not t2.endswith('}?;'):
+                continue
+            t2b = t2[:-2] + ' { Ok(()) => {}, Err(e) => return Err(e) }'
+        elif kind == 'b':
+            t2b = t2 + ' }'
+        else:
+            t2b = t2
+        if kind == '' and h.endswith('Ok(()) } else {') and not t2.endswith('}?;'):
+            continue
+        a = {467: h, 468: h2, 479: t1, 480: t2b}
+        if h2 == '' and kind == '':
+            pass
+        _chain.append(a)
+site('ata_chain', [467, 468, 479, 480], *_chain)
+
+_more = []
+for h, h2, kind in [_HEADS[0], _HEADS[1], _HEADS[3], _HEADS[7]]:
+    for t1, t2 in [(f'{I8}))?', f'{I4}}}'), (f'{I8}))?', f'{I4}}} else {{}}'), (f'{I8}))?;', f'{I4}}} else {{}}'),
+                   (f'{I8})).map_err(|e| e)', f'{I4}}} else {{ Ok(()) }}?;'),
+                   (f'{I8}))', f'{I4}}} else {{ Ok::<(), {ERR}>(()) }}?;')]:
+        _more.append({467: h, 468: h2, 479: t1, 480: t2})
+for h in [_HEADS[2][0], f'{I4}if ata.is_writable == false {{ {_EA} }} else if !ata.data_is_empty() {{ Ok(()) }} else {{']:
+    for t1, t2 in [(f'{I8}))', f'{I4}}}?;'), (f'{I8}))?; Ok(())', f'{I4}}}?;')]:
+        _more.append({467: h, 468: '', 479: t1, 480: t2})
+SITES['ata_chain'].extend(_more)
+
 # 'else' alt 1 opens an extra brace; it must be combined with an extra closing brace
 CONSTRAINTS = [
     # (site, alt) requires (site2, alt2)
