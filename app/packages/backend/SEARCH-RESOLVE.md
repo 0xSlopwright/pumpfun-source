@@ -12,7 +12,7 @@ The declared service is `https://api.pump.fun/v1`, OpenAPI `0.294.0`, operation
 binds it to captured factory `402734-7679a980be13` (`recovered/modules.json`).
 The factory is inert evidence, never executed by this implementation.
 
-The query accepts one to five identifiers of at most 128 UTF-16 code units.
+The query accepts one to five identifiers of at most 128 code points.
 Comma-separated, repeated and mixed `identifiers` forms flatten in request order;
 values are not trimmed, normalized or deduplicated. A successful result has exactly
 `identifier`, `kind`, `chain`, `coin`, `user`, `resolvedVia` and `definitive`.
@@ -41,7 +41,7 @@ lookup in this supported branch answered from the injected store.
   upstream degradation reason.
 - No coin registry, chain classifier, fallback provider, live lookup, registration
   absence inference or production compatibility qualification is implemented.
-- Missing `identifiers`, more than five values or values over 128 code units return
+- Missing `identifiers`, more than five values or values over 128 code points return
   local `400 INVALID_QUERY`. Unknown query parameters return local 501. An empty
   string is within the declared string bound but outside the supported UUID branch,
   so it also returns 501. These error envelopes are local policy, not captured
