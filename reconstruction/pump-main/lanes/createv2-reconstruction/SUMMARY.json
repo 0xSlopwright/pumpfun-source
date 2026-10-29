@@ -46,5 +46,41 @@
  "next_ideas": [
   "find a natural validate return/struct layout that leaves a 48-byte SROA slice (16 B field + Pubkey); check with llc MIR stack dump before full builds",
   "holder-reward / require_keys_neq temporaries between _84 and creator1 as the source of the 16 B object"
- ]
+ ],
+ "round2": {
+  "best": {
+   "ratio": 0.75114,
+   "bytes": 15632,
+   "orig_bytes": 15576,
+   "calls": 125,
+   "official": "1019/188, no gains/losses",
+   "unstripped_sha256": "70a8dbc6299887c86b7be0948d854303c826a14c92581bcf553a5356fe77e4b5",
+   "mechanism": "bonding_curve.creator stored first in the curve field sequence"
+  },
+  "attempts": 25,
+  "findings": [
+   "Original splits the validate-result Pubkey at +8 (24 B slice at r10-0x4c0, first qword kept in a register). That needs the Pubkey at Ok+16, under the Err payload: the Option<u64> reserves layout (R1/S1). The orig jlt src,3 depth select and the and src,2 fee test point the same way, to QuoteSource::Nested(u8).",
+   "R1 with quote_mint compared in place puts the 32 unnamed 16 B Result<()> sret slots at exactly the original offsets.",
+   "Under R1 the eager ivqr load is still sunk into the None edge (bb64 -> bb65.sink.split), and SimplifyCFG merges it with the sol load into a load of a phi address. That moves the 46-insn curve-store block, and R1 lands at about 0.51 whatever the vqr spelling (unwrap_or / if-let / match / precomputed quote_reserves), borrow order or global position.",
+   "The x27 rep is insensitive to how the result is bound: binding to q, an explicit Ok/Err match, q.N field use, holder PDA tuple destructuring, and bool locals for the flags are all byte-identical to the best.",
+   "Original stores creator into the curve in reverse qword order through r4=curve+8, with r4 computed before the memcmp. Storing creator before the memcmp reproduces the reverse order but lowers the ratio (0.746)."
+  ],
+  "rejected": [
+   "R1nc vqr forms A/B/C",
+   "R1nc bindq",
+   "R1nc q-fields",
+   "x27 bindq/matcherr/qfields (identical)",
+   "is_holder_reward/cashback bool locals (identical)",
+   "struct-update curve literal (126 calls)",
+   "borrow+creator store before depth/vqr",
+   "holder PDA let mint_key / tuple",
+   "let mut creator reassignment (0.695)",
+   "R1nc borrow/global/depth order (identical 0.5086)",
+   "precomputed quote_reserves (R1nc and x27)"
+  ],
+  "next_ideas": [
+   "Find a natural R1 form where the ivqr load becomes a select operand before SimplifyCFG sinking: e.g. reserves carried as (bool,u64) or u64 with a separate is_some flag in the validate result, or an #[inline(never)] or non-inlined validate boundary. Check each with tools/irframe.sh and the IR bb65.sink.split pattern before running a full build.",
+   "Register-assignment residual: orig keeps is_holder_reward in r6 and ctx in r7, while ours swaps them. It repeats in every error epilogue (r7/r9 against r9/r6)."
+  ]
+ }
 }
