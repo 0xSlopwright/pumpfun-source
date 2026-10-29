@@ -62,3 +62,24 @@ site 0.0176 (< 2 %, cold, clones outlined). The original branches once on a prec
 
 All zero losses (1020/188). t7 and t8 were merged in #1246. Ledger ids: t7 44d5741f, d5 62ab6da8,
 t8 eeff1b3e, t9 fe58b274, t10 43a05a3d.
+
+### Round 2, part 2 (base main abd766d = t8 merged; PR #1291)
+
+| trial | mechanism | bytes | win ratio | block_j | sorted | result |
+|---|---|---:|---:|---:|---:|---|
+| t11 | AdminCtoEvent built once, `emit!(e); emit_cpi!(e)` (original calls Event::data twice on one struct; Clock->data span 0x240 = orig) | 26,680 | 0.2007 | 0.212 | 0.180 | kept |
+| t12 | validation split: holder path (298, then fee checks) vs non-holder (306 let-else, 307 zero, 312 memcmps), fee checks under `if let Some(f)` (matches orig CFG 0730/0900/0c08) | 27,240 | 0.098 | 0.202 | 0.153 | raw 190 by address luck; not kept |
+| t13/t16 | + `holder.unwrap_or(false)` first (orig `and r8,1`); nesting 296 under else is byte-identical | 26,856 | 0.099 | 0.199 | | not kept |
+| t14 | `CtoState` struct literal at entry (orig 0x420 block stores a 46-byte aggregate: creator, max fee, 6 bools in rustc layout; its creator field is memcmp'd so every store survives) | 27,152 | 0.118 | **0.233** | 0.188 | alternative line |
+| t15 | t14 + t12 | 27,376 | 0.111 | 0.211 | | 4 syscalls, rejected |
+| t17 | t14 with validation as nested `fn validate(&CtoState, ..)` | 27,072 | 0.150 | 0.223 | 0.191 | alternative line |
+| t18/t19 | CollectCreatorFeeEvent emitted by reference (event block 142 -> 123 insns, orig 126) | 26,616 (t19) | **0.2009** (t19) / 0.150 (t18) | 0.212 / 0.223 | 0.181 / 0.196 | t19 kept |
+| t20 | t18 with global_quote evaluated inside the struct literal | 27,024 | 0.107 | 0.213 | | rejected |
+
+Hot/cold map of validation error sites (`hc.py`: an error block that calls `to_string` is cold, an inlined
+Display::fmt is hot). Original: 284 289 296 298 306 326 410 556 648 hot; 307 312 330 334 338 660 719 cold.
+t19 differs at 307 (hot) and 326 (cold); t12-line at 307 and 312 (hot). Remarks with line tables show a
+two-level decision: a to_string site judged cold inside the validation closure is re-judged when the
+closure is inlined into execute (307/312/326 then come out hot at threshold 325). The closure-level
+frequencies of 307/312/326 sit at 0.017-0.023 of entry, right at the 2 % line, so equivalent
+spellings flip them.
