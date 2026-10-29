@@ -229,3 +229,24 @@ moves `BondingCurve::sync_virtual_quote_reserves` (no sites) next to `reserved_b
 the original's hand-written order has it. Official 1020/276, no losses (unstripped ab7d1ade...). LIS 881 -> 886,
 breaks 136 -> 131, mismatched `.data.rel.ro` operands **125 -> 42**, `.rodata` 2051 -> 2008, equal-offset data
 windows 156 -> 157.
+
+### Rebased on main ef400863 (round-1 PR #1260 merged at b65ea16)
+After the merge, the buy_v2 trio gained from buyv2-sibling-transplant. Re-measured there, outlining helps
+only sell_v2, so buy_v2 and buy_exact_quote_in_v2 are back to main's attributes (`fc077350`).
+
+| metric (vs main ef400863) | main | this branch |
+| --- | ---: | ---: |
+| official normalized / raw | 1020 / 188 | 1020 / **276** (raw +88, 0 losses) |
+| 0x144508 sell_v2 ratio | 0.93984 | 0.95152 |
+| P16 (model raw once the 16 match) | 286 | 416 |
+| LIS / L adjacent breaks | 854 / 167 | 884 / 136 |
+| equal-offset data windows (of 593) | 163 | 257 |
+| mismatched .rodata / .data.rel.ro operands | 2758 / 125 | 1457 / 42 |
+
+Unstripped sha256 37a078b8c743a0cc95c8aefc145d5b2e497a967fe39ae7e7f084ff513d5cb432. Main's .rodata is now the
+original's size (0x7d1f).
+
+### Rejected in round 2
+- all six handlers as program fns (`310c3a1f`): v3 trio worse, loses 0x859b0
+- `buy_exact_sol_in` without `#[inline]` (`ba219e5d`), with or without mounting buy.rs second: loses 0x14f4e0
+- MAYHEM_ID static defined in the lib.rs body (`178c5a67`): no data-layout change
