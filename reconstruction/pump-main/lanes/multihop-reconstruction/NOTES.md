@@ -122,6 +122,8 @@ w1 1177, br1 1147, br3 1132). Lower is better.
 | **pf1 mac1 + deferred `let post_fill;`, None on each no-post path** (in source) | 18,272 | 0.2148 | **0.7233** | **0.8071** | 101 | **903 / 1628** |
 | pf2 sell checked_sub moved after payout | LOSS (1019 normalized) | | | | | |
 | pfpe1 / pfpe2 pf1 + pe1 / pe2 | identical to pe1 / pe2 | | | | | |
+| tp1 pf1 + trade_event mint = &h.base_mint.key() | 18,368 | 0.2142 | 0.7218 | 0.8071 | 101 | 917 / 1628 |
+| tp2 pf1 + CompleteEvent mint = h.base_mint.key() | 18,296 | 0.1860 | 0.7276 | 0.8096 | 101 | 868 / 1648 (mixed) |
 
 te2 shows why `exact` alone misleads: it doubles while every structural metric gets worse.
 
@@ -162,7 +164,7 @@ locally closer, but it cancels pf1 (identical bytes), so it is not kept.
 
 Ledger ids (round 2): 25aa56c1 (ar1), 84f78eee (ar2), 58559371 (wl1), eadf629d (wl2),
 b510e5e4 (te1), 5f606a0f (te2), ea3a9c59 (mac1), 50c5e0d3 (pe1), c13f84f0 (pe2),
-100a2ede (pe3), dae56098 (pf1), c09e362e (pf2), 1cb4e2af (pfpe1), d1e9b08f (pfpe2).
+100a2ede (pe3), dae56098 (pf1), c09e362e (pf2), 1cb4e2af (pfpe1), d1e9b08f (pfpe2), 2d921715 (tp1), 5fd20a97 (tp2).
 
 ## Tools (in this directory; run with the swarm `$TOOLS/harness` path as first argument)
 
