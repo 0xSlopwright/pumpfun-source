@@ -47,6 +47,16 @@ original classes/content and order, including source locations, bounded strings
 and vtable fields. This is a one-hop audit; masked operands inside those callees
 are not recursively closed.
 
+The verifier includes the parent-order correction from lalalune's
+[PR #990](https://github.com/lalalune/pumpfun-source/pull/990), revision
+`2e46d2a7cb12e930930d4a060868822fe94bc641`. The earlier reader reported parent
+call order but did not require it; its data checks allowed parent permutations
+with the same multiset. Both substitutions were independently reproduced against
+our published reader. The corrected reader requires original-to-parent order for
+calls and bounded data, with two regression controls that alter valid operands
+without changing the normalized body. Saved build/source/trace evidence and the
+positive operand observations remain unchanged.
+
 ## Compiler evidence and recipe qualification
 
 The retained native final trace from PR909 has IR block95 branch to success110
@@ -149,7 +159,7 @@ readers. Verification uses only the original ELF and the pinned selected-window
 catalog outside this packet. It checks the seal, exact source delta, literal
 commands/environment, receipt/output/log bindings, repeat equality, census sets,
 all symbol classes, branch bytes, the complete bounded operand audit, trace/MIR
-bindings, observed pass transitions and final tail operands. Fourteen tests also
+bindings, observed pass transitions and final tail operands. Sixteen tests also
 exercise header prefixes and semantic trace mutations after recomputing hashes. It
 does not reopen historical private SDK/cache paths, execute a controller,
 compile, or run SBF. Receipts establish stored-evidence consistency, not

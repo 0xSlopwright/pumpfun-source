@@ -50,10 +50,10 @@
   "passive/stderr.log.gz": "f29f910f63e13521a6ece60a6c15c9ced894e0021a26094579f14ab357ed2a50",
   "passive/stdout.log.gz": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
   "passive/symbols.so.gz": "2566e94a7b81a0d207144a7c7faeded5204fe9e6fdbcce62f6e1cfa512d499b8",
-  "PROVENANCE.json": "a78c4ac46861cf2439ceda4a63fa753b38dc7062dd701241f68e8bb4408245c1",
-  "readers/audit_refs.py.gz": "e51c2d3334a0d860354441b3aae3f02bee8aa1f750d25cdd7a34587f5ac6c4e3",
+  "PROVENANCE.json": "10d960d13866d68152b26d2f76488122523632f8beece5962b3765d9fecef003",
+  "readers/audit_refs.py.gz": "8e991ea65ffd93e21b9a10e032861692a6cf970420ab1ebe7c91c166bcc81e63",
   "readers/elf.py.gz": "2956863038e30ad4cb4c0a6c7bbffdbde6eafc0cf41d03eb7f7fa36a48cd75dc",
-  "README.md": "1d1548f751da0d15e4c0062468ae9c24136ddaff9e711cc6467be5286de12179",
+  "README.md": "210139621320bb8869b4ec1ecb63b095159d36d62937c5f12949ce0c5f64251e",
   "rejected/net-match/controller.py.gz": "871cb949abb7be0139b1d65794871be0b73f6ed11eeefe3011e781588e6c88ec",
   "rejected/net-match/launch.json.gz": "9eb8853704aa0212e3e5cb456a0c099cd342c9f5cae4bb1f25841e5603c50686",
   "rejected/net-match/result.json.gz": "2d2cc4b4bc668bfa78adee8034f375f3f5ebbe8d630901b3228943a47142fd38",
@@ -73,6 +73,6 @@
   "rejected/path-audit/stderr.log.gz": "1d8c13ab7ce048b1073febd51ca74832e0a3e548a4f521a2f5e50a42250e2613",
   "source/candidate-trade_v3.rs.gz": "4fc6efd460f0293d3675fbfaafefc7fb3a569b5262baa7a0d33a06389f719b43",
   "source.patch": "087d40458cfbc4414d396177a9238f0c82af153045dad533b5853ecc81d69ca8",
-  "tests/test_verify.py": "0e0b04a133b0f7e9e536358a0f2d84cd6de268fca05ce8375e8415e4310d7fe9",
-  "verify.py": "5522c3368ef857fbeccd93a15b0f8c1ac70a99c8544f5a0c1c15a8319c69bf07"
+  "tests/test_verify.py": "f45224c1338e871192d0db28a0c94f5ef5cb8d521d8588acd81ebccd74366b20",
+  "verify.py": "d9e124388beb4e6ec2986b5b4d7e66ddfac2189f5bbd6802c1fff62d5d9e7721"
 }
