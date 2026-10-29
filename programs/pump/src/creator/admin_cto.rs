@@ -97,8 +97,8 @@ pub sharing_config_reset:bool,
 pub swept_to_holder_vault:u64,
 pub pool_updated:bool,
 }
-pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>)->Result<()>{
- let a=&ctx.accounts;let mint=a.mint.key();let (holder_key,_)=Pubkey::find_program_address(&[b"holder-rewards",mint.as_ref()],&crate::ID);let shared=a.bonding_curve.creator==a.sharing_config.key()&&a.sharing_config.owner==&FEES&&!a.sharing_config.data_is_empty();let quote_locked=crate::pump_quote::global_quote(a.bonding_curve.quote_mint,&a.global);let old=a.bonding_curve.creator;
+struct CtoState{creator:Pubkey,max_fee:u64,mayhem:bool,holder_reward:bool,cashback:bool,quote_locked:bool,holder_enabled:bool,fee_configurable:bool}pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>)->Result<()>{
+ let a=&ctx.accounts;let mint=a.mint.key();let (holder_key,_)=Pubkey::find_program_address(&[b"holder-rewards",mint.as_ref()],&crate::ID);let shared=a.bonding_curve.creator==a.sharing_config.key()&&a.sharing_config.owner==&FEES&&!a.sharing_config.data_is_empty();let quote_locked=crate::pump_quote::global_quote(a.bonding_curve.quote_mint,&a.global);let (holder,cashback,target,sharing_update,collect_old)={let st=CtoState{creator:a.bonding_curve.creator,max_fee:a.global.max_configurable_creator_fee_bps,mayhem:a.bonding_curve.is_mayhem_mode,holder_reward:a.bonding_curve.is_holder_reward,cashback:a.bonding_curve.is_cashback_coin,quote_locked,holder_enabled:a.global.is_holder_reward_enabled,fee_configurable:a.global.creator_fee_configurable};
 // layout-pad(182): aligns the next Source site with the original line
 
 
@@ -280,36 +280,36 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
 
 
- let (holder,cashback,mut target)=(||->Result<(bool,bool,Pubkey)>{
- if a.bonding_curve.is_mayhem_mode{return Err(error!(PumpError::CtoNotAllowedForMayhemCoin));}
+ let (holder,cashback,mut target)=validate(&st,holder,fee,new,holder_key,a.sharing_config.key())?;fn validate(st:&CtoState,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>,holder_key:Pubkey,sharing:Pubkey)->Result<(bool,bool,Pubkey)>{
+ if st.mayhem{return Err(error!(PumpError::CtoNotAllowedForMayhemCoin));}
 // Reconstructed positions of the same deployed validations.
 
 
-
- if a.bonding_curve.is_holder_reward&&holder!=Some(true){return Err(error!(PumpError::HolderRewardCreatorImmutable));}
-
-
-
-
-
-
- if holder==Some(true)&&!a.bonding_curve.is_holder_reward&&!a.global.is_holder_reward_enabled{return Err(error!(PumpError::HolderRewardDisabled));}
- let holder=holder.unwrap_or(false);let cashback=!holder&&a.bonding_curve.is_cashback_coin;
- if holder && new.is_some(){return Err(error!(PumpError::CtoNewCreatorNotAllowed));}
+ let holder=holder==Some(true);
+ if st.holder_reward&&!holder{return Err(error!(PumpError::HolderRewardCreatorImmutable));}
 
 
 
 
 
 
-
- if !holder && new.is_none(){return Err(error!(PumpError::CtoNewCreatorRequired));}
- let target=if holder{holder_key}else{new.unwrap()};if target==Pubkey::default(){return Err(error!(PumpError::CreatorShouldNotBeZero).with_pubkeys((target,Pubkey::default())));}
-
-
+ if holder&&!st.holder_reward&&!st.holder_enabled{return Err(error!(PumpError::HolderRewardDisabled));}
+ let cashback=!holder&&st.cashback;
+ let target=if holder{if new.is_some(){return Err(error!(PumpError::CtoNewCreatorNotAllowed));}holder_key}else{
 
 
- if !holder && (target==holder_key||target==a.sharing_config.key()){return Err(error!(PumpError::InvalidCreator));}
+
+
+
+
+
+  let Some(t)=new else{return Err(error!(PumpError::CtoNewCreatorRequired));};
+  if t==Pubkey::default(){return Err(error!(PumpError::CreatorShouldNotBeZero).with_pubkeys((t,Pubkey::default())));}
+
+
+
+
+  if t==holder_key||t==sharing{return Err(error!(PumpError::InvalidCreator));}t};
 // layout-pad(13): aligns the next Source site with the original line
 
 
@@ -323,20 +323,20 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
 
 
- if fee.is_some()&&quote_locked{return Err(error!(PumpError::CreatorFeeNotConfigurableForQuote));}
+ if let Some(f)=fee{if st.quote_locked{return Err(error!(PumpError::CreatorFeeNotConfigurableForQuote));}
 // layout-pad(3): aligns the next Source site with the original line
 
 
- if fee.is_some()&&cashback{return Err(error!(PumpError::CreatorFeeNotAllowedForCashbackCoin));}
+  if cashback{return Err(error!(PumpError::CreatorFeeNotAllowedForCashbackCoin));}
 
 
 
- if fee.is_some()&&!a.global.creator_fee_configurable{return Err(error!(PumpError::CreatorFeeNotConfigurable));}
+  if !st.fee_configurable{return Err(error!(PumpError::CreatorFeeNotConfigurable));}
 
 
 
- if let Some(f)=fee{if f==0||f>a.global.max_configurable_creator_fee_bps{return Err(error!(PumpError::CreatorFeeBpsOutOfRange));}}
- Ok((holder,cashback,target))})()?;let sharing_update=if shared{Some(if holder{None}else{new})}else{None};let collect_old=sharing_update.is_none()&&!a.bonding_curve.is_holder_reward&&old!=Pubkey::default();if shared&&!holder{target=old;} crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.admin_set_creator_authority)?;
+  if f==0||f>st.max_fee{return Err(error!(PumpError::CreatorFeeBpsOutOfRange));}}
+ Ok((holder,cashback,target))}let sharing_update=if shared{Some(if holder{None}else{new})}else{None};let collect_old=sharing_update.is_none()&&!st.holder_reward&&st.creator!=Pubkey::default();if shared&&!holder{target=st.creator;}(holder,cashback,target,sharing_update,collect_old)};let mut target=target; crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.admin_set_creator_authority)?;
 
 
 
@@ -561,7 +561,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
   if !collection_native||coin_present{anchor_spl::associated_token::create_idempotent(CpiContext::new(a.associated_token_program.to_account_info(),anchor_spl::associated_token::Create{payer:a.admin_set_creator_authority.to_account_info(),associated_token:a.current_creator_quote_token_account.to_account_info(),authority:a.current_creator.to_account_info(),mint:a.quote_mint.to_account_info(),system_program:a.system_program.to_account_info(),token_program:a.quote_token_program.to_account_info()}))?;}
   if collection_native||(source_present&&!source_frozen){
     if let Some((collected,quote_mint))=crate::collect_v2::collect(&a.current_creator,a.current_creator_quote_token_account.as_ref(),&a.creator_vault,ctx.bumps.creator_vault,a.creator_vault_quote_token_account.as_ref(),a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),&a.quote_token_program,a.system_program.as_ref())?{
-     let e=CollectCreatorFeeEvent{timestamp:Clock::get()?.unix_timestamp,creator:old,creator_fee:collected,quote_mint};emit!(e);emit_cpi!(e);
+     let e=CollectCreatorFeeEvent{timestamp:Clock::get()?.unix_timestamp,creator:a.current_creator.key(),creator_fee:collected,quote_mint};emit!(e);emit_cpi!(e);
     }
   }
   if coin_present&&!coin_frozen{
@@ -659,7 +659,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
   if amm_frozen{require!(token_raw_amount(a.coin_creator_vault_ata.as_ref())?==0,PumpError::CtoSharedVaultFrozen);}
   else if !a.coin_creator_vault_ata.data_is_empty(){crate::pump_amm::cpi::transfer_creator_fees_to_pump_v2(CpiContext::new(a.pump_amm.to_account_info(),crate::pump_amm::cpi::accounts::TransferCreatorFeesToPumpV2{payer:a.admin_set_creator_authority.to_account_info(),quote_mint:a.quote_mint.to_account_info(),token_program:a.quote_token_program.to_account_info(),system_program:a.system_program.to_account_info(),associated_token_program:a.associated_token_program.to_account_info(),coin_creator:a.current_creator.to_account_info(),coin_creator_vault_authority:a.coin_creator_vault_authority.to_account_info(),coin_creator_vault_ata:a.coin_creator_vault_ata.to_account_info(),pump_creator_vault:a.creator_vault.to_account_info(),pump_creator_vault_ata:a.creator_vault_quote_token_account.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()}))?;}
-  let bump=[ctx.bumps.creator_vault];let vaultseeds:&[&[u8]]=&[b"creator-vault",old.as_ref(),&bump];
+  let bump=[ctx.bumps.creator_vault];let old=a.current_creator.key();let vaultseeds:&[&[u8]]=&[b"creator-vault",old.as_ref(),&bump];
   let amount=if native{let min=Rent::get()?.minimum_balance(0);let amount=a.creator_vault.lamports().saturating_sub(min);
    if amount>0{crate::legacy_buy::native_payments::ensure_rent_exempt(&a.system_program,&a.admin_set_creator_authority,&a.holder_creator_vault)?;crate::collect_v2::transfer_native(a.system_program.as_ref(),&a.creator_vault,&a.holder_creator_vault,amount,&[vaultseeds])?;}amount}else{let amount=token_raw_amount(a.creator_vault_quote_token_account.as_ref())?;let frozen=token_frozen(a.creator_vault_quote_token_account.as_ref())?;
 
