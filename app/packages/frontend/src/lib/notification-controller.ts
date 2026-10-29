@@ -100,7 +100,9 @@ export function createNotificationController(
   const listeners = new Set<() => void>();
   const publish = (changes: Partial<NotificationState>) => {
     state = Object.freeze({ ...state, ...changes });
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      if (listeners.has(listener)) listener();
+    }
   };
   const guard = (): ActionResult | null =>
     disposed
