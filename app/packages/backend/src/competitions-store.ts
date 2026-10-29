@@ -562,8 +562,9 @@ export class CompetitionStore {
     const target = comp.entries.find(e => e.entryId === entryId);
     if (!target) return null;
 
-    // The contract serves no token reel before the first board build, even
-    // when the supplied read model still contains retained token rows.
+    // Before the first board build no entry is ranked, so serve no token reel
+    // even when the supplied read model still contains retained token rows
+    // (matches getCompetitionHighlights, which only reads ranked entries).
     if (!comp.entries.some(entry => entry.lastRefreshedAtMs > 0)) {
       return { entryId, tokens: [] };
     }
