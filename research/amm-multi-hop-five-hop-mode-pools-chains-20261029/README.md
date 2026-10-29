@@ -57,7 +57,8 @@ on the 12 cases flagged divergent in runtime/report.json.gz.
 - Plain anchors (family A): buy 1e9 quote -> out
   5,259,040,470,738 BASE5, buyback 4,607,153; main protocol
   +4,607,154, tail creator +2,643,422,099, middle pools
-  byte-identical. Sell 1e9 BASE5 -> out 180,345 quote,
+  byte-identical (raw account bytes read from the retained
+  snapshots; verify.py checks the parsed fields of all five pools). Sell 1e9 BASE5 -> out 180,345 quote,
   buyback 846; tail creator +500,000 exactly, main
   protocol +847, middle pools byte-identical.
 - Non-terminal cashback (family B): on the ORIGINAL image,
@@ -83,9 +84,9 @@ on the 12 cases flagged divergent in runtime/report.json.gz.
   exactly 123,394.
 - Both-flags precedence (family E): at a NON-terminal
   hop the original reports mayhem (6080) while the
-  rebuilds report cashback (6079) -- cashback wins at
-  every hop on the rebuilds, mayhem wins at
-  non-terminal hops on the original. At the TERMINAL
+  rebuilds report cashback (6079) -- in the hops measured, cashback wins on the
+  rebuilds and mayhem wins at non-terminal hops on the
+  original. At the TERMINAL
   hop all images report cashback (6079): buy P5-both
   with 4 ghost events, sell P5-both with 0. Cross
   combos: buy main-cashback + P5-mayhem DIVERGES
@@ -115,10 +116,11 @@ on the 12 cases flagged divergent in runtime/report.json.gz.
 - Volume account: the first successful multi-hop in
   a VM pays 1,844,400 rent + 5,000 fee and leaves a
   137-byte accumulator for the payer; later steps
-  pay 5,000 only. Failed trades never init it.
-- Every failed trade rolls back fully on every image;
-  every seed sweep/collect after a failure drains
-  exactly 123,394.
+  pay 5,000 only. No failed trade in this packet
+  initialized it.
+- Every failed trade in this packet rolls back fully on
+  every image, and every seed sweep/collect after a
+  failure drains exactly 123,394.
 
 ## Limits
 
@@ -136,10 +138,12 @@ on the 12 cases flagged divergent in runtime/report.json.gz.
   behaviour on three images, including one deliberate
   original-vs-rebuilt divergence.
 
-## Reproduction
+## Verify and provenance
+
+Run from the repository root:
 
 ```
-python3 verify.py
+python3 research/amm-multi-hop-five-hop-mode-pools-chains-20261029/verify.py
 ```
 
 Expected output:
@@ -147,3 +151,14 @@ Expected output:
 ```
 PASS: 25 cases, 222 receipts, 23 parts, per-image expectations hold (signatures, deltas, events, error codes/sites, rollback); control == candidate everywhere; original diverges on 12 cases as pinned: b-buy-main-cb, b-buy-p2-cb, b-buy-p3-cb, b-buy-p4-cb, b-sell-main-cb, b-sell-p2-cb, b-sell-p3-cb, b-sell-p4-cb, e-buy-main-both, e-sell-main-both, e-buy-maincb-p5mayhem, f-buy-main-cb-loop
 ```
+
+verify.py re-checks the retained receipts only; it does not re-execute
+any transaction. It hashes the three program images from the
+repository: `evidence/original/pump_amm/deployed.so` (original),
+`research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz`
+(#424 control) and
+`research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz`
+(#427 candidate), the last two decompressed before hashing.
+`producer.py` records how the receipts were produced but is not
+runnable as committed: it expects a private `~/workspace` layout
+(`pumpfun-sparse`, `slop-verify`) that is not part of this repository.
