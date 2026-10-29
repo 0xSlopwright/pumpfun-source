@@ -1,4 +1,4 @@
-pub mod buy_v2;
+#[path="util/account_name.rs"] pub mod account_name;pub mod buy_v2;
 pub use buy_v2::*;
 pub mod create_v2;
 pub use create_v2::*;
@@ -18,7 +18,7 @@ pub use creator_migration::*;
 pub use set_creator::*;pub use set_metaplex_creator::*;
 #[path="buy.rs"]pub mod legacy_buy;
 pub use legacy_buy::*;
-#[path="extend_account.rs"]pub mod extend;
+#[path="extend_account.rs"]pub mod extend;#[path = "fee_recipient.rs"] pub(crate) mod fee_recipient;
 pub use extend::*;
 pub mod migrate;
 pub use migrate::*;
@@ -45,7 +45,7 @@ pub mod volume_sync;
 pub use volume_sync::*;
 #[path = "trade_v3.rs"] pub mod trade;
 pub use trade::*;
-#[path="util/constant_product.rs"] pub mod constant_product;
+#[path="util/constant_product.rs"] pub mod constant_product; #[path="util/fee.rs"] pub mod fee_math;
 #[path="util/transfer_fee.rs"] pub mod transfer_fee_recovered;
 pub mod global_init;
 pub use global_init::*;
@@ -60,7 +60,7 @@ pub use idl_authority::*;
 pub mod mayhem_virtual_params;
 pub use mayhem_virtual_params::*;
 pub mod trade_types;
-#[path="util/account_name.rs"] pub mod account_name;
+
 use anchor_lang::prelude::*;
 
 

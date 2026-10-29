@@ -194,3 +194,20 @@ differs only by five swapped 4-byte constants (lld shard order follows first use
 in the wrong region. The string stream after 0xd80 follows first-use order; in the original it starts
 with `admin_set_idl_authority.rs`, `buy.rs`, `buy_v2.rs`, `create_v2.rs`, `creator/admin_cto.rs` (file
 order), which our module order does not reproduce yet.
+
+### Def-order prep: module mounts (`eda8f43e`, kept)
+Pairing fix in `tools/census.py`: the v2 handlers are now pinned under their program-fn names too.
+P16 = model raw once all 16 match in size and code, extras gone, data equal, our order (U and D as
+built). With that pairing, the handler commit kept P16 at 415 and raised LIS 871 -> 874 (breaks 150 -> 144).
+`tools/def_order_mounts.py` (all line-neutral) then:
+- mounts `util/fee.rs` after `constant_product` and moves `trade_fees` into it between `fee` and
+  `calculate_fee_tier` (the original's run 0x88908..0x89ec8 has `util/fee.rs` sites there)
+- mounts `account_name` first, so `with_owned_name` (0x2bc0, in the original's upstream-generic block)
+  precedes all local code
+- mounts `fee_recipient.rs` after `extend` (original run: extend, fee_recipient, migrate)
+- defines `prepare_bonding_curve` in extend_account.rs between `execute` and `fund_bonding_curve_rent`
+  (original 0x3b8d8, 0x3cd50, 0x3d250)
+
+Official 1020/276 unchanged, no losses (unstripped 6e1f13e4...). P16 415 -> 423, LIS 874 -> 881, L adjacent
+breaks 144 -> 136. With U and D as built, the source-only P16 ceiling (original L order) is about 647;
+a full original order is 1014.
