@@ -32,8 +32,11 @@ Checks, from the packet files alone (plus the three program images):
   The report's divergent flag must match the computed comparison.
 - The three program images hash to the values recorded in the report.
 
-Usage: python3 verify.py   (run from this packet directory)
+Usage: python3 verify.py [--original IMAGE] [--control IMAGE] [--candidate IMAGE]
+
+Defaults use the retained repository images. Overrides accept raw or gzip images.
 """
+import argparse
 import base64
 import gzip
 import hashlib
@@ -46,12 +49,11 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 ROOT = Path(__file__).resolve().parent
-WS = Path.home() / "workspace/slop-verify"
-SPARSE = Path.home() / "workspace/pumpfun-sparse"
+REPO = ROOT.parents[1]
 IMAGE_PATHS = {
-    "original": SPARSE / "evidence/original/pump_amm/deployed.so",
-    "control": WS / "control.so",
-    "candidate": WS / "candidate.so",
+    "original": REPO / "evidence/original/pump_amm/deployed.so",
+    "control": REPO / "research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz",
+    "candidate": REPO / "research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz",
 }
 PAYER_KEY = Pubkey.from_string("DXyM8yAHqpMzDtvwz5DXoEUQmPxjJPMKCASCPhLMKpEx")
 POOL = Pubkey.from_string("GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J")
@@ -190,7 +192,7 @@ def surface(recs):
     return out
 
 
-def main():
+def main(image_paths=IMAGE_PATHS):
     manifest = json.loads((ROOT / "MANIFEST.json").read_text())
     for entry in manifest["files"]:
         path = ROOT / entry["path"]
@@ -206,8 +208,11 @@ def main():
         fail(f"counts block {report['counts']}")
     if report["mismatches"] != []:
         fail(f"mismatches recorded: {report['mismatches']}")
-    for name, path in IMAGE_PATHS.items():
-        if sha(path.read_bytes()) != report["images"][name]:
+    for name, path in image_paths.items():
+        image = path.read_bytes()
+        if path.suffix == ".gz":
+            image = gzip.decompress(image)
+        if sha(image) != report["images"][name]:
             fail(f"image hash mismatch {name}")
     receipts = []
     for part in report["parts"]:
@@ -304,4 +309,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name, default in IMAGE_PATHS.items():
+        parser.add_argument(f"--{name}", type=Path, default=default,
+                            help=f"{name} raw or gzip image (default: {default})")
+    args = parser.parse_args()
+    main({name: getattr(args, name) for name in IMAGE_PATHS})
