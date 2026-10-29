@@ -43,3 +43,13 @@ Giving `buy_exact_quote_in_handler` the frozen-best buy_handler tail:
 Control (attempt 5ea82e879a9a413284b20f33c83db29c): buy_handler with the main-style direct
 tail falls to 0.70098, so the tail spelling was the dominant residual in both handlers.
 Unstripped sha256: 9316184ec66730c5b450fc95349b3ca49664d1135a3e3ed6a2155aa750608d68.
+
+## Step 3: climb generation 1 + compose with buyv2-sibling-transplant (PR #1218)
+
+- Gen 1 single-gene flips: buy_handler snapshot order `SNAP_A` (reserves, then creator,
+  quote_mint) raises 0x13b9b8 from 0.94354 to 0.94776 at 15,464 B.
+- The sibling lane restored the prior-swarm exact-quote handler (0.97341, 20,176 B). The
+  engine now uses that section as its exact-quote base; its genome encoding renders a
+  file whose build reproduces 0.97341. Composed build `sib-render`: eq 0.97341 / 20,176 B,
+  bh 0.94776 / 15,464 B, official 1019/188, no gains, no losses,
+  sha256 0aa51f4ef6081904323e2c5e6466da079c03a6b6a7a109d80243484f8fcf1e69.
