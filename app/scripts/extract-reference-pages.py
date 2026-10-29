@@ -98,7 +98,8 @@ class TreeParser(HTMLParser):
     ) -> None:
         node = Node(tag, dict(attrs))
         self.stack[-1].children.append(node)
-        self.stack.append(node)
+        if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+            self.stack.append(node)
 
     def handle_startendtag(
         self, tag: str, attrs: list[tuple[str, str | None]]
