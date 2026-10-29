@@ -86,3 +86,11 @@ before DeadArgElim and is byte-identical (no effect).
 Remaining in-crate residuals for buy_handler: the `fmt::Error`/post-fee Result slot class
 at -0x28 vs original -0x100; the whitelist `user.key()` temporary colored at -0x1e8 vs
 -0x420; the second checked-add overflow block placed late; quote_mint 32-byte copy order.
+
+## Step 5: whitelist binding (climber gen 6)
+
+`let whitelisted=a.global.whitelist_pda==a.user.key();` before the fee tuple in
+buy_handler: 0x13b9b8 0.94776 -> 0.95040 at 15,464 B. Composed with the sibling lane's
+newer exact-quote TradeEvent order (shareholders after the buyback pair, 0.97361 / 20,168 B).
+Standalone rebuild `best2`: official 1019 / 188, no gains, no losses,
+sha256 d28a478aadf5b09f6d0afc85e00c9a8e685bb4928abcb12ee375b5d01f87bcdb.
