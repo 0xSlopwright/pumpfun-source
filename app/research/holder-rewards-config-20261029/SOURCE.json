@@ -4,7 +4,7 @@
   "transport": {
     "controlRevision": "03bcf6a0b8162919a72b884869850abf342aa9d3",
     "controlSourceSha256": "35c2f27cdb7965711dcc89a572cb6740d8f067c26f6d74dd0c7e7e6f3516d0e8",
-    "currentSourceSha256": "74695e305885da0604cc2c030beaac34b34fa8bbd2ecf7042c5ad73b32a46430",
+    "currentSourceSha256": "9d63136dc647a5598eae72573a7d721a11429e712f6ec00ee27e6f860098d8ab",
     "unchangedFactoryBodySha256": "49c42e491310e985a652dbfdcb553a9edfdbb58c16acd3005f63e7daafa41ab1",
     "delta": "export existing factory; add readonly getMultipleAccounts to TypeScript method union only"
   },

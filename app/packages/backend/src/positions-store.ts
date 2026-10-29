@@ -358,6 +358,9 @@ export class PositionsStore {
         if (facts.isExited && own(facts, "openedAt"))
           fail("exited rows cannot carry openedAt");
         if (facts.updatedAt != null) iso(facts.updatedAt, "updatedAt");
+        for (const instant of [facts.updatedAt, facts.openedAt]) {
+          if (instant != null && Date.parse(instant) > Date.parse(this.observedAt)) fail("position timestamp exceeds observedAt");
+        }
         if (facts.openedAt !== undefined) iso(facts.openedAt, "openedAt");
         if (
           facts.lastSlotIndexId !== undefined &&
@@ -474,6 +477,7 @@ export class PositionsStore {
       pageSize > 200 ||
       (options.chainId !== undefined &&
         !Number.isSafeInteger(options.chainId)) ||
+      [options.totalsOnly, options.filterSpam, options.spamOnly].some(value => value !== undefined && typeof value !== "boolean") ||
       (options.filterSpam && options.spamOnly)
     )
       throw new RangeError("Invalid portfolio selection");
