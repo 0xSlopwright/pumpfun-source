@@ -1,17 +1,28 @@
-let locks = 0;
-let previousOverflow = "";
+type BodyLock = { count: number; overflow: string; priority: string };
+const locks = new WeakMap<HTMLElement, BodyLock>();
 
-/** Keep the page locked until every overlapping modal/navigation owner closes. */
+/** Keep each body locked until all of its owners release, preserving inline CSS. */
 export function lockBodyScroll(): () => void {
   const body = document.body;
-  if (locks === 0) previousOverflow = body.style.overflow;
-  locks += 1;
-  body.style.overflow = "hidden";
+  let lock = locks.get(body);
+  if (!lock) {
+    lock = {
+      count: 0,
+      overflow: body.style.overflow,
+      priority: body.style.getPropertyPriority("overflow"),
+    };
+    locks.set(body, lock);
+  }
+  lock.count += 1;
+  body.style.setProperty("overflow", "hidden", lock.priority);
   let released = false;
   return () => {
     if (released) return;
     released = true;
-    locks -= 1;
-    if (locks === 0) body.style.overflow = previousOverflow;
+    lock.count -= 1;
+    if (lock.count === 0) {
+      body.style.setProperty("overflow", lock.overflow, lock.priority);
+      locks.delete(body);
+    }
   };
 }
