@@ -366,9 +366,9 @@ pub use crate::pump_fees::{
     types::{FeeTier, Fees, Shareholder},
 };
 
-#[event]
-#[derive(Clone)]
-pub struct CompleteEvent {pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub timestamp:i64,pub quote_mint:Pubkey}
+pub use crate::CompleteEvent;
+
+
 
 // Route decoding has its own Rust type; the external CPI account keeps the IDL type.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

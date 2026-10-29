@@ -2702,14 +2702,14 @@ pub struct TradeEvent {
     pub unparsed_trailing_field: u64,
 }
 
-
-
-
-
-
-
-
-
+#[event]
+#[derive(Clone)]
+pub struct CompleteEvent {pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub timestamp:i64,pub quote_mint:Pubkey}
+#[event]
+#[derive(Clone)]pub struct PostCompleteBuyEvent{pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub quote_mint:Pubkey,pub timestamp:i64,pub base_out:u64,pub quote_in:u64,pub fee_basis_points:u64,pub fee:u64,pub creator_fee_basis_points:u64,pub creator_fee:u64,pub buyback_fee:u64,pub pool_base_reserves_before:u64,pub pool_quote_reserves_before:u64,pub pool_base_reserves_after:u64,pub pool_quote_reserves_after:u64}
+#[event]
+#[derive(Clone)]
+pub struct SetParamsEvent{pub initial_virtual_token_reserves:u64,pub initial_virtual_sol_reserves:u64,pub initial_real_token_reserves:u64,pub final_real_sol_reserves:u64,pub token_total_supply:u64,pub fee_basis_points:u64,pub withdraw_authority:Pubkey,pub enable_migrate:bool,pub pool_migration_fee:u64,pub creator_fee_basis_points:u64,pub fee_recipients:[Pubkey;8],pub timestamp:i64,pub set_creator_authority:Pubkey,pub admin_set_creator_authority:Pubkey}
 
 
 
@@ -2784,30 +2784,30 @@ pub struct Initialize<'info>{
 }
 
 // layout-pad: aligns the next Source site with the original lib.rs line
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #[event_cpi]
+#[derive(Accounts)]
+pub struct AdminGlobal<'info> {
+    #[account(mut, seeds = [b"global"], bump, has_one = authority @ PumpError::NotAuthorized)]
+    pub global: Account<'info, Global>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub mod bonding_curve_instruction_accounts{use super::*;#[event_cpi]
 #[derive(Accounts)]
 pub struct Create<'info>{
  #[account(init,payer=user,mint::decimals=6,mint::authority=mint_authority)]
@@ -2895,14 +2895,14 @@ pub struct LegacyBuy<'info>{
  pub fee_program:Program<'info,legacy_sell::LegacyFeesProgram>,
 }
 
-#[event_cpi]
 #[derive(Accounts)]
-pub struct AdminGlobal<'info> {
-    #[account(mut, seeds = [b"global"], bump, has_one = authority @ PumpError::NotAuthorized)]
-    pub global: Account<'info, Global>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
-}
+pub struct LegacySell<'info>{
+ #[account(seeds=[b"global"],bump)]pub global:Box<Account<'info,Global>>,#[doc="CHECK: handler validates recipient."]#[account(mut)]pub fee_recipient:UncheckedAccount<'info>,pub mint:InterfaceAccount<'info,anchor_spl::token_interface::Mint>,#[account(mut,seeds=[b"bonding-curve",mint.key().as_ref()],bump,constraint=bonding_curve.quote_mint==Pubkey::default() @ PumpError::UnsupportedQuoteMint)]pub bonding_curve:Account<'info,trade_types::BondingCurve>,
+ #[account(mut,associated_token::mint=mint,associated_token::authority=bonding_curve,associated_token::token_program=token_program)]pub associated_bonding_curve:InterfaceAccount<'info,anchor_spl::token_interface::TokenAccount>,#[account(mut,token::mint=mint)]pub associated_user:InterfaceAccount<'info,anchor_spl::token_interface::TokenAccount>,#[account(mut)]pub user:Signer<'info>,pub system_program:Program<'info,System>,#[doc="CHECK: PDA checked."]#[account(mut,seeds=[b"creator-vault",bonding_curve.creator.as_ref()],bump)]pub creator_vault:AccountInfo<'info>,pub token_program:Interface<'info,anchor_spl::token_interface::TokenInterface>,
+ #[doc="CHECK: event authority."]#[account(seeds=[b"__event_authority"],bump)]pub event_authority:AccountInfo<'info>,#[doc="CHECK: self CPI."]pub program:Program<'info,crate::program::PumpRecovered>,#[doc="CHECK: fee program validates config."]#[account(seeds=[b"fee_config",crate::ID.as_ref()],bump,seeds::program=fee_program.key())]pub fee_config:Account<'info,legacy_sell::LegacyFeeConfig>,#[doc="CHECK: canonical dependency."]pub fee_program:Program<'info,legacy_sell::LegacyFeesProgram>,
+}}pub use bonding_curve_instruction_accounts::*;
+
+
 
 #[derive(AnchorSerialize,Clone)]
 pub struct OptionBool(pub bool);
@@ -2916,22 +2916,22 @@ impl AnchorDeserialize for OptionBool {
 #[derive(Clone)]
 pub struct UpdateCreatorFeeConfigEvent {pub timestamp:i64,pub authority:Pubkey,pub creator_fee_configurable:bool,pub max_configurable_creator_fee_bps:u64}
 
-#[event_cpi]
-#[derive(Accounts)]
-pub struct AdminReadonly<'info>{
- #[account(mut,seeds=[b"global"],bump,has_one=authority @ PumpError::NotAuthorized)]
- pub global:Account<'info,Global>,
- pub authority:Signer<'info>,
-}
-#[event_cpi]
-#[derive(Accounts)]
-pub struct UpdateGlobalAuthority<'info>{
- #[account(mut,seeds=[b"global"],bump,has_one=authority @ PumpError::NotAuthorized)]
- pub global:Account<'info,Global>,
- pub authority:Signer<'info>,
- /// CHECK: new authority is assigned by the current signer; zero/self are accepted by the original.
- pub new_authority:AccountInfo<'info>,
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[event]
 #[derive(Clone)]
 pub struct UpdateGlobalAuthorityEvent{pub global:Pubkey,pub authority:Pubkey,pub new_authority:Pubkey,pub timestamp:i64}
@@ -2939,13 +2939,13 @@ pub struct UpdateGlobalAuthorityEvent{pub global:Pubkey,pub authority:Pubkey,pub
 #[derive(Clone)]
 pub struct ReservedFeeRecipientsEvent{pub timestamp:i64,pub reserved_fee_recipient:Pubkey,pub reserved_fee_recipients:[Pubkey;7]}
 
-#[event_cpi]
-#[derive(Accounts)]
-pub struct CloseUserVolume<'info>{
- #[account(mut)] pub user:Signer<'info>,
- #[account(mut,close=user,seeds=[b"user_volume_accumulator",user.key().as_ref()],bump)]
- pub user_volume_accumulator:Account<'info,UserVolumeAccumulator>,
-}
+
+
+
+
+
+
+
 #[event]
 #[derive(Clone)]
 pub struct InitUserVolumeAccumulatorEvent{pub payer:Pubkey,pub user:Pubkey,pub timestamp:i64}
@@ -2953,18 +2953,18 @@ pub struct InitUserVolumeAccumulatorEvent{pub payer:Pubkey,pub user:Pubkey,pub t
 #[derive(Clone)]
 pub struct CloseUserVolumeAccumulatorEvent{pub user:Pubkey,pub timestamp:i64,pub total_unclaimed_tokens:u64,pub total_claimed_tokens:u64,pub current_sol_volume:u64,pub last_update_timestamp:i64}
 
-#[event_cpi]
-#[derive(Accounts)]
-pub struct CollectCreatorFee<'info>{
- /// CHECK: payout destination is bound to the vault PDA.
- #[account(mut)]pub creator:AccountInfo<'info>,
- /// CHECK: original defers owner/data restrictions to System transfer.
- #[account(mut,seeds=[b"creator-vault",creator.key().as_ref()],bump)]pub creator_vault:AccountInfo<'info>,
- pub system_program:Program<'info,System>,
-}
-#[event]
-#[derive(Clone)]
-pub struct CollectCreatorFeeEvent{pub timestamp:i64,pub creator:Pubkey,pub creator_fee:u64,pub quote_mint:Pubkey}
+
+
+
+
+
+
+
+
+
+
+
+
 
 /// Split protocol fees after the curve payment, preserving the buyback invariants.
 #[inline(never)]

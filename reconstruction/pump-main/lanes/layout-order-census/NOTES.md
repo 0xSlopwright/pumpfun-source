@@ -124,3 +124,46 @@ Replacing `account_name::with_owned_name(error, &name)` with `error.with_account
 instance gets inlined into `set_reserved_fee_recipients`. In the original the instance is outlined and
 sits in the U block, so the original call site must look different (for example, a second caller keeps
 it out of line).
+
+## Round 2: the L tail (raw 188 -> 276, zero losses)
+
+Base: origin/main 65826a7c (1020 normalized / 188 raw). New fast model `tools/fastmodel.py`
+(reproduces the official raw set exactly; 0.5 ms per layout) and `tools/moves.py` (apply
+source-level unit moves, report raw/P16/LIS).
+
+### Suffix census (`tools/suffix.py`)
+A window whose callees all lie in the L tail or in D only depends on the layout from itself to D.
+Putting the original order on the L suffix starting at `__rust_alloc` (orig 0x156fe8) gives +84
+raw with today's sizes and zero losses; no other suffix start gives anything in between
+(+4 at `__rust_realloc`, +84 from `__rust_alloc`, flat before). `tools/taildiff.py` lists what
+differs in that suffix:
+
+| needed change | why |
+| --- | --- |
+| `migrate_v2::required_quote_account_len` into the `pump_token_ext` crate, after `quote_extensions_supported` and before `Fee` | the original has it inside the pump_token_ext object (0x17bc48 qes, 0x17c0f0 rqal, 0x17c3d8 Fee::calculate_fee) |
+| `CompleteEvent`, `PostCompleteBuyEvent`, `SetParamsEvent` defined in lib.rs right after `TradeEvent` | their `Event::data` sit after TradeEvent in the original derive pass |
+| `AdminGlobal` between `Initialize` and `Create`; `LegacySell` after `LegacyBuy` (lib.rs) | original tail derive order |
+| `AdminReadonly` (end of sell_v2.rs), `UpdateGlobalAuthority` (global_init.rs), `CloseUserVolume` (end of claim_token_incentives.rs), `CollectCreatorFee` (start of collect_creator_fee.rs) and `CollectCreatorFeeEvent` (end of it) out of the lib.rs tail | original places their derives in the module derive run |
+| the 14-account `ToAccountInfos::to_account_infos` survivor must be pump_amm's `InitBoost` | see below |
+
+### MergeFunctions survivor rule (new finding)
+Identical `to_account_infos` bodies are merged by LLVM MergeFunctions, which keeps the function
+with the lexicographically smallest mangled name. Groups in our build confirm it (SetCreator `_ZN122`
+over `_ZN134/146/154`, CollectCreatorFeeV2 `_ZN141` over `_ZN155/162/163/172`, GetFees `_ZN124`,
+CreatePool `_ZN129`, CollectCoinCreatorFee `_ZN153` over `_ZN158`). Today root `Create`
+(`_ZN100_$LT$pump_recovered..__cpi_client_accounts_create..Create`) beats pump_amm `InitBoost`
+(`_ZN127`) and LegacySell (`_ZN122`), so the survivor sits in the tail. The original keeps it at the
+pump_amm position (orig 0x113f00, between InitBoost metas and TransferCreatorFeesToPumpV2), which
+fits a root crate named `pump` (Create would be `_ZN90`). Source fix: Create/LegacyBuy/LegacySell
+live in a lib.rs module `bonding_curve_instruction_accounts` (glob re-exported), making their names
+`_ZN13x`, so InitBoost survives in place.
+
+### Result (`tools/tail_relocate.py --wrap`, all moves line-neutral)
+| build | normalized | raw | gains | losses | unstripped sha256 |
+| --- | ---: | ---: | --- | --- | --- |
+| main 65826a7c | 1020 | 188 | | | 65826a7c... |
+| relocation without the module wrap (`fb2ed22e`) | 1020 | 192 | raw +4 | 0 | b26d5f30... |
+| relocation + module wrap (`7f028dee`) | 1020 | **276** | raw +88 | 0 | 017b902d... |
+
+The tail windows depend only on tail + D, so these 88 survive any future fix of the 16 mid-L
+functions.

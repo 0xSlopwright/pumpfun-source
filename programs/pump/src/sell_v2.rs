@@ -428,3 +428,10 @@ pub mod user_token_transfers;
 
 #[path="v2_quote_token_transfers.rs"]
 pub mod quote_token_transfers;
+#[event_cpi]
+#[derive(Accounts)]
+pub struct AdminReadonly<'info>{
+ #[account(mut,seeds=[b"global"],bump,has_one=authority @ crate::PumpError::NotAuthorized)]
+ pub global:Account<'info,crate::Global>,
+ pub authority:Signer<'info>,
+}
