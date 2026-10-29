@@ -1,16 +1,50 @@
 {
  "lane": "v3trade-amm-idioms",
- "base": "swarm/v3trade-coordinates 911710013",
- "pr": "https://github.com/lalalune/pumpfun-source/pull/1232",
+ "rounds": 2,
  "targets": {
-  "0x147ba0": {"before": {"bytes": 3712, "ratio": 0.645}, "best": {"trial": "t14", "bytes": 3688, "ratio": 0.876, "committed": true}},
-  "0x14a8a8": {"before": {"bytes": 6040, "ratio": 0.950}, "best": {"trial": "t14 (unchanged)", "bytes": 6040, "ratio": 0.950}, "equal_size_partial": {"trial": "t34", "bytes": 6032, "ratio": 0.847, "slots_diff": 135}},
-  "0x1489f8": {"before": {"bytes": 7656, "ratio": 0.313}, "best": {"bytes": 7656, "ratio": 0.313}}
+  "0x147ba0": {
+   "orig_bytes": 3672,
+   "best_bytes": 3680,
+   "best_ratio": 0.8774,
+   "source": "exempt local + (amount,excess) tuple"
+  },
+  "0x14a8a8": {
+   "orig_bytes": 6032,
+   "best_bytes": 6040,
+   "best_ratio": 0.9503
+  },
+  "0x1489f8": {
+   "orig_bytes": 7856,
+   "best_bytes": 7656,
+   "best_ratio": 0.3129
+  }
  },
- "official": {"normalized": 1019, "raw": 188, "gains": [], "losses": []},
- "attempts": 42,
- "key_mechanism": "!v3_fee_exempt(&a.global,&a.bonding_curve,&a.user.key()) argument temporaries reproduce the original pre-mayhem-test loads and -0xa8 key slot; tuple arm with partial_fill{amount.min(real)} shares the amount=real block",
- "rejected": ["named user_key local (own slot)", "saturating_sub excess", "main two-statement excess/amount", "inline !mayhem && key!=wl chain", "inverted if arms", "real.min(amount)", "no-inline / #[inline] on v3_fee_exempt", "sell option locals before transfer_to_user", "sell emit tail-expression"],
- "residuals": ["buy: memcmp block inline vs out of line; amount<=real tested after memcmp result; Ok return tail placement", "sell (t34): r8/r9 swap and one stack-coloring choice", "buy_exact_quote: frame layout 0x18 deeper, partial_fill spilled"],
- "next_ideas": ["buy: combine t21 test order (exempt local, amount-first) with t14 register assignment", "sell: find a spelling that keeps no-recheck control flow with the helper frame layout", "buy_exact_quote: identify the extra 24-byte local in the original frame"]
+ "official": {
+  "normalized": 1020,
+  "raw": 188,
+  "losses": []
+ },
+ "prs": [
+  "https://github.com/lalalune/pumpfun-source/pull/1232",
+  "https://github.com/lalalune/pumpfun-source/pull/1281"
+ ],
+ "attempts_round2": 24,
+ "key_findings": [
+  "tuple element order / mut declaration order (MIR local order) fixes buy r6/r7 assignment",
+  "llc oracle: umin block after partial test + memcmp/cross after first error chain gives buy r0.9167 at original size (IR-only)"
+ ],
+ "rejected_round2": [
+  "temp-guard (amount,excess)",
+  "!exempt&&amount>real",
+  "bitwise & guards",
+  "pre-clip local",
+  "real.min(amount)",
+  "else-if amount>real clip",
+  "costs tuple binding"
+ ],
+ "next_ideas": [
+  "find source giving the oracle block order for buy (guard codegenned after require_gt! error chain)",
+  "apply the oracle to sell's emit_cpi frame/tail conflict",
+  "apply the oracle to buy_exact_quote block order"
+ ]
 }

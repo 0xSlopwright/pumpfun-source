@@ -84,3 +84,21 @@ memcmp chain out of line but select-lowers the clip (3672 B, r0.752).
 
 Round-2 rejected (ledger): (amount,excess) with the temp guard (= t14), `!exempt && amount>real`
 (= t14), real<amount clips, else-if `amount>real` clips, `real.min(amount)`.
+
+## Round 2: llc block-order oracle for buy_v3 (analysis)
+
+Optimized IR is captured with `--emit=link,llvm-ir` on the root crate (experiment only, lane out
+dir `tools/capture_ir.py`). All other definitions are turned into declarations (`tools/slim.py`),
+and then `llc -O3 -mattr=+store-imm,+jmp-ext -relocation-model=pic -function-sections` reproduces
+the built buy_v3 exactly (0 diff slots). `tools/oracle.py` moves IR blocks and scores the result
+against the original.
+- Placing the `llvm.umin` block (bb8) right after the `partial_fill` branch block (bb7) gives the
+  original size (444 insns, r0.8784).
+- Also moving the memcmp block (bb59) and the crossing block (bb6) after the first require! error
+  chain (bb3.i) gives r0.9167, 45 diff slots.
+- What remains: the shared exit block is placed after v3_trade_fees' error check rather than
+  after v3_buy_costs', and the associated_base_bonding_curve.amount load order differs in the
+  post block.
+Next step: find a source spelling whose MIR puts the clip's umin block directly after the
+partial_fill test and puts the memcmp/crossing blocks after the require_gt!(amount,0) error chain.
+For example, compute the guard in a block that is codegenned after the first require.
