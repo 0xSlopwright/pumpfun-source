@@ -93,7 +93,10 @@ Machine-readable output:
 ```
 
 Reading the order as cold-path layout:
-- v3_buy_costs: the lib.rs:1939 `expect` panic block is placed first in the original and last in ours.
+- v3_buy_costs: in the original, both protocol_fee_split `checked_sub(..).expect` (lib.rs:1939) checks branch
+  to ONE merged panic block placed inline right after the second split (0x80fe8; first split `jgt r6,r0,+0x1e`,
+  second split `jlt r1,r9`). Our build sinks it to the tail next to the 1936 `try_from(..).expect` panic. The
+  1936 checks are the `jgt hi,0x270f` tests after `__multi3`, and they do go to the tail in both builds.
 - create_v2: the quote-mint validation group (205/198/210/243) sits late in ours. In the
   original it is split: 258/198 come early, 205/210 in the middle, and 220/243 at the end. 774
   (CreatorFeeNotConfigurable) and 778 (CreatorFeeBpsOutOfRange) are early in the original.
