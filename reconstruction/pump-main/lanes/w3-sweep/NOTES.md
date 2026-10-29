@@ -2,14 +2,15 @@
 
 Base: origin/main 6654999 (1022 normalized / 276 raw). Target: 7,832 B, 39 direct calls.
 
-| metric | base (main) | now |
-|---|---|---|
-| ratio (target_metric) | 0.46947 | 0.46985 |
-| cand bytes | 7688 | 7744 |
-| direct calls (orig 39) | 38 | **39** |
-| structural ratio (regs + stack offsets masked) | 0.8084 | 0.8096 |
-| official normalized / raw | 1022 / 276 | 1022 / 276 |
-| gains / losses | - | none / none |
+| metric | base (main) | r1 (a08) | now (a22) |
+|---|---|---|---|
+| ratio (target_metric) | 0.46947 | 0.46985 | **0.48150** |
+| cand bytes (orig 7832) | 7688 | 7744 | 7840 |
+| direct calls (orig 39) | 38 | 39 | 39 |
+| structural ratio (regs + stack offsets masked) | 0.8084 | 0.8096 | **0.8723** |
+| official normalized / raw | 1022 / 276 | 1022 / 276 | 1022 / **282** |
+| gains / losses | - | none / none | raw gains 0xd300 0xd4c0 0xd878 0xdbf8 0xe858 0xe9c0 / none |
+| unstripped sha256 | | b25e6708.. | eb96c799.. |
 
 ## Mechanisms found
 
@@ -29,11 +30,26 @@ Base: origin/main 6654999 (1022 normalized / 276 raw). Target: 7,832 B, 39 direc
    memcmp_p as in the original. `if creator` / `if !creator` both give `[0: protocol, ..]` (bool Not
    is normalized), protocol first, and the msg block glues to take_p (ratio 0.398).
 
+4. **Rent top-up is a Result-returning helper** (`ensure_rent_exempt`, inline(always)): the original
+   merges the `Rent::get` From error and the transfer Result in one phi before a single `?`
+   (orig +0x1538 `jeq r1,2`), which inline `?`s do not give.
+5. **`emit!(event); emit_cpi!(event)`** (both macros take `&event`) instead of `emit!(event.clone())`:
+   the original builds the event once.
+6. **Protocol-native threading = MIR JT through the recipient clone.** `match (creator,native)
+   {(true,true)=>rent,(_,false)=>token,(false,true)=>{}}`: the explicit `(false,true)` arm gives the
+   protocol-native edge its own (empty) MIR block, so MIR JT can thread the `if native {None}` Option
+   switch back through the `to_account_info()` call (JT skips SwitchInt predecessors of multi-pred
+   blocks, so `else if !native {token}` never threads). Verified in a synthetic MIR lab (jt/lab.py).
+7. **Cold call sites**: after that threading the shared rent/token join's clone has pre-inline block
+   frequency 1.5-1.7% of entry (< ColdCallSiteRelFreq 2%), so LLVM leaves it out of line (40 calls).
+   The token admits in an inline(always) Result helper (`admit_quote_accounts`) merge the two admit
+   errors, raising the join above 2%, and every clone is inlined (39 calls).
+
 ## Residuals (structural diff vs original)
-- protocol-native edge is not threaded past the recipient clone (original has its own clone copy and
-  jumps straight to the call with native=1/None/None); here it joins with a native flag spill.
-- Rent block arrangement (Rent::get error From placement), token-path tail spills (+15 insns).
-- Event construction (+37 insns around +0x1960).
+- token helper region: arg spills (+8 at +0xde0), first-admit error branch shape (+0xf28).
+- rent transfer block placed inline after lamports (orig places it after protocol-native, +0x14f0),
+  Rent::get From placement.
+- a few base_mint/quote_mint load orders, event bucket store order; stack frame offsets.
 
 ## Tools (lane scratch, ~/.cache/pumpfun-reconstruction/lanes/w3-sweep/scripts)
 oracle.py (one-function llc oracle, 0.1 s), mkone.py, blk.py/bwscan.py (block move / branch weight
