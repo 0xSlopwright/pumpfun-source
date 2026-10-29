@@ -75,7 +75,7 @@ impl QuoteControl {
             PumpError::QuoteMintNotEligibleForWhitelist
         );
         require_eq!(
-            self.contains(mint),
+            self.mints.iter().position(|entry| entry.mint == *mint).is_some(),
             false,
             PumpError::QuoteMintAlreadyWhitelisted
         );
@@ -116,4 +116,17 @@ impl QuoteControl {
         entry.initial_virtual_quote_reserves = initial_virtual_quote_reserves;
         Ok(old)
     }
+}
+
+/// Read the first matching reserve entry without constructing the account vector.
+pub(crate) fn control_entry(data: &[u8], mint: &Pubkey) -> Result<Option<u64>> {
+    const CONTROL_DISC: [u8; 8] = [56, 244, 35, 238, 193, 213, 162, 201];
+    require!(data.len() >= 108, PumpError::InvalidQuoteControl);
+    require!(data[..8] == CONTROL_DISC, PumpError::InvalidQuoteControl);
+    let count = u32::from_le_bytes(data[104..108].try_into().unwrap()) as usize;
+    let end = QuoteControl::space(count)?;
+    let entries = data.get(108..end).ok_or_else(|| error!(PumpError::InvalidQuoteControl))?;
+    let entry = entries.chunks_exact(QuoteControlMint::INIT_SPACE)
+        .find(|entry| entry[..32] == mint.to_bytes());
+    Ok(entry.map(|entry| u64::from_le_bytes(entry[32..40].try_into().unwrap())))
 }

@@ -3,10 +3,10 @@
   "programs": [
     {
       "name": "pump",
-      "matched_windows": 599,
+      "matched_windows": 823,
       "windows": 1035,
-      "raw_bodies": 111,
-      "matched_text_bytes": 518448,
+      "raw_bodies": 203,
+      "matched_text_bytes": 1108072,
       "text_bytes": 1792208
     },
     {
@@ -43,15 +43,15 @@
     }
   ],
   "totals": {
-    "matched_windows": 2682,
+    "matched_windows": 2906,
     "windows": 3338,
-    "raw_bodies": 1024,
-    "matched_text_bytes": 3229024,
+    "raw_bodies": 1116,
+    "matched_text_bytes": 3818648,
     "text_bytes": 5213128,
     "complete_elf_programs": 1,
     "programs": 5
   },
-  "snapshot_date": "2026-10-27",
+  "snapshot_date": "2026-10-29",
   "limitations": [
     "Structural window coverage is not overall engineering task completion.",
     "Fees and Mayhem are research frontiers; Pump and AMM are current-source checkpoints.",

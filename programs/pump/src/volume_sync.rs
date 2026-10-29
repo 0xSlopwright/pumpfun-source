@@ -1,14 +1,5 @@
 use crate::*;
-#[account]
-#[derive(Debug)]
-pub struct GlobalVolumeAccumulator {
-    pub start_time: i64,
-    pub end_time: i64,
-    pub seconds_in_a_day: i64,
-    pub mint: Pubkey,
-    pub total_token_supply: [u64;30],
-    pub sol_volumes: [u64;30],
-}
+pub use crate::token_incentives::volume_accumulator::GlobalVolumeAccumulator;
 #[event_cpi]
 #[derive(Accounts)]
 pub struct SyncUserVolumeAccumulator<'info> {
@@ -30,8 +21,10 @@ pub fn execute(ctx:Context<SyncUserVolumeAccumulator>)->Result<()> {
         if before>0 {
             let event=SyncUserVolumeAccumulatorEvent{user:ctx.accounts.user.key(),total_claimed_tokens_before:before,total_claimed_tokens_after:0,timestamp};
             emit!(event.clone());emit_cpi!(event);
+            return Ok(());
         }
     }
+    msg!("No changes in accumulator for user={}", ctx.accounts.user.key());
     Ok(())
 }
 #[event]

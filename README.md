@@ -1,121 +1,27 @@
 # pumpfun-source
 
-Reconstructed Rust source for Pump.fun's Solana programs, with captured binaries,
-reproducible builds and local differential tests.
+Rust reconstruction of Pump.fun's Solana programs from captured binaries.
 
-**Progress as of 27 October 2026: all four core programs still differ from their
-captured binaries. The selected Donation Relay reconstruction reproduces its complete meaningful
-ELF and, through a separate loader deployment, its captured payload.**
+**Verified checkpoint progress — 29 October 2026:** 2,906 / 3,338 function windows match (87.1%). One of five programs reproduces its complete meaningful ELF.
 
-## Current progress
-
-Across the latest verified checkpoints, **2,682 / 3,338 inferred function windows
-match (80.3%)**. Their matched windows cover **3,229,024 / 5,213,128 original text
-bytes (61.9%)**. **One of five programs has complete meaningful-ELF identity**;
-all four core contracts still differ from their captured binaries.
-
-These percentages measure bounded binary-recovery progress, not a claim that
-80.3% of the engineering work is finished. Complete reconstruction also requires
-all remaining code, calls, data, relocations and build provenance.
-
-| Latest verified checkpoint | Matched windows | Matched % | Raw-equal bodies | Normalized only | Unmatched | Whole ELF equal |
+| Program | Matched windows | Matched % | Raw-equal bodies | Normalized only | Unmatched | Whole ELF equal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [Pump Round9](repro/pump/main-contract-round9-20261027/README.md) | 599 / 1,035 | 57.9% | 111 | 488 | 436 | No |
-| [PumpSwap / AMM](repro/pump_amm/dependency-liquidity-recovery-20261027/README.md) | 586 / 785 | 74.6% | 123 | 463 | 199 | No |
+| [Pump Round48](repro/pump/main-contract-round48-20261027/README.md) | 823 / 1,035 | 79.5% | 203 | 620 | 212 | No |
+| [PumpSwap maintained](repro/pump_amm/dependency-liquidity-recovery-20261027/README.md) | 586 / 785 | 74.6% | 123 | 463 | 199 | No |
 | [Fees research](research/fees-common-quote-data-order/README.md) | 577 / 585 | 98.6% | 198 | 379 | 8 | No |
 | [Mayhem research](research/mayhem-initializer-source-origins/README.md) | 428 / 441 | 97.1% | 100 | 328 | 13 | No |
 | [Donation Relay](repro/donation-relay/canonical-exact-selection/README.md) | 492 / 492 | 100.0% | 492 | 0 | 0 | **Yes** |
-| **Total** | **2,682 / 3,338** | **80.3%** | **1,024** | **1,658** | **656** | **1 / 5** |
+| **Total** | **2,906 / 3,338** | **87.1%** | **1,116** | **1,790** | **432** | **1 / 5** |
 
-“Windows” are inferred original machine-function ranges, including framework and
-runtime helpers. Complete normalized matches mask specified call/address
-operands; they do not prove the referenced callees or data match. Each original
-window counts once. Raw equality means that local body is byte-equal, not that
-the whole program is identical.
+Matched windows cover **3,818,648 / 5,213,128 code bytes (73.3%)**.
 
-| Checkpoint | Text bytes in matched windows | Text covered | Unmatched text |
-| --- | ---: | ---: | ---: |
-| Pump Round9 | 518,448 / 1,792,208 | 28.9% | 1,273,760 |
-| PumpSwap / AMM | 644,456 / 1,162,040 | 55.5% | 517,584 |
-| Fees research | 719,472 / 799,648 | 90.0% | 80,176 |
-| Mayhem research | 594,160 / 706,744 | 84.1% | 112,584 |
-| Donation Relay | 752,488 / 752,488 | 100.0% | 0 |
-| **Total** | **3,229,024 / 5,213,128** | **61.9%** | **1,984,104** |
+Pump and PumpSwap rows bind the maintained source selections; Fees and Mayhem
+rows are separately published research checkpoints. Raw-equal bodies match byte
+for byte; normalized matches mask specified call/address operands and do not
+prove the referenced callees or data. Window coverage is not a percentage of
+engineering work completed.
 
-Pump and AMM rows describe the verified maintained sources. Fees and Mayhem rows
-are the latest upstream research frontiers, distinct from their maintained
-selections in [repro/status.json](repro/status.json). The maintained Mayhem initializer now has its own [current-source build and
-signed validation](repro/mayhem/initializer-current-20261027/README.md), separate
-from the larger research frontier. Upstream Relay's canonical selection remains
-the authority for its exact result.
-
-Relay reproduces all **818,280 meaningful ELF bytes**. Its separate signed local
-loader replay reproduces the **830,448-byte captured payload**, including 12,168
-loader-allocated zero bytes. This does not establish the original historical
-source or build recipe.
-
-## Behavior and remaining work
-
-Pump Round9 passes 10,468 full cases plus 3,187 focused executions, with 13,651
-paired diagnostic-log cases. AMM passes 17,462 full cases plus the separate
-account, fee, CPI, boundary and error-order matrices recorded in its checkpoint.
-These corpora overlap and must not be summed as unique scenarios. Tests use
-captured programs in local VMs; they do not establish current-chain acceptance.
-
-The latest [Mayhem initializer correction](research/mayhem-initializer-source-origins/README.md)
-restores two panic locations while preserving all 428 normalized and 100 raw
-matches. Only three data bytes change; no instruction bytes change. Two builds
-agree and 69 fresh comparisons verify 168 signed executions. The initializer
-still has 920 bytes versus the original 960 and remains unmatched.
-
-The latest [Fees source and data-order recovery](research/fees-common-quote-data-order/README.md)
-restores all 105 original Source records and the relative layout of 265 data
-objects. It preserves 577 normalized and 198 raw matches; 17,331 fresh
-comparisons pass. Absolute pointers, literal data-section equality and complete
-ELF identity remain unresolved.
-
-Remaining priorities are the 436 Pump, 199 AMM, 8 Fees and 13 Mayhem unmatched
-windows; deeper call/data/relocation identity; original build provenance; and
-uncovered behavior such as authentic fixed-admin AMM `create_config` success.
-The historical [150-handler audit](repro/reconstruction-audit-2026-10-26/handlers.md)
-remains a separate bounded classification; newer function matches do not
-retroactively certify every handler.
-
-See [remaining work](docs/REMAINING-WORK.md),
-[current reconstruction review](docs/RECONSTRUCTION-STATUS.md) and the
-[research history](docs/BYTE-IDENTITY-PROGRESS.md) for evidence and limitations.
-
-## Dependencies
-
-| Dependency | Current byte result |
-| --- | --- |
-| SPL Token | 108,600 / 108,600 captured bytes reproduced (100%) |
-| Token-2022 | 611,056 / 611,056 meaningful ELF bytes reproduced (100%); full 1,382,016-byte allocation requires 770,960 separately added zero bytes |
-| Associated Token Account | 105,032 / 105,032 bytes reproduced (100%) by two non-historical research recipes; authentic recipe and selected promotion unresolved |
-| Metaplex Token Metadata | Latest reviewed inventory: 1,509 differing positions—1,477 text, 30 source-coordinate and 2 relocation bytes; allocation padding assessed separately |
-
-[Dependency evidence and selection status](repro/dependency-status.json).
-Allocation-image equality is separate from unchanged compiler-output equality.
-
-## Quick start
-
-Use Python 3.12. Clone without line-ending conversion to preserve evidence hashes:
-
-```sh
-git clone --config core.autocrlf=false https://github.com/lalalune/pumpfun-source.git
-cd pumpfun-source
-python3 scripts/verify_evidence.py
-python3 scripts/test_tooling.py
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python scripts/local_validation.py
-```
-
-Build and compare instructions: [tooling guide](docs/TOOLING.md) and
-[scripts index](scripts/README.md). Source is in `programs/`, captured comparison
-inputs in `evidence/`, and reproducibility records in `repro/` and `research/`.
-See also [scope](docs/SCOPE.md), [security policy](SECURITY.md) and
-[audit scope](audit/AUDIT.md).
+Additional saved [PumpSwap recovery work](repro/pump_amm/boost-buyback-cashback-recovery-20261028/README.md) reaches 660 / 785 normalized windows. It remains unpromoted research; its source, build and runtime receipts are separate from the maintained selection. The [research workspaces](research/) also preserve later Pump proposals and the [standalone Mayhem snapshot](research/mayhem-root-workspace-snapshot-20261029/README.md), without selecting them as maintained programs.
 
 <!-- app-progress:start -->
 ## Application source and feature progress
@@ -176,10 +82,19 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 All app percentages above are generated by `python3 app/scripts/progress.py` from the checked-in evidence and feature ledger. Verify freshness with `python3 app/scripts/progress.py --check`. Source capture is bounded by the recorded snapshot; original frontend source completeness and the full internal API surface remain unknown.
 <!-- app-progress:end -->
 
+## Remaining work
+
+- Close the remaining function, call, data and relocation differences and verify
+  reproducible whole-program builds and uncovered behavior.
+- Review and integrate saved research independently of the maintained selections.
+- Preserve the bounded runtime and provenance limits in each linked report. Pump
+  Round48 retains 131 source-filename log differences; whole ELF identity is false.
+
+[Build and verification guide](docs/TOOLING.md) ·
+[Scripts](scripts/README.md) ·
+[Dependency status](repro/dependency-status.json)
+
 ## License
 
-This repository's own code and documentation are released under the
-[MIT License](LICENSE). Third-party and vendored materials (for example the
-Apache-2.0 Solana SDK files under `programs/pump-amm/vendor`, imported research
-and retained crate archives) keep their original licenses, and upstream Pump IDLs
-and binaries remain with their original authors.
+Repository code and documentation are [MIT licensed](LICENSE). Third-party
+sources and artifacts retain their original licenses and ownership.

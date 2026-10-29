@@ -1,0 +1,14 @@
+[
+  {
+    "suite": "multihop-edges"
+  },
+  {
+    "suite": "multihop-large"
+  },
+  {
+    "suite": "multihop-routes"
+  },
+  {
+    "suite": "multihop-bumps"
+  }
+]

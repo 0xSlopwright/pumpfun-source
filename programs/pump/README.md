@@ -1,12 +1,12 @@
 # Main Pump contract reconstruction
 
-Current verified source: [Round9](../../repro/pump/main-contract-round9-20261027/README.md). Clean, dependency-cached, canonical and archived-source workspace-layout builds agree on both ELF hashes. The [promotion record](../../repro/pump/main-contract-round9-20261027/promotion.json) binds all 42 source files; the [build comparison](../../repro/pump/main-contract-round9-20261027/build-parity.json) records reproducibility.
+Current verified source: [Round48](../../repro/pump/main-contract-round48-20261027/README.md). Initial, repeat, maintained-source and archived-source builds agree on both ELF hashes. The [checkpoint](../../repro/pump/main-contract-round48-20261027/checkpoint.json) binds all 65 primary compiler inputs, including generated external-program IDLs; the [promotion record](../../repro/pump/main-contract-round48-20261027/promotion.json) records the maintained-source selection.
 
-The full regression passed 44 suites / 10,468 cases, and 45 focused suites passed 3,187 additional executions. These corpora overlap. Strict diagnostics agree in 13,651 paired log cases. All main-program executions use the captured upgradeable-loader account layout.
+The recorded full regression passed 44 suites / 10,468 cases, and 168 focused suites passed 7,680 additional executions. These corpora overlap. Structured diagnostics agree in 18,144 paired log cases, excluding source coordinates and compute usage. The separate ordered raw-log audit reports 131 source-filename mismatches and zero other differences. All main-program executions use the captured upgradeable-loader account layout; these local results do not establish current-chain acceptance.
 
-The strict inventory is 599 / 1,035 normalized function windows and 111 raw matches, covering 518,448 / 1,792,208 text bytes (28.9%). The closed direct-call subset contains 132 original windows and excludes ELF data references. Whole-ELF identity and full reconstruction remain unfinished.
+The strict inventory is 823 / 1,035 normalized function windows and 203 raw matches, covering 1,108,072 / 1,792,208 text bytes (61.8%). The closed direct-call subset contains 151 original windows and excludes ELF data references. Normalization masks specified call/address operands and does not establish referenced-data identity. Whole-ELF identity and full reconstruction remain unfinished.
 
-Round9 adds all nine historical curve decoders, owned user-volume synchronization, and creator/migration balance, frozen-vault and account-lifetime corrections. Additional distribution and account-context refinements are under independent validation. Work remains focused on main Pump.
+Round48 restores SellV3 balance validation before quote-account validation and checked-arithmetic error ownership in completion pool and route calculations. It retains the earlier source, fee-recipient precedence, cashback guard, ordinary-message and CPI-order corrections. The checkpoint documents its hybrid compiler profile, bounded data-order proof and remaining source, runtime and provenance limits.
 
 The earlier [sealed Round6 checkpoint](../../repro/pump/main-contract-round6-20261027/README.md) retains its immutable source, reproduction recipe and bounded evidence.
 

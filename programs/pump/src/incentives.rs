@@ -15,7 +15,7 @@ pub struct AdminUpdateTokenIncentives<'info> {
     #[account(seeds = [b"global"], bump, has_one = authority @ PumpError::NotAuthorized)]
     pub global: Box<Account<'info, Global>>,
     #[account(mut, seeds = [b"global_volume_accumulator"], bump)]
-    pub global_volume_accumulator: Box<Account<'info, GlobalVolumeAccumulator>>,
+    pub global_volume_accumulator: Account<'info, GlobalVolumeAccumulator>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(
         init_if_needed,
@@ -50,13 +50,14 @@ pub fn execute(
     day_number: u64,
     token_supply_per_day: u64,
 ) -> Result<()> {
+    let mint = ctx.accounts.mint.key();
     let timestamp = Clock::get()?.unix_timestamp;
     crate::token_incentives::volume_accumulator::update_schedule(
         &mut ctx.accounts.global_volume_accumulator,
         start_time,
         end_time,
         seconds_in_a_day,
-        &ctx.accounts.mint.key(),
+        &mint,
         day_number,
         token_supply_per_day,
         timestamp,
@@ -66,15 +67,15 @@ pub fn execute(
         end_time,
         day_number,
         token_supply_per_day,
-        mint: ctx.accounts.mint.key(),
+        mint,
         seconds_in_a_day,
         timestamp,
     };
-    emit!(event.clone());
+    emit!(event);
     emit_cpi!(event);
     msg!(
         "GlobalVolumeAccumulator={:?}",
-        *ctx.accounts.global_volume_accumulator
+        ctx.accounts.global_volume_accumulator
     );
-    Ok(())
+    return Ok(());
 }

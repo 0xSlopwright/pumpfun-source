@@ -1,0 +1,14 @@
+[
+  {
+    "name": "initboost",
+    "returncode": 0
+  },
+  {
+    "name": "disable",
+    "returncode": 0
+  },
+  {
+    "name": "create",
+    "returncode": 0
+  }
+]

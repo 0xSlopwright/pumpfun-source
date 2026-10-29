@@ -50,9 +50,13 @@ def clone_file(source, dest):
 
 class DependencyCache:
     def __init__(
-        self, cache_root, repository, crate, workspace, sdk, env, wrapper, direct=False
+        self, cache_root, repository, crate, workspace, sdk, env, wrapper, direct=False,
+        target_library_profile=None
     ):
         self.sdk = sdk
+        self.target = (target_library_profile or {}).get("target", "sbf-solana-solana")
+        assert self.target in ["sbf-solana-solana", "sbpf-solana-solana"]
+        self.target_flags_key = "CARGO_TARGET_" + self.target.upper().replace("-", "_") + "_RUSTFLAGS"
         self.direct = direct
         self.root = Path(cache_root).resolve()
         self.repo = repository
@@ -69,7 +73,7 @@ class DependencyCache:
             "--format-version",
             "1",
             "--filter-platform",
-            "sbf-solana-solana",
+            self.target,
         ]
         metadata = json.loads(
             subprocess.check_output(cmd, cwd=workspace, env=env, text=True)
@@ -131,7 +135,7 @@ class DependencyCache:
             in [
                 "RUSTFLAGS",
                 "CARGO_ENCODED_RUSTFLAGS",
-                "CARGO_TARGET_SBF_SOLANA_SOLANA_RUSTFLAGS",
+                self.target_flags_key,
                 "RUSTC_BOOTSTRAP",
             ]
             or k.startswith("CARGO_PROFILE_")
@@ -178,6 +182,8 @@ class DependencyCache:
             "packages": sorted(self.packages),
             "crates": sorted(self.crates),
         }
+        if target_library_profile is not None:
+            self.context["target_library_profile"] = target_library_profile
         self.key = digest(self.context)
         self.entry = self.root / self.key
         self.record = {
@@ -199,7 +205,7 @@ class DependencyCache:
         parts = path.parts
         if path.is_absolute() or any(p in ["..", "."] for p in parts):
             return False
-        prefix = parts[1:] if parts and parts[0] == "sbf-solana-solana" else parts
+        prefix = parts[1:] if parts and parts[0] == self.target else parts
         if (
             len(prefix) < 3
             or prefix[0] != "release"
@@ -362,6 +368,9 @@ class DependencyCache:
         report = build / "build-comparison.json"
         r = json.loads(report.read_text())
         assert r["returncode"] == 0 and r["source_unchanged"]
+        assert r.get("target_library_profile", {}).get("cache_context") == self.context.get("target_library_profile"), (
+            "seed target-library profile differs"
+        )
         assert all(sha(self.repo / k) == v for k, v in r["source_sha256"].items())
         assert sha(build / "candidate.so") == r["comparison"]["candidate_sha256"]
         assert sha(build / "unstripped.so") == r["unstripped_sha256"]
@@ -395,7 +404,7 @@ class DependencyCache:
             "seed dependency/profile context differs"
         )
         for name in [
-            "CARGO_TARGET_SBF_SOLANA_SOLANA_RUSTFLAGS",
+            self.target_flags_key,
             "RUSTFLAGS",
             "CARGO_ENCODED_RUSTFLAGS",
         ]:
@@ -450,7 +459,7 @@ class DependencyCache:
             str(self.crate / "Cargo.toml"),
             "--release",
             "--target",
-            "sbf-solana-solana",
+            self.target,
             "--locked",
             "--offline",
             "-Z",

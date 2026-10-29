@@ -4,12 +4,13 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from build_source_manifest import source_manifest
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = 'repro/pump/main-contract-round9-20261027'
-MANIFEST_SHA256 = 'f2942141c4b7cfca4c9a80863605e27de4577065eac8e11e1aabdb0f5ba60914'
+PACKAGE = 'repro/pump/main-contract-round48-20261027'
+MANIFEST_SHA256 = '6a099295784085afec712fb73a53e86647b2b8377c80d4cc2cddcf3a1e4c669f'
 
 
 def sha(path):
@@ -29,10 +30,8 @@ def verify(root):
     for name, expected in checkpoint['primary_source_sha256'].items():
         path = root / 'programs/pump' / name
         assert not path.is_symlink() and sha(path) == expected, name
-    actual = {str(path.relative_to(root / 'programs/pump'))
-              for path in (root / 'programs/pump').rglob('*')
-              if path.is_file() and not {'target', '.git'}.intersection(path.parts)
-              and (path.suffix == '.rs' or path.name in ('Cargo.toml', 'Cargo.lock'))}
+    compiled_inputs = source_manifest(root / 'programs/pump', root / 'programs/pump', root)
+    actual = {str((root / name).relative_to(root / 'programs/pump')) for name in compiled_inputs}
     assert actual == set(checkpoint['primary_source_sha256'])
     subprocess.run([sys.executable, '-B', str(package / 'verify.py')],
                    cwd=root, check=True)

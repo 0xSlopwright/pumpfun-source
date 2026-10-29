@@ -9,8 +9,8 @@ use crate::{Global, PumpError};
 pub struct UpdateQuoteControlMints<'info> {
     #[account(
         mut,
-        constraint = authority.key() == global.authority
-            || quote_control.is_admin(&authority.key()) @ PumpError::NotAuthorized
+        constraint = quote_control.is_admin(&authority.key())
+            || global.authority == authority.key() @ PumpError::NotAuthorized
     )]
     pub authority: Signer<'info>,
 
@@ -124,9 +124,9 @@ pub fn remove_quote_control_mint(ctx: Context<UpdateQuoteControlMints>, quote_mi
 #[derive(Accounts)]
 pub struct SetQuoteControlMintReserves<'info> {
     #[account(
-        constraint = authority.key() == global.authority
+        constraint = quote_control.is_reserves_admin(&authority.key())
             || quote_control.is_admin(&authority.key())
-            || quote_control.is_reserves_admin(&authority.key()) @ PumpError::NotAuthorized
+            || global.authority == authority.key() @ PumpError::NotAuthorized
     )]
     pub authority: Signer<'info>,
 
@@ -199,8 +199,8 @@ pub fn set_quote_control_admin(ctx: Context<SetQuoteControlAdmin>, new_admin: Pu
 #[derive(Accounts)]
 pub struct SetQuoteControlReservesAdmin<'info> {
     #[account(
-        constraint = authority.key() == global.authority
-            || quote_control.is_admin(&authority.key()) @ PumpError::NotAuthorized
+        constraint = quote_control.is_admin(&authority.key())
+            || global.authority == authority.key() @ PumpError::NotAuthorized
     )]
     pub authority: Signer<'info>,
 

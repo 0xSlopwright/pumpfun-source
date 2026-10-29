@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::reserved_bonding_curve_fees;
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct BondingCurve {
     pub virtual_token_reserves: u64,
@@ -37,6 +38,7 @@ impl anchor_lang::AccountSerialize for BondingCurve {
 // Source proposal only: original checked 0x9b148 and unchecked 0x9b430.
 // Account owner/lamports/borrow checks and field-name errors belong to Anchor.
 impl anchor_lang::AccountDeserialize for BondingCurve {
+    #[inline(never)]
     fn try_deserialize(buf: &mut &[u8]) -> Result<Self> {
         if buf.len() < Self::DISCRIMINATOR.len()
             || &buf[..Self::DISCRIMINATOR.len()] != Self::DISCRIMINATOR
@@ -313,25 +315,22 @@ mod historical_curve {
 // Original shared preparation 0x3cd50 and rent funding 0x3d250.
 // The Account is already decoded; temporary AccountInfo clones do not keep a
 // data borrow alive across the System CPI or realloc. No state reload follows.
+#[inline(never)]
 pub fn prepare_bonding_curve<'info>(
     curve: &Account<'info, BondingCurve>,
     system_program: &Program<'info, System>,
     payer: &Signer<'info>,
 ) -> Result<()> {
     let current_size = curve.to_account_info().data_len();
-    fund_bonding_curve_rent(curve, system_program, payer, current_size.max(166))?;
-    if current_size < 166 {
+    let funding = fund_bonding_curve_rent(curve, system_program, payer, current_size.max(166));
+    if funding.is_ok() && current_size < 166 {
         curve.to_account_info().realloc(166, false)?;
     }
-    Ok(())
+    funding
 }
 
-fn reserved_bonding_curve_fees(curve: &BondingCurve) -> Result<u64> {
-    curve.creator_fee.checked_add(curve.protocol_fees)
-        .ok_or_else(|| error!(crate::PumpError::Overflow))
-}
-
-fn fund_bonding_curve_rent<'info>(
+#[inline(never)]
+pub fn fund_bonding_curve_rent<'info>(
     curve: &Account<'info, BondingCurve>,
     system_program: &Program<'info, System>,
     payer: &Signer<'info>,
@@ -361,51 +360,16 @@ fn fund_bonding_curve_rent<'info>(
     Ok(())
 }
 
+pub use crate::TradeEvent;
+pub use crate::pump_fees::{
+    types::{FeeTier, Fees, Shareholder},
+};
+
 #[event]
 #[derive(Clone)]
-pub struct TradeEvent {
-    pub mint: Pubkey,
-    pub sol_amount: u64,
-    pub token_amount: u64,
-    pub is_buy: bool,
-    pub user: Pubkey,
-    pub timestamp: i64,
-    pub virtual_sol_reserves: u64,
-    pub virtual_token_reserves: u64,
-    pub real_sol_reserves: u64,
-    pub real_token_reserves: u64,
-    pub fee_recipient: Pubkey,
-    pub fee_basis_points: u64,
-    pub fee: u64,
-    pub creator: Pubkey,
-    pub creator_fee_basis_points: u64,
-    pub creator_fee: u64,
-    pub track_volume: bool,
-    pub total_unclaimed_tokens: u64,
-    pub total_claimed_tokens: u64,
-    pub current_sol_volume: u64,
-    pub last_update_timestamp: i64,
-    pub ix_name: String,
-    pub mayhem_mode: bool,
-    pub cashback_fee_basis_points: u64,
-    pub cashback: u64,
-    pub buyback_fee_basis_points: u64,
-    pub buyback_fee: u64,
-    pub shareholders: Vec<Shareholder>,
-    pub quote_mint: Pubkey,
-    pub quote_amount: u64,
-    pub virtual_quote_reserves: u64,
-    pub real_quote_reserves: u64,
-    pub holder_rewards_bps: u64,
-    pub holder_rewards: u64,
-    pub creator_fee_unclaimed: u64,
-    pub unparsed_trailing_field: u64,
-}
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Shareholder {
-    pub address: Pubkey,
-    pub share_bps: u16,
-}
+pub struct CompleteEvent {pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub timestamp:i64,pub quote_mint:Pubkey}
+
+// Route decoding has its own Rust type; the external CPI account keeps the IDL type.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct FeeConfig {
     pub bump: u8,
@@ -415,18 +379,71 @@ pub struct FeeConfig {
     pub stable_fee_tiers: Vec<FeeTier>,
     pub exotic_flat_fees: Fees,
 }
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct FeeTier {
-    pub market_cap_lamports_threshold: u128,
-    pub fees: Fees,
-}
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Fees {
-    pub lp_fee_bps: u64,
-    pub protocol_fee_bps: u64,
-    pub creator_fee_bps: u64,
+
+// Original shared event constructor 0x8bbd0. Both callers retain Clock reads.
+pub struct TradeEventFees {
+    pub fee: u64,
+    pub creator_fee: u64,
+    pub fee_basis_points: u64,
+    pub creator_fee_basis_points: u64,
 }
 
-#[event]
-#[derive(Clone)]
-pub struct CompleteEvent {pub user:Pubkey,pub mint:Pubkey,pub bonding_curve:Pubkey,pub timestamp:i64,pub quote_mint:Pubkey}
+#[inline(never)]
+pub fn make_trade_event(
+    curve: &BondingCurve,
+    global: &crate::Global,
+    volume: &crate::UserVolumeAccumulator,
+    user: &Pubkey,
+    mint: &Pubkey,
+    is_buy: bool,
+    token_amount: u64,
+    quote_amount: u64,
+    fees: &TradeEventFees,
+    unparsed_trailing_field: u64,
+    buyback_fee: u64,
+    ix_name: &str,
+    timestamp: i64,
+) -> TradeEvent {
+    let real_quote_reserves = curve.real_quote_reserves;
+    let virtual_quote_reserves = curve.virtual_quote_reserves;
+    let quote_mint = curve.quote_mint;
+    let native = quote_mint == Pubkey::default();
+    TradeEvent {
+        mint: *mint,
+        sol_amount: if native { quote_amount } else { 0 },
+        token_amount,
+        is_buy,
+        user: *user,
+        timestamp,
+        virtual_sol_reserves: if native { virtual_quote_reserves } else { 0 },
+        virtual_token_reserves: curve.virtual_token_reserves,
+        real_sol_reserves: if native { real_quote_reserves } else { 0 },
+        real_token_reserves: curve.real_token_reserves,
+        fee_recipient: Pubkey::default(),
+        fee_basis_points: fees.fee_basis_points,
+        fee: fees.fee,
+        creator: curve.creator,
+        creator_fee_basis_points: fees.creator_fee_basis_points,
+        creator_fee: fees.creator_fee,
+        track_volume: false,
+        total_unclaimed_tokens: volume.total_unclaimed_tokens,
+        total_claimed_tokens: volume.total_claimed_tokens,
+        current_sol_volume: volume.current_sol_volume,
+        last_update_timestamp: volume.last_update_timestamp,
+        ix_name: ix_name.into(),
+        mayhem_mode: curve.is_mayhem_mode,
+        cashback_fee_basis_points: 0,
+        cashback: 0,
+        buyback_fee_basis_points: if curve.is_mayhem_mode { 0 } else { global.buyback_basis_points },
+        buyback_fee,
+        shareholders: Vec::new(),
+        quote_mint,
+        quote_amount,
+        virtual_quote_reserves: virtual_quote_reserves,
+        real_quote_reserves: real_quote_reserves,
+        holder_rewards_bps: if curve.is_holder_reward { fees.creator_fee_basis_points } else { 0 },
+        holder_rewards: if curve.is_holder_reward { fees.creator_fee } else { 0 },
+        creator_fee_unclaimed: curve.creator_fee,
+        unparsed_trailing_field,
+    }
+}

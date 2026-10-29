@@ -1,0 +1,12 @@
+[
+  {
+    "suite": "trade870",
+    "returncode": 0,
+    "seconds": 1.5615787919996365
+  },
+  {
+    "suite": "mints174",
+    "returncode": 0,
+    "seconds": 1.0384510839976429
+  }
+]
