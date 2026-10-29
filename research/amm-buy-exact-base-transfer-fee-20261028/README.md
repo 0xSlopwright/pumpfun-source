@@ -15,8 +15,9 @@ Eight fresh-VM triples (original / #424 control / #427
 candidate), 24 signed executions on the repository's own trade
 harness (`scripts/pump_amm_trade_v2_differential.py`, instruction
 buy_exact_quote_in_v2, quote input 10^7). The clock is slot
-100, epoch 0. `producer.py` reproduces every receipt from the
-repository files.
+100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | User base | User quote | Vault base |
 | --- | --- | --- | --- |
@@ -52,9 +53,11 @@ order.
   (54,115,018,303) succeeds while delivering only
   53,573,868,119 net, and a floor set to the net exact value
   succeeds identically. The floor fails only at gross+1, with
-  6040 BuySlippageBelowMinBaseAmountOut at
-  trade_v2.rs:816, in both the no-fee and the 1% fee cases.
-- **Same mechanism as trade_v2**: the handler computes the
+  6040 BuySlippageBelowMinBaseAmountOut (original at
+  trade_v2.rs:816, control and candidate at :494), in both the
+  no-fee and the 1% fee cases.
+- **Same mechanism as buy_v2 (see the trade base transfer-fee
+  packet; no buy_v2 case runs here)**: the handler computes the
   base output, checks the floor against that gross figure,
   and only then does the token program withhold the fee on
   transfer.

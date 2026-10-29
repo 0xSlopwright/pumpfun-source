@@ -40,7 +40,12 @@ export class PortfolioRpcError extends Error {
   }
 }
 
-type RpcMethod = "getGenesisHash" | "getBalance" | "getTokenAccountsByOwner";
+type RpcMethod =
+  | "getGenesisHash"
+  | "getBalance"
+  | "getTokenAccountsByOwner"
+  | "getMultipleAccounts"
+  | "getAccountInfo";
 export type RpcCall = (
   method: RpcMethod,
   params: readonly unknown[],
@@ -139,7 +144,7 @@ function u64(value: unknown, label: string): bigint {
     typeof value === "number" && Number.isSafeInteger(value)
       ? String(value)
       : value;
-  if (typeof raw !== "string" || !/^(0|[1-9]\d*)$/u.test(raw)) {
+  if (typeof raw !== "string" || raw.length > 20 || !/^(0|[1-9]\d*)$/u.test(raw)) {
     throw new PortfolioRpcError(
       "RPC_RESPONSE_INVALID",
       `${label} must be an unsigned integer.`,
@@ -348,6 +353,8 @@ async function postPinnedJson(
         },
       },
       (response) => {
+        // A reset after headers is emitted by the response, not the request.
+        response.on("error", reject);
         const chunks: Buffer[] = [];
         let size = 0;
         response.on("data", (chunk: Buffer) => {
@@ -382,7 +389,7 @@ async function postPinnedJson(
   });
 }
 
-async function createPinnedRpcCall(
+export async function createPinnedRpcCall(
   rawUrl: string | undefined,
   timeoutMs: number,
 ): Promise<{ call: RpcCall; endpointHost: string }> {
@@ -601,6 +608,9 @@ function aggregateMints(
     }
     if (existing) {
       existing.raw += BigInt(account.rawAmount);
+      if (existing.raw > MAX_U64) {
+        throw new PortfolioRpcError("RPC_RESPONSE_INVALID", "Mint total exceeds u64.", true);
+      }
       existing.accountCount += 1;
     } else {
       totals.set(account.mint, {
@@ -752,9 +762,10 @@ export async function readLivePortfolio(
     signal?: AbortSignal;
   } = {},
 ): Promise<PortfolioSuccess> {
+  const canonicalAddress = validateWalletAddress(address);
   const { call, endpointHost } = await createPinnedRpcCall(
     options.rpcUrl === undefined ? process.env.SOLANA_RPC_URL : options.rpcUrl,
     options.timeoutMs ?? 10_000,
   );
-  return readPortfolioWithRpc(address, call, endpointHost, options.signal);
+  return readPortfolioWithRpc(canonicalAddress, call, endpointHost, options.signal);
 }

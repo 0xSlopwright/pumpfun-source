@@ -2,98 +2,66 @@
 
 Rust reconstruction of Pump.fun's Solana programs from captured binaries.
 
-**Current binary coverage — 28 October 2026:** 3,321 / 3,338 function
-windows match (99.5%); 17 remain unmatched. Three of five programs reproduce
-their complete meaningful ELF.
+**Current maintained binary coverage — 28 October 2026:** 3,321/3,338 function
+windows match (99.5%); 17 remain unmatched. Fees, Mayhem and Donation Relay
+reproduce their complete meaningful ELF from qualified maintained sources.
 
-| Program | Matched windows | Matched % | Raw-equal bodies | Normalized only | Unmatched | Whole ELF equal |
+| Program | Matched windows | Matched % | Raw-equal bodies | Normalized only | Unmatched | Whole meaningful ELF equal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [Pump Main](research/claude-pump-integration-20261027/r37-layout-41/README.md) | 1,019 / 1,035 | 98.5% | 168 | 851 | 16 | No |
-| [PumpSwap / AMM](research/amm-cashback-buy-recovery-20261028/README.md) | 784 / 785 | 99.9% | 267 | 517 | 1 | No |
-| [Fees](research/claude-fees100-crank-donation-20261027/README.md) | 585 / 585 | 100.0% | 585 | 0 | 0 | **Yes** |
-| [Mayhem](research/mayhem-meaningful-elf-20261028/README.md) | 441 / 441 | 100.0% | 441 | 0 | 0 | **Yes** |
-| [Donation Relay](repro/donation-relay/canonical-exact-selection/README.md) | 492 / 492 | 100.0% | 492 | 0 | 0 | **Yes** |
-| **Total** | **3,321 / 3,338** | **99.5%** | **1,953** | **1,368** | **17** | **3 / 5** |
+| [Pump Main](programs/pump/README.md) |1,019/1,035|98.5%|188|831|16|No|
+| [PumpSwap / AMM](programs/pump-amm/README.md) |784/785|99.9%|784|0|1|No|
+| [Fees](programs/pump-fees/README.md) |585/585|100.0%|585|0|0|**Yes**|
+| [Mayhem](programs/mayhem/README.md) |441/441|100.0%|441|0|0|**Yes**|
+| [Donation Relay](repro/donation-relay/canonical-exact-selection/README.md) |492/492|100.0%|492|0|0|**Yes**|
+| **Total** |**3,321/3,338**|**99.5%**|**2,490**|**831**|**17**|**3/5**|
 
-Matched windows cover **5,022,984 / 5,213,128 code bytes (96.4%)**;
-**190,144 bytes (3.6%)** remain outside matched windows.
+Matched windows cover **5,022,984/5,213,128 code bytes (96.4%)**.
+Raw equality compares complete instruction bytes. Normalized windows mask
+specified call/address operands and do not prove whole-program identity.
+These counts describe the selected maintained recipes; they are not a
+percentage of engineering work completed.
 
-These figures measure the latest published artifacts, including research not
-integrated into the maintained source tree. Raw-equal bodies match byte for byte;
-normalized matches mask specified call/address operands. Window coverage is not
-a percentage of engineering work completed or proof of whole-program identity.
-The Pump Main row is the composed [L41](research/claude-pump-integration-20261027/r37-layout-41/README.md)
-build (L40 plus the legacy-sell boundary, repository Linux profile): 1,019 normalized and
-168 raw. The AMM row is a
-source-only Linux v1.44 build. Separately labeled linker layouts generated from the
-original program report 293 (L41) and 259 (AMM) raw matches without increasing
-normalized coverage.
+## Current qualifications and remaining work
 
-## Remaining work
+- [Pump's composed source](research/pump-program-creator-notice-qualification-20261028/README.md)
+  preserves 1,019 normalized / 188 raw windows and the prior creation, admin,
+  legacy-payment and multi-hop fixes. It also restores the original notice when
+  the creator is an executable program. The signed witness matches original
+  logs, state and events; the previous C0 image omitted the notice. Two actual
+  builds, including an independent empty-target build, repeat both outputs.
+  All 10,468 broad pairs and 106 strict focused records pass, together with the
+  inherited twelve counter fixtures and separate legacy and extension cases.
+  Sixteen windows and whole meaningful ELF identity remain open; this correction
+  adds no matched window.
+- [AMM's explicit layout recipe](research/amm-layout-closure-20261028/README.md)
+  produces784 raw-identical physical windows. Every meaningful ELF byte outside
+  sell's 9,024 bytes and 21 relocation-offset rows inside sell is literally equal,
+  including data and headers. Two actual source builds, one with entirely empty
+  dependency targets, repeat both outputs. Fresh 17,462 strict pairs and 72 loader
+  pairs pass. Sell `0x4c750` remains unequal; whole ELF identity remains false.
+- [Mayhem's maintained69-file source](research/mayhem-canonical-promotion-20261028/README.md)
+  reproduces all 775,416 meaningful bytes in two independent fresh Windows
+  host-and-target builds. Actual loader execution returns the 777,408-byte
+  captured allocation. All9,595 paired transaction comparisons agree literally;
+  all 39,062 retained signature fields verify. The 1,992-byte zero allocation
+  suffix is separate from compiler output.
+- [Fees](research/contract-completion-20261028/CURRENT-INTEGRATION.md) reproduces
+  all 873,256 meaningful bytes in two builds, including an empty dependency target.
+  The exact image passes17,331 paired cases. Its75,688-byte zero allocation
+  suffix remains separate.
+- [Relay's maintained-source repeat](research/relay-current-repeat-20261028/README.md)
+  reproduces the complete meaningful ELF from an empty target. A genuine loader
+  deployment uses912 signed transactions and yields the exact allocated payload;
+  all 536 retained replay records agree on account observations and ordered logs.
 
-- Recover the **16 Pump Main and 1 PumpSwap / AMM** unmatched windows. The AMM
-  remainder is sell cashback `0x4c750`.
-- Close remaining call, data and relocation differences, integrate qualified
-  source changes, and verify reproducible whole-program builds and uncovered behavior.
-- Pump Main reaches 1,019 windows with the
-  [legacy-sell cashback boundary](research/pump-legacy-sell-boundary-20261028/README.md)
-  (`0x152888`, all 8,488 bytes; 0 losses; 182 signed paired runtime cases) on L38. The
-  composed line continues through data-side steps
-  [L39](research/claude-pump-integration-20261027/r37-layout-39/README.md) and
-  [L40](research/claude-pump-integration-20261027/r37-layout-40/README.md) to
-  [L41](research/claude-pump-integration-20261027/r37-layout-41/README.md), which adds the
-  legacy-sell boundary (1,019 windows, raw-ready 1,005/1,019 with the layout layer, 44-suite
-  corpus 10,468 cases, 0 mismatches). Behavior corrections qualified with signed
-  original/candidate replays and no window loss, not yet composed into one build:
-  [v2 whitelist reserve sync](research/pump-v2-whitelist-sync-20261028/README.md),
-  [v3 sell recovery](research/pump-l39-v3sell-recovery-20261028/README.md) (128 cases),
-  [sweep zero-recipient guard](research/pump-l38-sweep-zero-recipient-20261028/README.md) (error 6000),
-  [multi-hop crossing guard](research/pump-multi-hop-crossing-guard-20261028/README.md) (error 6021),
-  [cashback-v2 quote-program guard](research/pump-l38-cashback-quote-program-20261028/README.md),
-  [direct-route FeeConfig selection](research/pump-direct-route-fee-config-20261028/README.md) and the
-  [checked cashback decoder](research/pump-checked-cashback-decoder-20261028/README.md).
-- PumpSwap reaches **784/785** with the [buy cashback recovery](research/amm-cashback-buy-recovery-20261028/README.md):
-  all 8,104 helper bytes match after official normalization, with no lost windows
-  and 267 raw-equal bodies. Both complete ELFs reproduce independently; the
-  maintained legacy-buy suite passes 1,011 paired cases with 2,022 independently
-  verified transaction signatures and no non-meter log differences. Whole-ELF
-  equality remains unachieved. The earlier [783-window union11](research/claude-amm-union11-20261028/README.md) recovers
-  the volume updater (`0x6db20`) over the 782-window union10, with 0 normalized or raw losses;
-  [union12](research/claude-amm-union12-20261028/README.md) is a data-side step with the same
-  window sets. All nine panic Location operands in `0x6db20` now match the original
-  ([panic locations](research/amm-incentive-panic-locations-20261028/README.md); 17,462 cases),
-  and a [signed cashback witness](research/amm-cashback-signed-verification-20261028/README.md)
-  covers the now-matched `distribute_cashback` helper (`0x351a8`; 146 cases, 0 mismatches).
-  The [maintained AMM checkpoint](repro/pump_amm/v2-mint-clone-recovery-20261028/README.md)
-  remains at 660 windows; research candidates are not promoted.
-- Mayhem now [reproduces its complete meaningful ELF](research/mayhem-meaningful-elf-20261028/README.md):
-  ordinary stripping of two fresh builds equals all 775,416 meaningful original bytes.
-  The closing change moves one vendored-Anchor module declaration and rebinds the data layout.
-  A [follow-up](research/mayhem-fresh-host-20261028/README.md) rebuilds the host macro from
-  source, with no cached host artifacts, across three fresh chains. The recipe still uses
-  a target-derived linker layout, so historical source/compiler provenance remains open.
-  Static data proofs continue on the qualified437 image:
-  [Anchor log formatter pieces](research/mayhem-current437-format-pieces-20261028/README.md),
-  [counted account-name intervals](research/mayhem-current437-account-names-20261028/README.md)
-  (125 `with_account_name` sites) and
-  [`MayhemError` Display messages](research/mayhem-current437-mayhem-error-display-20261028/README.md)
-  (20 messages, 531 bytes).
-- Binary analysis packets ([window](research/pump-window-analysis-20261028/README.md),
-  [deep disassembly](research/pump-deep-disasm-20261028/README.md) and
-  [section](research/pump-section-analysis-20261028/README.md) analyses for each program, and a
-  [reconstruction roadmap](research/reconstruction-roadmap-20261028/README.md)) describe the
-  deployed binaries; the roadmap's open-window lists use the maintained checkpoints, not the
-  research frontier above.
-- PumpSwap transfer-fee diagnostics with basis points above 10,000 now trigger all
-  three overflow sites at runtime: lines 57/67 for
-  [deposit/withdraw](research/amm-transfer-fee-bps-overflow-20261028/README.md) and
-  [v2 trades](research/amm-trade-v2-bps-overflow-20261028/README.md), and
-  [line 49](research/amm-withdraw-bps-overflow-line49-20261028/README.md). Deployed and
-  rebuilt programs agree in each case.
+The full objective remains active until Pump and AMM also reproduce their entire
+meaningful files from maintained source. Target-derived layout rules are explicit
+reconstructed recipes; original source spelling and unique private build provenance
+remain unknown. Finite offline tests do not establish a security audit or live
+operational acceptance. Historical research remains linked from the
+[integration record](research/contract-completion-20261028/CURRENT-INTEGRATION.md).
 
-The linked program reports contain source, build and validation evidence.
-[Build and verification guide](docs/TOOLING.md) ·
-[Scripts](scripts/README.md) ·
+[Build and verification guide](docs/TOOLING.md) · [Scripts](scripts/README.md) ·
 [Dependency status](repro/dependency-status.json)
 
 <!-- app-progress:start -->
@@ -107,7 +75,7 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | --- | ---: | ---: | --- |
 | Published SDK source | 31 / 31 files | 100% | Exact npm 4.3.1 source bytes; full behavior parity still unqualified |
 | Frontend JavaScript capture | 648 / 648 scripts | 100% | Known scripts in the captured route/asset graph only |
-| Frontend factory extraction | 4915 / 4915 inventoried variants | 100% | Extracted factories, not original source files; authenticated/unseen modules unknown |
+| Frontend factory extraction | 5947 / 5947 inventoried variants | 100% | Extracted factories, not original source files; authenticated/unseen modules unknown |
 | Public developer API contract | 67 / 67 documented operations | 100% | Specification captured; native compatibility 0 / 67 (0%) |
 | Original backend source | Not observable | N/A | Implement replacement behavior from API evidence |
 
@@ -125,7 +93,7 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | Livestream / presence | 9 | 0/3 (0%) | 0/4 (0%) | LiveKit configuration observed; no native orchestration. |
 | Coin creation / media | 4 | 0/3 (0%) | 0/4 (0%) | No upload or metadata lifecycle; SDK source is tracked separately. |
 | Rewards / fees / referrals | 12 | 0/3 (0%) | 0/4 (0%) | No native reward accounting or claims. |
-| Portfolio / indexing | 17 | 0/3 (0%) | 0/4 (0%) | No local indexer, portfolio read models or reorg handling. |
+| Portfolio / indexing | 17 | 0/3 (0%) | 0/4 (0%) | Opt-in materialized spot positions and user trade/transfer-history reads exist; contract/feature completion stays pending. No local chain indexer, financial derivation, production compatibility or reorg handling. |
 | Settings / notifications | 29 | 0/3 (0%) | 0/4 (0%) | No native preferences, notification or messaging handlers. |
 
 ¹ 330 distinct static operation candidates overall. Family leads overlap, lack confirmed origin bindings and may include privileged/excluded paths; do not sum them or treat them as a full API denominator. The 67 public developer operations currently have **0% native compatibility qualification**: `content.read` 0/18, `graph.read` 0/17, `leaderboards.read` 0/11, `moderation.read` 0/1, `positions.read` 0/7, `profiles.read` 0/13.
@@ -138,13 +106,13 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | Home / feed | 3/3 (100%) | 3/4 (75%) | Evidence-mapped, hash-bound synthetic examples, strict local validation and honest For You/Following boundaries pass unit and browser tests. Native feed compatibility, authenticated personalization and original visual parity remain unqualified. |
 | Explore / search | 3/3 (100%) | 3/4 (75%) | Authenticated one-record historical snapshot, fail-closed adapter and offline name/symbol/mint search pass unit and browser tests. Native market discovery, production ranking and original visual parity remain unqualified. |
 | Leaderboards / competitions | 3/3 (100%) | 2/4 (50%) | Contract-driven read-only interface and failure paths verified. Live API success and original visual parity remain unqualified. |
-| Live discovery / playback | 0/3 (0%) | 0/4 (0%) | Live route scaffold; media and realtime behavior not implemented. |
-| GO | 0/3 (0%) | 0/4 (0%) | Route scaffold; campaign behavior and API binding unknown. |
-| Mayhem | 0/3 (0%) | 0/4 (0%) | Route scaffold only. |
-| Holder rewards | 3/3 (100%) | 3/4 (75%) | Published-SDK offline PDA derivation, validation and unavailable states pass unit and browser tests. Live account existence, balances, eligibility, claims and original visual parity remain unqualified. |
+| Live discovery / playback | 3/3 (100%) | 3/4 (75%) | Authenticated five-record historical discovery snapshot, fail-closed evidence adapter and local search/selection states pass unit and browser tests. Current livestream state, native API compatibility, playback, presence and original visual parity remain unqualified. |
+| GO | 3/3 (100%) | 3/4 (75%) | Authenticated 25-record historical bounty snapshot, fail-closed evidence adapter, local search/filter/sort/cursor state and unavailable account actions pass unit and browser tests. Current API compatibility, authenticated flows, mutations and original visual parity remain unqualified. |
+| Mayhem | 3/3 (100%) | 2/4 (50%) | Evidence-mapped state filters, sorting, strict validation and fail-closed offline states pass unit and browser tests. No archived Mayhem response, qualified live API compatibility or original visual parity is claimed. |
+| Holder rewards | 3/3 (100%) | 3/4 (75%) | Published-SDK PDA derivation now offers an explicit read of public SOL/token holdings through the existing mainnet RPC service. Holdings do not establish account existence, eligibility, accrued or claimable rewards. Claims and original visual/API parity remain unavailable or unqualified. See packages/frontend/HOLDER-PUBLIC-BALANCES.md. |
 | Create coin / upload | 3/3 (100%) | 3/4 (75%) | Evidence-mapped offline metadata drafting, validation, local image preview and failure states pass browser tests. Upload, wallet signing, transaction creation, token launch and original visual parity remain unqualified. |
 | Profiles / social graph | 3/3 (100%) | 3/4 (75%) | Evidence-mapped, hash-bound synthetic profiles resolve by exact user id or wallet and render filtered authored posts with responsive browser coverage. Native profile compatibility, follow graph, authenticated behavior and original visual parity remain unqualified. |
-| Authentication / wallets | 0/3 (0%) | 0/4 (0%) | No local authenticated UI or wallet workflow. |
+| Authentication / wallets | 0/3 (0%) | 0/4 (0%) | Sign-in remains unavailable. An opt-in Wallet Standard public-address connection/forget workflow is implemented with source witnesses and local protocol/UI tests; it supplies no authentication, signing or persisted identity. See packages/frontend/PUBLIC-WALLET-EVIDENCE.md. Full original auth/wallet parity remains pending. |
 | Portfolio / positions | 3/3 (100%) | 3/4 (75%) | Live mainnet SOL, SPL Token and Token-2022 account reads pass unit, browser and actual-RPC checks. Pump positions/PnL compatibility and original visual parity remain unqualified. |
 | Settings / notifications | 0/3 (0%) | 0/4 (0%) | No local settings or notification UI. |
 | Legal / fee information | 3/3 (100%) | 3/4 (75%) | Authenticated archived fee, privacy and terms documents now render through a fail-closed offline adapter with responsive navigation and corruption tests. Current legal authority and original visual parity remain unqualified. |

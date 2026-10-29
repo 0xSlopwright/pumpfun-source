@@ -1,21 +1,57 @@
 import Link from "next/link";
 import { FeedList } from "@/components/feed/FeedList";
 import { FeedTabs, type FeedTab } from "@/components/feed/FeedTabs";
+import { NativeCalloutFeed } from "@/components/feed/NativeCalloutFeed";
 import { loadLocalFeed } from "@/components/feed/feed-snapshot";
+import { parseNativeFeedNavigation } from "@/components/feed/native-feed-navigation";
+import {
+  isNativeFeedEnabled,
+  loadNativeFeed,
+  type NativeFeedLoadResult,
+} from "@/components/feed/native-feed-server";
 
-function selectedTab(value: string | string[] | undefined): FeedTab {
+type HomeSearchParams = {
+  tab?: string | string[];
+  nativeView?: string | string[];
+  nativeCursor?: string | string[];
+  nativeTrail?: string | string[];
+};
+
+function selectedTab(
+  value: string | string[] | undefined,
+  nativeEnabled: boolean,
+): FeedTab {
+  if (value === "local-callouts" && nativeEnabled) return "local-callouts";
   return value === "following" ? "following" : "for-you";
 }
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string | string[] }>;
+  searchParams: Promise<HomeSearchParams>;
 }) {
-  const [params, localFeed] = await Promise.all([
-    searchParams,
-    loadLocalFeed(),
-  ]);
-  const tab = selectedTab(params.tab);
+  const params = await searchParams;
+  const nativeEnabled = isNativeFeedEnabled();
+  const tab = selectedTab(params.tab, nativeEnabled);
+  const localFeed = tab === "for-you" ? await loadLocalFeed() : null;
+  let nativeNavigation: ReturnType<typeof parseNativeFeedNavigation> | null =
+    null;
+  let nativeResult: NativeFeedLoadResult | null = null;
+  if (tab === "local-callouts") {
+    try {
+      nativeNavigation = parseNativeFeedNavigation(params);
+      nativeResult = await loadNativeFeed(
+        nativeNavigation.kind,
+        nativeNavigation.cursor,
+      );
+    } catch {
+      nativeNavigation = { kind: "ranked", trail: [] };
+      nativeResult = {
+        ok: false,
+        reason: "invalid-cursor",
+        message: "The local page navigation is malformed",
+      };
+    }
+  }
 
   return (
     <div className="home-feed-page">
@@ -29,7 +65,7 @@ export default async function Home({
         </Link>
       </div>
 
-      <FeedTabs activeTab={tab} />
+      <FeedTabs activeTab={tab} nativeEnabled={nativeEnabled} />
 
       <section
         id="home-feed-panel"
@@ -38,7 +74,14 @@ export default async function Home({
         aria-labelledby={`feed-tab-${tab}`}
         tabIndex={0}
       >
-        {tab === "following" ? (
+        {tab === "local-callouts" && nativeNavigation && nativeResult ? (
+          <NativeCalloutFeed
+            kind={nativeNavigation.kind}
+            cursor={nativeNavigation.cursor}
+            trail={nativeNavigation.trail}
+            result={nativeResult}
+          />
+        ) : tab === "following" ? (
           <section
             className="feed-state-card"
             data-testid="following-unavailable"
@@ -55,7 +98,7 @@ export default async function Home({
               Return to local examples
             </Link>
           </section>
-        ) : !localFeed.ok ? (
+        ) : !localFeed?.ok ? (
           <section className="feed-state-card" data-testid="local-feed-error">
             <span className="feed-state-mark" aria-hidden="true">
               !

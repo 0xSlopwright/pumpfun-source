@@ -31,7 +31,9 @@ export function FeedItem({ item }: { item: LocalFeedPost }) {
             <span className="feed-author-address">
               {item.author.missing
                 ? "Unresolved seed identity"
-                : shortAddress(item.author.address)}
+                : item.author.address
+                  ? shortAddress(item.author.address)
+                  : "No wallet address recorded."}
             </span>
           </div>
           <time dateTime={item.timestamp}>{item.timestampLabel}</time>

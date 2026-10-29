@@ -1,4 +1,15 @@
+import { CALLOUT_DISCUSSIONS_NATIVE_ROUTES, registerCalloutDiscussionRoutes } from "./callout-discussions-routes.js";
+import type { CalloutDiscussionsStore } from "./callout-discussions-store.js";
 import Fastify from "fastify";
+import { CALLOUTS_NATIVE_ROUTES, registerCalloutRoutes } from "./callouts-routes.js";
+import type { CalloutsStore } from "./callouts-store.js";
+import { PositionsStore } from "./positions-store.js";
+import { registerPositionsRoutes, POSITIONS_NATIVE_ROUTES } from "./positions-routes.js";
+import type { PayoutsStore } from "./payouts-store.js";
+import { registerPayoutRoutes, PAYOUTS_NATIVE_ROUTES } from "./payouts-routes.js";
+import type { UserTradesStore } from "./user-trades-store.js";
+import { registerUserTradesRoutes, USER_TRADES_NATIVE_ROUTES } from "./user-trades-routes.js";
+import { apiKeyGate } from "./api-key-gate.js";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { validateHeaderName, validateHeaderValue } from "node:http";
@@ -11,6 +22,13 @@ import { registerCompetitionRoutes } from "./competitions-routes.js";
 import { CompetitionStore, defaultCompetitionStore } from "./competitions-store.js";
 import { registerFollowingRoutes } from "./following-routes.js";
 import { FollowingStore, defaultFollowingStore } from "./following-store.js";
+import { registerLeaderboardRoutes } from "./leaderboard-routes.js";
+import { LeaderboardStore, defaultLeaderboardStore } from "./leaderboard-store.js";
+import { registerHomeFeedRoutes } from "./home-feed-routes.js";
+import { HomeFeedStore, defaultHomeFeedStore } from "./home-feed-store.js";
+import { registerLocalMediaRoutes, type LocalMediaOptions } from "./local-media-routes.js";
+import type { PortfolioBalancesStore } from "./portfolio-balances-store.js";
+import { registerPortfolioBalancesRoutes, PORTFOLIO_BALANCES_NATIVE_ROUTES } from "./portfolio-balances-routes.js";
 
 export type Fixture = {
   method: string;
@@ -26,6 +44,9 @@ const reservedFixturePaths = new Set([
   "/health",
   "/__reconstruction/status",
   "/__reconstruction/openapi.json",
+  "/services/frontend/home-feed",
+  "/services/frontend/home-feed/new",
+  "/services/frontend/home-feed/new/count",
 ]);
 
 function compareKeys([left]: [string, string], [right]: [string, string]) {
@@ -226,56 +247,13 @@ function registerFixtures(fixtures: Fixture[]) {
         `Duplicate canonical fixture key keySha256=${keyDigest}: ${previous}; ${provenance}`,
       );
     }
-    fixtureMap.set(key, fixture);
+    const snapshot = structuredClone(fixture);
+    // structuredClone turns a Buffer into Uint8Array; preserve raw replay bodies.
+    if (Buffer.isBuffer(fixture.body)) snapshot.body = Buffer.from(fixture.body);
+    fixtureMap.set(key, snapshot);
     provenanceByKey.set(key, provenance);
   });
   return fixtureMap;
-}
-
-// Documented developer API key shape (contracts/developer.openapi.json,
-// components/securitySchemes/bearer): the prefix `pf_live_` followed by 43
-// base62 characters and a 6-character base62 checksum. The checksum algorithm
-// and the key store are not observable, so the gate validates the documented
-// shape only; a well-formed key is accepted as presented, never as a verified
-// credential. Scope, revocation and rate-limit outcomes need a key store and
-// stay unmodeled.
-const apiKeyPattern = /^pf_live_[0-9A-Za-z]{49}$/;
-
-async function apiKeyGate(
-  request: {
-    headers: Record<string, string | string[] | undefined>;
-    url: string;
-  },
-  reply: any,
-) {
-  const authorization = request.headers.authorization;
-  const alias = request.headers["x-api-key"];
-  let candidate: string | undefined;
-  if (typeof authorization === "string") {
-    const bearer = /^Bearer\s+(.+)$/i.exec(authorization.trim());
-    if (bearer) candidate = bearer[1];
-  }
-  if (candidate === undefined && typeof alias === "string") {
-    candidate = alias;
-  }
-  if (candidate !== undefined && apiKeyPattern.test(candidate)) return;
-  // The observed 401 envelope (evidence/api-probes.json, object
-  // 1837f7894abd389a) reports the path without the local /v1 prefix and names
-  // both key headers; the specification's examples diverge on both points, so
-  // the captured response wins. Only the timestamp is volatile.
-  const separator = request.url.indexOf("?");
-  const pathname =
-    separator < 0 ? request.url : request.url.slice(0, separator);
-  reply.code(401).send({
-    statusCode: 401,
-    timestamp: new Date().toISOString(),
-    path: pathname.startsWith("/v1/") ? pathname.slice(3) : pathname,
-    error: candidate === undefined ? "API_KEY_REQUIRED" : "API_KEY_INVALID",
-    message:
-      candidate === undefined
-        ? "Send Authorization: Bearer <key> or x-api-key: <key>"
-        : "The key is malformed (wrong prefix, length or checksum) or unknown.",
-  });
 }
 
 /**
@@ -308,9 +286,21 @@ const NATIVE_ROUTES = new Set<string>([
   "GET /following/v3/following/search/{userId}",
   "GET /following/v3/followers/{userId}",
   "GET /following/v3/following/{userId}",
+  "GET /pnl-leaderboard",
 ]);
 
 export interface BuildAppOptions {
+  /** Explicit server-owned public callout materialization; absent retains fixture/501 behavior. */
+  calloutsStore?: CalloutsStore;
+  calloutDiscussionsStore?: CalloutDiscussionsStore;
+  /** Explicit local materialization; absent preserves the fixture/501 harness. */
+  positionsStore?: PositionsStore;
+  /** Explicit confirmed-payout facts; absent preserves fixture/501 behavior. */
+  payoutsStore?: PayoutsStore;
+  /** Explicit operator-owned spot trade history; absent retains fixture/501 behavior. */
+  userTradesStore?: UserTradesStore;
+  /** Explicit local/CLI-only capability; absent by default, independent of developer auth. */
+  localMedia?: LocalMediaOptions;
   /** Override the user store (for tests). */
   userStore?: UserStore;
   /** Override the post store (for tests). */
@@ -319,6 +309,28 @@ export interface BuildAppOptions {
   competitionStore?: CompetitionStore;
   /** Override the follow-graph store (for tests). */
   followingStore?: FollowingStore;
+  /** Override the leaderboard store (for tests). */
+  leaderboardStore?: LeaderboardStore;
+  /** Explicit server-owned public aggregate balance snapshot, disabled by default. */
+  portfolioBalancesStore?: PortfolioBalancesStore;
+  /** Override the local Home Feed store (for tests). */
+  homeFeedStore?: HomeFeedStore;
+}
+
+/**
+ * Read the developer specification served verbatim at
+ * /__reconstruction/openapi.json and hashed at /__reconstruction/status.
+ * A lossy "utf8" read would silently replace a corrupted byte with U+FFFD:
+ * the JSON still parses when the byte sits inside a string value, so the app
+ * would start serving altered specification text while reporting a hash of
+ * the altered text rather than the file. Decode fatally so a malformed
+ * specification fails app construction instead, like the startup loaders in
+ * server.ts.
+ */
+export function readSpecificationText(specPath: string): string {
+  return new TextDecoder("utf-8", { fatal: true }).decode(
+    readFileSync(specPath),
+  );
 }
 
 export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
@@ -328,7 +340,7 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
   const specPath = fileURLToPath(
     new URL("../../../contracts/developer.openapi.json", import.meta.url),
   );
-  const specification = readFileSync(specPath, "utf8");
+  const specification = readSpecificationText(specPath);
   const spec = JSON.parse(specification) as {
     paths: Record<string, Record<string, unknown>>;
   };
@@ -347,6 +359,11 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
       .digest("hex"),
     compatibility: "unqualified",
   }));
+  if (opts.localMedia) {
+    const { store } = opts.localMedia;
+    app.addHook("onClose", async () => { await store.close(); });
+    registerLocalMediaRoutes(app, opts.localMedia);
+  }
   // Register native handlers first. They win over a captured fixture for the same route.
   // They are documented /v1 operations too, so the same API-key gate runs before them.
   const store = opts.userStore ?? defaultStore;
@@ -358,12 +375,23 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
   const followStore =
     opts.followingStore ??
     (opts.userStore ? new FollowingStore(store) : defaultFollowingStore);
+  const lbStore =
+    opts.leaderboardStore ??
+    (opts.userStore ? new LeaderboardStore(undefined, store) : defaultLeaderboardStore);
+  registerHomeFeedRoutes(app, opts.homeFeedStore ?? defaultHomeFeedStore);
   app.register(async (native) => {
     native.addHook("preHandler", apiKeyGate);
+    if (opts.portfolioBalancesStore) registerPortfolioBalancesRoutes(native, opts.portfolioBalancesStore);
     registerUserRoutes(native, store);
     registerPostRoutes(native, postStore);
     registerCompetitionRoutes(native, compStore);
     registerFollowingRoutes(native, followStore);
+    registerLeaderboardRoutes(native, lbStore);
+    if (opts.calloutsStore) registerCalloutRoutes(native, opts.calloutsStore);
+    if (opts.calloutDiscussionsStore) registerCalloutDiscussionRoutes(native, opts.calloutDiscussionsStore);
+    if (opts.positionsStore) registerPositionsRoutes(native, opts.positionsStore);
+    if (opts.payoutsStore) registerPayoutRoutes(native, opts.payoutsStore);
+    if (opts.userTradesStore) registerUserTradesRoutes(native, opts.userTradesStore);
   });
 
   // Routing recognizes documented paths; no fabricated domain responses or live proxy fallback.
@@ -374,7 +402,13 @@ export function buildApp(fixtures: Fixture[] = [], opts: BuildAppOptions = {}) {
       ),
     )) {
       // Skip operations that a native handler already serves.
-      if (NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) continue;
+      if (NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`) ||
+        (opts.portfolioBalancesStore && PORTFOLIO_BALANCES_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) ||
+        (opts.calloutDiscussionsStore && CALLOUT_DISCUSSIONS_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) ||
+        (opts.calloutsStore && CALLOUTS_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) ||
+        (opts.positionsStore && POSITIONS_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) ||
+        (opts.payoutsStore && PAYOUTS_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`)) ||
+        (opts.userTradesStore && USER_TRADES_NATIVE_ROUTES.has(`${method.toUpperCase()} ${path}`))) continue;
       app.route({
         method: method.toUpperCase() as "GET",
         url: "/v1" + path.replace(/\{([^}]+)\}/g, ":$1"),

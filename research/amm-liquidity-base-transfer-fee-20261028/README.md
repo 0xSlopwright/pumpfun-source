@@ -2,7 +2,8 @@
 
 ## Problem
 
-Quote transfer fees are computed by the AMM itself, but base
+Quote transfer fees are computed by the AMM itself (see the
+liquidity quote transfer-fee packet), but base
 transfer fees are not: the AMM transfers base through the
 token program, which withholds the fee opaquely. The amounts
 are now pinned at runtime on the as-is fixture pool, with a
@@ -14,8 +15,9 @@ base mint cannot carry one at creation).
 Ten fresh-VM triples (original / #424 control / #427
 candidate), 30 signed executions on the repository's own
 liquidity harness (`scripts/pump_amm_liquidity_differential.py`).
-The clock is slot 100, epoch 0. `producer.py` reproduces every
-receipt from the repository files.
+The clock is slot 100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | User base | Vault base | LP |
 | --- | --- | --- | --- |
@@ -52,10 +54,12 @@ order.
   50%, and 0 at 100%.
 - **Limits are fee-blind**: a deposit capped at the gross
   spend and a withdraw floored at the gross receipt both
-  succeed under a 1% fee, because the AMM checks gross
-  amounts and never sees the fee.
-- **Contrast with quote fees**: quote fees are computed by
-  the AMM, which checks limits against the net amount; base
+  succeed under a 1% fee; the withdraw floor at gross succeeds
+  while delivering only net, so it is not checked against the
+  net delivery (gross+1 is not executed).
+- **Contrast with quote fees (see the liquidity quote
+  transfer-fee packet; no quote-fee case runs here)**: quote
+  fees are computed by the AMM; base
   fees are withheld by the token program after the AMM's
   checks have already passed.
 

@@ -3,7 +3,7 @@
 An evidence-backed starting point for reconstructing the Pump website and APIs. This is separate from the Rust/on-chain reconstruction at the repository root.
 
 - `packages/sdk`: unchanged TypeScript sources from the official `@pump-fun/pump-sdk@4.3.1` npm archive, with a reconstructed tsup build.
-- `packages/frontend`: Next.js **16.4.1**, React **19.2.3**, Turbopack; evidence-mapped responsive shell, a hash-bound offline example feed, an offline historical Explore search, a live read-only Solana portfolio, and URL-backed navigation using captured color tokens and Geist fonts. Native feed, market-search and proprietary portfolio compatibility remain unimplemented.
+- `packages/frontend`: Next.js **16.4.1**, React **19.2.3**, Turbopack; evidence-mapped responsive shell, a hash-bound offline example feed, an offline historical Explore search, a live read-only Solana portfolio, and URL-backed navigation using captured color tokens and Geist fonts. Production feed, market-search and proprietary portfolio compatibility remain unimplemented.
 - `packages/backend`: independent Fastify compatibility harness. Documents 67 developer API operations, supports explicit read-only fixture replay, and returns **501** for unimplemented behavior.
 - `evidence`: original public bundles, HTML, styles, fonts, HTTP/DNS evidence, SDK archive and provenance.
 - `recovered/modules`: readable Turbopack factories, with module IDs, content hashes and exact source ranges in `recovered/modules.json`. These are not standalone original source files.
@@ -11,7 +11,15 @@ An evidence-backed starting point for reconstructing the Pump website and APIs. 
 
 The developer contract ledger binds all 67 documented operations to the checked-in first-party `publicRead` contract, including exact method/path, scope, bearer-auth declaration, error-code contract, captured UTF-16 range, and any independently inventoried client literal. One additional captured route is recorded separately because it is absent from OpenAPI 0.294.0. These are offline contract bindings only: native implementation and compatibility qualification remain 0/67, and website request origins remain unresolved.
 
+The factory inventory now contains 5,947 variants and 7,337 captured occurrences. The [nested-registration recovery](research/nested-registration-20261028/README.md) follows the captured Turbopack runtime's actual recursive registration rule, restoring 1,032 previously omitted factory hashes across 89 existing captures, including the achievements client. Every previously indexed factory file, canonical path, ID and origin is retained. This is static source recovery; it does not execute the captured application or establish API compatibility.
+
 Start with [PRD.md](PRD.md) and [AGENTS.md](AGENTS.md). Every coverage claim must distinguish captured, reconstructed, implemented and qualified.
+
+The [original portfolio-chart reader](reconstruction/portfolio-chart/README.md)
+recovers the captured GET/query, cache keys, computing-503 retry predicate and
+response-parser boundary. It includes an explicit single-attempt local HTTP
+adapter and loopback workflow checks. It does not calculate charts, integrate a
+chart UI, emulate Ky scheduling or qualify native portfolio compatibility.
 
 ## Run
 
@@ -26,7 +34,7 @@ pnpm verify:evidence
 pnpm dev
 ```
 
-Frontend: `http://localhost:3000`. Backend: `http://localhost:3001`. The frontend forwards `/api/compat/*` to the local backend. No credentials, wallet connection or production API proxy is enabled.
+Frontend: `http://localhost:3000`. Backend: `http://localhost:3001`. The frontend forwards `/api/compat/*` to the local backend. No credentials, authenticated sign-in or production API proxy is enabled. The Sign in chooser offers an explicit [public-address-only Wallet Standard connection](packages/frontend/PUBLIC-WALLET-EVIDENCE.md); it requests no signature, stores no address and does not authenticate an account.
 
 Replay the captured price snapshot (historical evidence, never a live price):
 
@@ -54,6 +62,34 @@ viewer or follow graph is invented. This feature performs no production API
 request or mutation and does not qualify the native feed service. See
 [`packages/frontend/HOME-FEED-EVIDENCE.md`](packages/frontend/HOME-FEED-EVIDENCE.md)
 for factory provenance and the local design boundary.
+
+## Native local Home Feed reads
+
+The backend exposes deterministic local reconstructions of the captured website
+reads at `/services/frontend/home-feed`, `/services/frontend/home-feed/new`, and
+`/services/frontend/home-feed/new/count`. They validate the captured query
+surface, project the declared response schema, implement stable ranked and
+chronological pagination, and bind pinned New-feed counts to tamper-detecting
+local cursors. The data source is a hash-bound synthetic callout seed; every
+successful response identifies it and marks compatibility as unqualified.
+
+These routes do not reproduce Pump ranking, cookies, personalization, realtime
+subjects, prices, users, or production records. They make no network request
+and are separate from the `/v1` developer API operations, whose native and
+qualified counts remain unchanged. See
+[`packages/backend/HOME-FEED-EVIDENCE.md`](packages/backend/HOME-FEED-EVIDENCE.md)
+for the captured hashes, website-origin attribution, local cursor/count policy,
+tests, and unsupported behavior.
+
+When the server explicitly sets `PUMP_LOCAL_HOME_FEED=enabled`, `/` also offers
+a separate Local Callouts view backed by PR #700's synthetic local read model at
+the fixed loopback origin `127.0.0.1:3001`. Next performs the requests on the
+server; the browser never contacts the backend directly. Every view remains
+labelled synthetic and local-unqualified, cursors stay opaque, and errors never
+fall back to production Pump.fun. The default remains the offline post feed.
+See
+[`packages/frontend/NATIVE-HOME-FEED.md`](packages/frontend/NATIVE-HOME-FEED.md)
+for the response, pagination, test, and trust boundaries.
 
 ## Offline Explore snapshot
 
@@ -86,7 +122,21 @@ mutation is used. See
 [`packages/frontend/PROFILE-EVIDENCE.md`](packages/frontend/PROFILE-EVIDENCE.md)
 for source provenance and the local-data contract.
 
+## Opt-in public balance batches
+
+The backend can serve the documented `POST /v1/portfolio-summary/balances`
+operation from an explicit `PORTFOLIO_BALANCES_FILE`. It batches supplied public
+aggregate facts, preserves null versus zero, and keeps owner-only holdings and
+perp cash unavailable on the API host. No default dataset, valuation engine or
+production provider is enabled. This is an unqualified local read capability;
+see [`packages/backend/PORTFOLIO-BALANCES.md`](packages/backend/PORTFOLIO-BALANCES.md).
+
 ## Live Solana portfolio
+
+The separate [captured mint-position reader](reconstruction/positions-by-mint/README.md)
+recovers the original 200-mint batches, response hooks, quote-admission guard and
+lookup helpers with real loopback HTTP checks. It is not connected to this RPC
+UI and does not implement prices, PnL, indexing or native API compatibility.
 
 `/portfolio` accepts a public Solana address and reads current mainnet account
 data through a server-owned JSON-RPC endpoint. It reports SOL lamports, separate
@@ -108,6 +158,17 @@ positions, PnL, cost basis, price/metadata enrichment, spam classification, and
 history are not implemented. See
 [`packages/frontend/PORTFOLIO-RPC.md`](packages/frontend/PORTFOLIO-RPC.md) for the
 contract, precision rules, live qualification, and limitations.
+
+## Opt-in materialized trade history
+
+The backend can serve `GET /v1/user-trades/:id` from an operator-owned
+`TRADES_FILE`. It computes person/raw-wallet selection, mint/chain/type filters,
+stable pages and page-specific metadata joins from supplied spot facts; no
+default history dataset, indexer or production proxy is enabled. The existing
+developer key-shape gate still applies and does not verify key scopes or
+revocation. This bounded read model is separate from the live portfolio UI and
+is not qualified Pump API compatibility. See
+[`packages/backend/USER-TRADES.md`](packages/backend/USER-TRADES.md).
 
 ## Refresh / inspect
 
@@ -138,4 +199,14 @@ See `evidence/validation.json` for this checkpoint's actual results. Lockfile ch
 
 ## Source and feature completion
 
+The [captured portfolio read policies](reconstruction/portfolio-read-policies/README.md)
+recover dust-floor and spam-mint requests, memoized query options and local cache
+helpers. Their explicit ports preserve session/runtime boundaries; they do not
+add a private preference setter, native service, UI or completion credit.
+
 See [generated progress tables](PROGRESS.md) and the [feature ledger](contracts/feature-progress.json). From the repository root run `python3 app/scripts/progress.py` to refresh both the root README tables and the standalone report. Run `pnpm --dir app check:progress` to check freshness and scoring rules. Accepted milestones require checked-in evidence; excluded/deferred surfaces are N/A. Captured JavaScript and extracted factories are not counted as completed product features.
+
+The [captured portfolio-summary client](reconstruction/portfolio-summary/README.md)
+provides fixed JSON response projection, the original holdings/fresh GET branches
+and explicit read/cancel/cache-write ordering. It does not calculate portfolio
+values, implement server ownership, reproduce Zod issues or integrate a UI.

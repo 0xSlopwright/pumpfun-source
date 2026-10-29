@@ -5,7 +5,7 @@ use anchor_lang::solana_program::{instruction::{Instruction,AccountMeta},program
 pub const AMM:Pubkey=anchor_lang::solana_program::pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
 pub const FEES:Pubkey=crate::distribution::FEES;
 #[derive(Clone)]pub struct Amm; impl Id for Amm{fn id()->Pubkey{AMM}}
-#[derive(Clone)]pub struct Fees; impl Id for Fees{fn id()->Pubkey{FEES}}
+
 #[derive(Accounts)]
 pub struct AdminCto<'info>{
 #[account(mut)]
@@ -47,7 +47,7 @@ pub holder_creator_vault:AccountInfo<'info>,
 /// CHECK: constrained address or handler validation.
 pub holder_creator_vault_quote_token_account:UncheckedAccount<'info>,
 /// CHECK: constrained address or handler validation.
-pub pump_amm:Program<'info,Amm>,
+pub pump_amm:Program<'info,crate::pump_amm::program::PumpAmm>,
 #[account(seeds=[&[103,108,111,98,97,108,95,99,111,110,102,105,103]],bump,seeds::program=pump_amm.key())]
 /// CHECK: constrained address or handler validation.
 pub amm_global_config:UncheckedAccount<'info>,
@@ -70,7 +70,7 @@ pub coin_creator_vault_ata:UncheckedAccount<'info>,
 /// CHECK: constrained address or handler validation.
 pub sharing_config:UncheckedAccount<'info>,
 /// CHECK: constrained address or handler validation.
-pub pump_fees:Program<'info,Fees>,
+pub pump_fees:Program<'info,crate::legacy_sell::LegacyFeesProgram>,
 #[account(seeds=[&[95,95,101,118,101,110,116,95,97,117,116,104,111,114,105,116,121]],bump,seeds::program=pump_fees.key())]
 /// CHECK: constrained address or handler validation.
 pub pump_fees_event_authority:UncheckedAccount<'info>,
@@ -99,52 +99,649 @@ pub pool_updated:bool,
 }
 pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>)->Result<()>{
  let a=&ctx.accounts;let old_fee=a.bonding_curve.creator_fee_bps;
- if a.bonding_curve.is_mayhem_mode{return Err(error!(PumpError::CtoNotAllowedForMayhemCoin));}if a.bonding_curve.is_holder_reward&&holder!=Some(true){return Err(error!(PumpError::HolderRewardCreatorImmutable));}
+// layout-pad(182): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if a.bonding_curve.is_mayhem_mode{return Err(error!(PumpError::CtoNotAllowedForMayhemCoin));}
+// Reconstructed positions of the same deployed validations.
+
+
+
+ if a.bonding_curve.is_holder_reward&&holder!=Some(true){return Err(error!(PumpError::HolderRewardCreatorImmutable));}
+
+
+
+
+
+
  if holder==Some(true)&&!a.bonding_curve.is_holder_reward&&!a.global.is_holder_reward_enabled{return Err(error!(PumpError::HolderRewardDisabled));}
  let holder=holder.unwrap_or(false);let cashback=!holder&&a.bonding_curve.is_cashback_coin;let old=a.current_creator.key();let mint=a.mint.key();let (holder_key,_)=Pubkey::find_program_address(&[b"holder-rewards",mint.as_ref()],&crate::ID);
- if holder && new.is_some(){return Err(error!(PumpError::CtoNewCreatorNotAllowed));}if !holder && new.is_none(){return Err(error!(PumpError::CtoNewCreatorRequired));}
- let mut target=if holder{holder_key}else{new.unwrap()};if target==Pubkey::default(){return Err(error!(PumpError::CreatorShouldNotBeZero).with_pubkeys((target,Pubkey::default())));}if !holder && (target==holder_key||target==a.sharing_config.key()){return Err(error!(PumpError::InvalidCreator));}
+ if holder && new.is_some(){return Err(error!(PumpError::CtoNewCreatorNotAllowed));}
+
+
+
+
+
+
+
+ if !holder && new.is_none(){return Err(error!(PumpError::CtoNewCreatorRequired));}
+ let mut target=if holder{holder_key}else{new.unwrap()};if target==Pubkey::default(){return Err(error!(PumpError::CreatorShouldNotBeZero).with_pubkeys((target,Pubkey::default())));}
+
+
+
+
+ if !holder && (target==holder_key||target==a.sharing_config.key()){return Err(error!(PumpError::InvalidCreator));}
+// layout-pad(13): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
  if fee.is_some()&&(a.bonding_curve.quote_mint==Pubkey::default()||a.bonding_curve.quote_mint==anchor_spl::token::spl_token::native_mint::ID||a.global.whitelisted_quote_mints.contains(&a.bonding_curve.quote_mint)){return Err(error!(PumpError::CreatorFeeNotConfigurableForQuote));}
+// layout-pad(3): aligns the next Source site with the original line
+
+
  if fee.is_some()&&cashback{return Err(error!(PumpError::CreatorFeeNotAllowedForCashbackCoin));}
+
+
+
  if fee.is_some()&&!a.global.creator_fee_configurable{return Err(error!(PumpError::CreatorFeeNotConfigurable));}
+
+
+
  if let Some(f)=fee{if f==0||f>a.global.max_configurable_creator_fee_bps{return Err(error!(PumpError::CreatorFeeBpsOutOfRange));}}
  crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.admin_set_creator_authority)?;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
  require!(a.bonding_curve.creator_fee==0,PumpError::CreatorFeesNotSwept);
  let shared=a.sharing_config.owner==&FEES && !a.sharing_config.data_is_empty() && old==a.sharing_config.key();
- let shared_amm_frozen=shared&&holder&&!a.coin_creator_vault_ata.data_is_empty()&&token_frozen(&a.coin_creator_vault_ata.to_account_info())?;
- if shared_amm_frozen{require!(token_raw_amount(&a.coin_creator_vault_ata.to_account_info())?==0,PumpError::CtoSharedVaultFrozen);}
- if shared&&holder&&!shared_amm_frozen&&!a.coin_creator_vault_ata.data_is_empty(){crate::pump_amm::cpi::transfer_creator_fees_to_pump_v2(CpiContext::new(a.pump_amm.to_account_info(),crate::pump_amm::cpi::accounts::TransferCreatorFeesToPumpV2{payer:a.admin_set_creator_authority.to_account_info(),quote_mint:a.quote_mint.to_account_info(),token_program:a.quote_token_program.to_account_info(),system_program:a.system_program.to_account_info(),associated_token_program:a.associated_token_program.to_account_info(),coin_creator:a.current_creator.to_account_info(),coin_creator_vault_authority:a.coin_creator_vault_authority.to_account_info(),coin_creator_vault_ata:a.coin_creator_vault_ata.to_account_info(),pump_creator_vault:a.creator_vault.to_account_info(),pump_creator_vault_ata:a.creator_vault_quote_token_account.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()}))?;}
- let wallet=old!=Pubkey::default()&&!a.current_creator.executable&&a.current_creator.owner==&anchor_lang::system_program::ID;if wallet&&!a.current_creator.is_writable{return Err(error!(PumpError::CtoCreatorAccountNotWritable));}let wallet_frozen=wallet&&!a.current_creator_quote_token_account.data_is_empty()&&token_frozen(&a.current_creator_quote_token_account.to_account_info())?;
- if !shared&&old!=Pubkey::default(){
-  if !a.current_creator.executable&&!wallet{msg!("Creator is not a system-owned wallet; fees left in the vaults");}
-  else if wallet_frozen{msg!("Creator quote token account is frozen; fees left in the vaults");}
- }
- let native=a.bonding_curve.quote_mint==Pubkey::default();let rent=Rent::get()?.minimum_balance(0);let amount=if !(shared&&holder)&&(!wallet||wallet_frozen){0}else if native{a.creator_vault.lamports().saturating_sub(rent)}else if shared&&holder&&!a.creator_vault_quote_token_account.data_is_empty(){let amount=token_raw_amount(&a.creator_vault_quote_token_account.to_account_info())?;let frozen=token_frozen(&a.creator_vault_quote_token_account.to_account_info())?;require!(!frozen||amount==0,PumpError::CtoSharedVaultFrozen);amount}else{0};let bump=[ctx.bumps.creator_vault];let vaultseeds:&[&[u8]]=&[b"creator-vault",old.as_ref(),&bump];let mut swept=0;
- if shared && holder && amount>0{
+
+
+
+// layout-pad(141): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ let wallet=old!=Pubkey::default()&&!a.current_creator.executable&&a.current_creator.owner==&anchor_lang::system_program::ID;if wallet&&!a.current_creator.is_writable{return Err(error!(PumpError::CtoCreatorAccountNotWritable));}let wallet_frozen=wallet&&!a.current_creator_quote_token_account.data_is_empty()&&token_frozen(&a.current_creator_quote_token_account.to_account_info())?;if !shared&&old!=Pubkey::default(){if a.current_creator.executable||!wallet{msg!(if a.current_creator.executable{"Creator is a program; fees left in the vaults"}else{"Creator is not a system-owned wallet; fees left in the vaults"});}else if wallet_frozen{msg!("Creator quote token account is frozen; fees left in the vaults");}}
+ let mut swept=0;
+// layout-pad(89): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ if shared && holder{
   let dest=Pubkey::find_program_address(&[b"creator-vault",holder_key.as_ref()],&crate::ID).0;if a.holder_creator_vault.key()!=dest{return Err(error!(anchor_lang::error::ErrorCode::ConstraintSeeds).with_pubkeys((a.holder_creator_vault.key(),dest)));}
+  let shared_amm_frozen=!a.coin_creator_vault_ata.data_is_empty()&&token_frozen(&a.coin_creator_vault_ata.to_account_info())?;
+
+
+
+
+
+
+
+
+
+
+  if shared_amm_frozen{require!(token_raw_amount(&a.coin_creator_vault_ata.to_account_info())?==0,PumpError::CtoSharedVaultFrozen);}
+  if !shared_amm_frozen&&!a.coin_creator_vault_ata.data_is_empty(){crate::pump_amm::cpi::transfer_creator_fees_to_pump_v2(CpiContext::new(a.pump_amm.to_account_info(),crate::pump_amm::cpi::accounts::TransferCreatorFeesToPumpV2{payer:a.admin_set_creator_authority.to_account_info(),quote_mint:a.quote_mint.to_account_info(),token_program:a.quote_token_program.to_account_info(),system_program:a.system_program.to_account_info(),associated_token_program:a.associated_token_program.to_account_info(),coin_creator:a.current_creator.to_account_info(),coin_creator_vault_authority:a.coin_creator_vault_authority.to_account_info(),coin_creator_vault_ata:a.coin_creator_vault_ata.to_account_info(),pump_creator_vault:a.creator_vault.to_account_info(),pump_creator_vault_ata:a.creator_vault_quote_token_account.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()}))?;}
+  let native=a.bonding_curve.quote_mint==Pubkey::default();let rent=Rent::get()?.minimum_balance(0);
+  let amount=if native{a.creator_vault.lamports().saturating_sub(rent)}else if !a.creator_vault_quote_token_account.data_is_empty(){
+   let amount=token_raw_amount(&a.creator_vault_quote_token_account.to_account_info())?;let frozen=token_frozen(&a.creator_vault_quote_token_account.to_account_info())?;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   require!(!frozen||amount==0,PumpError::CtoSharedVaultFrozen);
+   amount}else{0};
+  let bump=[ctx.bumps.creator_vault];let vaultseeds:&[&[u8]]=&[b"creator-vault",old.as_ref(),&bump];
+  if amount>0{
   if native{crate::legacy_buy::native_payments::ensure_rent_exempt(&a.system_program,&a.admin_set_creator_authority,&a.holder_creator_vault)?;
   crate::collect_v2::transfer_native(a.system_program.as_ref(),&a.creator_vault,&a.holder_creator_vault,amount,&[vaultseeds])?;}else{pay_token(a,&a.holder_creator_vault.to_account_info(),&a.holder_creator_vault_quote_token_account,amount,vaultseeds)?;}swept=amount;
+  }
  }
- let mut native_amm_frozen=None;
  if wallet&&!wallet_frozen{
   let collection_native=a.quote_mint.key()==anchor_spl::token::spl_token::native_mint::ID;
-  if collection_native&&!a.coin_creator_vault_ata.data_is_empty(){native_amm_frozen=Some(token_frozen(&a.coin_creator_vault_ata.to_account_info())?);}
-  let source_present=!a.creator_vault_quote_token_account.data_is_empty();
+  let coin_present=!a.coin_creator_vault_ata.data_is_empty();let source_present=!collection_native&&!a.creator_vault_quote_token_account.data_is_empty();
   let source_frozen=!collection_native&&source_present&&token_frozen(a.creator_vault_quote_token_account.as_ref())?;
-  if collection_native||source_present||a.coin_creator_vault_ata.data_is_empty(){
-   if !collection_native||!a.coin_creator_vault_ata.data_is_empty(){anchor_spl::associated_token::create_idempotent(CpiContext::new(a.associated_token_program.to_account_info(),anchor_spl::associated_token::Create{payer:a.admin_set_creator_authority.to_account_info(),associated_token:a.current_creator_quote_token_account.to_account_info(),authority:a.current_creator.to_account_info(),mint:a.quote_mint.to_account_info(),system_program:a.system_program.to_account_info(),token_program:a.quote_token_program.to_account_info()}))?;}
-   if collection_native||(source_present&&!source_frozen){
+  let coin_frozen=coin_present&&token_frozen(a.coin_creator_vault_ata.as_ref())?;
+  if !collection_native||coin_present{anchor_spl::associated_token::create_idempotent(CpiContext::new(a.associated_token_program.to_account_info(),anchor_spl::associated_token::Create{payer:a.admin_set_creator_authority.to_account_info(),associated_token:a.current_creator_quote_token_account.to_account_info(),authority:a.current_creator.to_account_info(),mint:a.quote_mint.to_account_info(),system_program:a.system_program.to_account_info(),token_program:a.quote_token_program.to_account_info()}))?;}
+  if collection_native||(source_present&&!source_frozen){
     if let Some((collected,quote_mint))=crate::collect_v2::collect(&a.current_creator,a.current_creator_quote_token_account.as_ref(),&a.creator_vault,ctx.bumps.creator_vault,a.creator_vault_quote_token_account.as_ref(),a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),&a.quote_token_program,a.system_program.as_ref())?{
      let e=CollectCreatorFeeEvent{timestamp:Clock::get()?.unix_timestamp,creator:old,creator_fee:collected,quote_mint};emit!(e.clone());emit_cpi!(e);
     }
-   }
   }
- }
- if wallet&&!wallet_frozen&&!a.coin_creator_vault_ata.data_is_empty(){
-  let frozen=match native_amm_frozen{Some(frozen)=>frozen,None=>token_frozen(&a.coin_creator_vault_ata.to_account_info())?};if a.quote_mint.key()!=anchor_spl::token::spl_token::native_mint::ID{anchor_spl::associated_token::create_idempotent(CpiContext::new(a.associated_token_program.to_account_info(),anchor_spl::associated_token::Create{payer:a.admin_set_creator_authority.to_account_info(),associated_token:a.current_creator_quote_token_account.to_account_info(),authority:a.current_creator.to_account_info(),mint:a.quote_mint.to_account_info(),system_program:a.system_program.to_account_info(),token_program:a.quote_token_program.to_account_info()}))?;}
-  if !frozen{let cpi_accounts=crate::pump_amm::cpi::accounts::CollectCoinCreatorFee{quote_mint:a.quote_mint.to_account_info(),quote_token_program:a.quote_token_program.to_account_info(),coin_creator:a.current_creator.to_account_info(),coin_creator_vault_authority:a.coin_creator_vault_authority.to_account_info(),coin_creator_vault_ata:a.coin_creator_vault_ata.to_account_info(),coin_creator_token_account:a.current_creator_quote_token_account.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()};
+  if coin_present&&!coin_frozen{let cpi_accounts=crate::pump_amm::cpi::accounts::CollectCoinCreatorFee{quote_mint:a.quote_mint.to_account_info(),quote_token_program:a.quote_token_program.to_account_info(),coin_creator:a.current_creator.to_account_info(),coin_creator_vault_authority:a.coin_creator_vault_authority.to_account_info(),coin_creator_vault_ata:a.coin_creator_vault_ata.to_account_info(),coin_creator_token_account:a.current_creator_quote_token_account.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()};
   crate::pump_amm::cpi::collect_coin_creator_fee(CpiContext::new(a.pump_amm.to_account_info(),cpi_accounts))?;}
  }
+
+
+
+
  let pb=[ctx.bumps.pool_authority];let poolseeds:&[&[u8]]=&[b"pool-authority",mint.as_ref(),&pb];
  if shared{
   let val=if holder{None}else{new};
@@ -166,8 +763,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
   let cpi_accounts=crate::pump_amm::cpi::accounts::AdminCtoPool{payer:a.admin_set_creator_authority.to_account_info(),global_config:a.amm_global_config.to_account_info(),pool:a.pool.to_account_info(),pool_authority:a.pool_authority.to_account_info(),system_program:a.system_program.to_account_info(),event_authority:a.pump_amm_event_authority.to_account_info(),program:a.pump_amm.to_account_info()};
   let signer_seeds:&[&[&[u8]]]=&[poolseeds];
   crate::pump_amm::cpi::admin_cto_pool(CpiContext::new_with_signer(a.pump_amm.to_account_info(),cpi_accounts,signer_seeds),target,holder,fee)?;
- }
- else{msg!("No canonical pump pool for this mint; curve only");}
+ }else{msg!("No canonical pump pool for this mint; curve only");}
  let e=AdminCtoEvent{timestamp:Clock::get()?.unix_timestamp,authority:a.admin_set_creator_authority.key(),mint,bonding_curve:a.bonding_curve.key(),old_creator:old,new_creator:target,is_holder_reward:holder,is_cashback_coin:cashback,old_creator_fee_bps:old_fee,new_creator_fee_bps:fee.unwrap_or(old_fee),sharing_config_reset:shared,swept_to_holder_vault:swept,pool_updated};emit!(e.clone());emit_cpi!(e);Ok(())
 }
 

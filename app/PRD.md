@@ -12,7 +12,7 @@ Make a new agent productive without rediscovering the product surface, package l
 
 - Official SDK 4.3.1 archive, registry metadata, SHA-512 verification, unchanged `src/`, root and `/swap` builds in CommonJS/ESM with declarations.
 - Public page and asset capture: 688 records, including 648 JS files; URL/hash/headers manifest and original bytes retained. All recorded requests in this crawl succeeded. The asset graph is exhausted within the configured scope. This does not cover authenticated states, unvisited routes, unlinked dynamic resources or future deployments.
-- Babel-based recovery of 4,915 unique literal Turbopack factory variants with original module IDs, hash variants and exact source ranges. Readable factories are research artifacts, not a reconstructed runnable original application.
+- Babel-based recovery of 5,947 unique literal Turbopack factory variants across 7,337 captured occurrences, including the runtime's leading nested registration format, with original module IDs, hash variants and exact source ranges. Readable factories are research artifacts, not a reconstructed runnable original application.
 - Next.js 16.4.1 / React 19.2.3 / Turbopack build; local navigation shell and placeholders for included routes, using captured design tokens and Geist fonts.
 - Official developer OpenAPI snapshot and generated TypeScript declarations; 330 strict static operation candidates from website JS. Those include shared, excluded, privileged and possibly unreachable code.
 - Backend fixture harness, service boundary convention and explicit 501 fallback. No live trading, authentication, persistence, indexer or realtime implementation.

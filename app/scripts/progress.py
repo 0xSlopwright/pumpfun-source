@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render deterministic source/feature progress from evidence and an explicit ledger."""
 import argparse, collections, hashlib, json, pathlib, re, tarfile
+from urllib.parse import urlsplit
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BEGIN = '<!-- app-progress:start -->'
 END = '<!-- app-progress:end -->'
@@ -34,17 +35,21 @@ def render():
         for row in ledger[layer]:
             for category in ['source','completion']:
                 require(set(row[category])==set(ledger['gates'][category]), 'Milestone gates differ from the ledger');score(row[category])
-            if row['completion']['source']['status']=='accepted':
+            if row['completion']['source']['status'] in {'accepted','not-applicable'}:
                 require(all(g['status'] in {'accepted','not-applicable'} for g in row['source'].values()), 'Source completion requires all source gates')
-    scripts=[r for r in manifest['records'] if r['url'].endswith('.js')]
+    scripts=[r for r in manifest['records'] if urlsplit(r['url']).path.endswith('.js')]
     verified=sum(r.get('status')==200 and hashlib.sha256((ROOT/r['path']).read_bytes()).hexdigest()==r['sha256'] for r in scripts)
     script_progress=f'{100*verified/len(scripts):.0f}%' if scripts else 'N/A'
     factory_progress='100%' if recovered['modules'] else 'N/A'
     source_count=source_equal=0
+    expected_sources=set()
     with tarfile.open(ROOT/'evidence/sdk/pump-sdk-4.3.1.tgz') as archive:
         for m in archive:
             if m.isfile() and m.name.startswith('package/src/'):
+                expected_sources.add(m.name.removeprefix('package/src/'))
                 source_count+=1;source_equal+=archive.extractfile(m).read()==(ROOT/'packages/sdk'/m.name.removeprefix('package/')).read_bytes()
+    actual_sources={p.relative_to(ROOT/'packages/sdk/src').as_posix() for p in (ROOT/'packages/sdk/src').rglob('*') if p.is_file()}
+    require(actual_sources==expected_sources, 'SDK source inventory differs from archive')
     operations=[(path,method,op) for path,item in spec['paths'].items() for method,op in item.items() if method in {'get','post','put','patch','delete','head','options'}]
     scope_counts=collections.Counter(op['x-api-scope'] for _,_,op in operations)
     text=['## Application source and feature progress','',f'As of **{ledger["asOf"]}**. The [app workspace](app/README.md) contains the SDK, frontend and independent API-compatible backend. [PRD](app/PRD.md) · [Detailed ledger](app/contracts/feature-progress.json) · [Validation](app/evidence/validation.json).','',

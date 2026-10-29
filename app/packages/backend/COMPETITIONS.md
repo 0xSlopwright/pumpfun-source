@@ -84,11 +84,15 @@ is a contract decision, not a bug fix.
 43. **Ranking order and tie-breakers**: Board ranks are 1-based and ordered strictly by `pnlUsd` descending.
     Tied `pnlUsd` values break ties on earlier registration timestamp (`registeredAt` ascending), then lexically
     on `entryId` ascending. Struck entries (`struck: true`) have rank 0 and are omitted from `leaderboard.entries`,
-    `totalRanked`, `participants`, `top`, and `winners`.
+    `totalRanked`, `participants`, `top`, and `winners`. Before the first board build (`builtAtMs = 0`,
+    derived from the maximum entry refresh time), every entry has rank 0 and public ranked lists are empty.
+    Registered non-struck entries still count as `participants` before that build.
 44. **`top` and `winners` calculation on `Competition`**: For competitions in phase `registration` or `live`,
     `top` carries ranks 1..3 from the active board build; for other phases, `top` is `[]`. For competitions
     in phase `ended`, `winners` carries ranks 1..N (where N is the highest `rankTo` in `prizes`, or 3 if `prizes`
     is empty), with `prize` populated from the matching prize tier; for other phases, `winners` is `[]`.
+    In `GET /competitions/{idOrSlug}`, `top` and `winners` rows slice `topPositions` to the request's
+    `positionsLimit`, like `leaderboard.entries`; the list buckets use the default of 3.
 45. **Struck entry availability in `GET /competitions/:id/entries/:entryId`**: Struck entries (`struck: true`,
     rank 0) are excluded from public boards but remain accessible via direct entry detail lookup, matching the
     contract specification. Member legs are sorted by `pnlUsd` descending.
@@ -104,7 +108,11 @@ is a contract decision, not a bug fix.
     `/v1/competitions/:idOrSlug` to prevent `:idOrSlug` from capturing multi-segment paths.
 49. **UserStore hydration**: Competition entries and members hydrate profile information (username,
     profileImageUrl, walletAddress, isVerified) from the shared `UserStore` and its synthetic seed
-    (`users-seed.json`), preventing divergent user identities. Squad rows set `walletAddress: null` per contract.
+    (`users-seed.json`), preventing divergent user identities. Squad rows and pre-build entry rows set
+    `walletAddress: null` per contract.
+50. **`leaderboard.startSec` and `endSec`**: `startSec` is `startsAt`. `endSec` is the scoring window end the
+    served legs were read at: the last board build (`builtAtMs`, in seconds) while the board is not final, and
+    `endsAt` once `isFinal` is true. Before the first build `builtAtMs` and `endSec` are both 0.
 
 ## Not implemented
 

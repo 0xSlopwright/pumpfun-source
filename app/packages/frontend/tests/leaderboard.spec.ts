@@ -43,6 +43,9 @@ const competition = {
   title: "Synthetic browser-test competition",
   description: "Explicitly synthetic browser interaction fixture.",
   prizeCopy: "$0 test fixture",
+  prizes: [{ rankFrom: 1, rankTo: 1, amount: "$0 test fixture" }],
+  minMembers: 1,
+  maxMembers: 1,
   registrationOpensAt: "2026-10-20T00:00:00.000Z",
   registrationClosesAt: "2026-10-30T00:00:00.000Z",
   startsAt: "2026-10-21T00:00:00.000Z",
@@ -82,6 +85,131 @@ function creatorResponse() {
     },
   };
 }
+
+/** Explicit synthetic cap fixture; no production request is sent. */
+async function mockCappedCreators(page: Page) {
+  const blocked: string[] = [];
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (
+      new URL(request.url()).origin !== "http://127.0.0.1:3010" ||
+      !["GET", "HEAD"].includes(request.method())
+    ) {
+      blocked.push(`${request.method()} ${request.url()}`);
+      await route.abort();
+      return;
+    }
+    await route.continue();
+  });
+  await page.route("**/api/leaderboard?**", async (route) => {
+    if (
+      new URL(route.request().url()).origin !== "http://127.0.0.1:3010" ||
+      !["GET", "HEAD"].includes(route.request().method())
+    ) {
+      blocked.push(`${route.request().method()} ${route.request().url()}`);
+      await route.abort();
+      return;
+    }
+    const url = new URL(route.request().url());
+    const currentPage = Number(url.searchParams.get("page") ?? "1");
+    const firstRank = (currentPage - 1) * 20 + 1;
+    const entries = Array.from(
+      { length: Math.max(0, Math.min(20, 501 - firstRank)) },
+      (_, i) => ({
+        ...creatorEntries[0],
+        rank: firstRank + i,
+        username: `synthetic-capped-creator-${firstRank + i}`,
+        userId: `synthetic-capped-id-${firstRank + i}`,
+      }),
+    );
+    await fulfillJson(route, {
+      ...creatorResponse(),
+      data: {
+        ...creatorResponse().data,
+        totalEarners: 503,
+        entries,
+        page: currentPage,
+      },
+    });
+  });
+  return blocked;
+}
+
+for (const width of [390, 1280]) {
+  test(`creator cap keeps whole-board count and disables the unavailable 26th page at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const blocked = await mockCappedCreators(page);
+    await page.goto("/leaderboard?category=creators&page=25");
+    await expect(
+      page.getByText("503 confirmed earners", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Top 500 available", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Page 25 of 25", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Next", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("@synthetic-capped-creator-500", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Previous", exact: true }).click();
+    await expect(page).toHaveURL(/page=24/);
+    await expect(
+      page.getByText("Page 24 of 25", { exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    expect(blocked).toEqual([]);
+  });
+}
+
+test("creator empty local filter retains usable page navigation", async ({
+  page,
+}) => {
+  const blocked = await mockCappedCreators(page);
+  await page.goto(
+    "/leaderboard?category=creators&page=2&q=unmatched-synthetic-filter",
+  );
+  await expect(page.getByTestId("leaderboard-empty")).toContainText(
+    "No creator on this loaded page",
+  );
+  await expect(page.getByText("Page 2 of 25", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  await expect(page.getByText("Page 1 of 25", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Previous", exact: true }),
+  ).toBeDisabled();
+  expect(blocked).toEqual([]);
+});
+
+test("an out-of-range creator bookmark offers recovery without relabeling the empty page", async ({
+  page,
+}) => {
+  const blocked = await mockCappedCreators(page);
+  await page.goto("/leaderboard?category=creators&page=26&period=1d");
+  await expect(page.getByTestId("leaderboard-empty")).toContainText(
+    "Page 26 is outside the available payout board",
+  );
+  await expect(
+    page.getByRole("navigation", { name: "Leaderboard pages" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Back to first payout page", exact: true })
+    .click();
+  await expect(page.getByText("Page 1 of 25", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/period=1d/);
+  await page.reload();
+  await expect(page.getByText("Page 1 of 25", { exact: true })).toBeVisible();
+  expect(blocked).toEqual([]);
+});
 
 function competitionListResponse() {
   return {

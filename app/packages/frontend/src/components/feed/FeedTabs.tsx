@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
-export type FeedTab = "for-you" | "following";
+export type FeedTab = "for-you" | "following" | "local-callouts";
 
-const tabs = [
+const offlineTabs = [
   { id: "for-you" as const, label: "For you", href: "/" },
   {
     id: "following" as const,
@@ -15,9 +15,25 @@ const tabs = [
   },
 ];
 
-export function FeedTabs({ activeTab }: { activeTab: FeedTab }) {
+export function FeedTabs({
+  activeTab,
+  nativeEnabled,
+}: {
+  activeTab: FeedTab;
+  nativeEnabled: boolean;
+}) {
   const router = useRouter();
   const pendingKeyboardFocus = useRef(false);
+  const tabs = nativeEnabled
+    ? [
+        ...offlineTabs,
+        {
+          id: "local-callouts" as const,
+          label: "Local callouts",
+          href: "/?tab=local-callouts&nativeView=ranked",
+        },
+      ]
+    : offlineTabs;
 
   useEffect(() => {
     if (!pendingKeyboardFocus.current) return;

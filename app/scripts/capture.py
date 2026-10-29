@@ -7,6 +7,12 @@ OBJECT_PATH = pathlib.PurePosixPath('evidence/web/objects')
 UA = 'Googlebot'
 PAGES = ['/', '/explore', '/leaderboard', '/live', '/go', '/mayhem', '/holder-rewards', '/create', '/perps', '/docs/fees', '/docs/privacy-policy', '/docs/terms-and-conditions']
 HEADERS = {'server','x-powered-by','x-vercel-id','x-vercel-cache','cf-ray','cf-cache-status','content-type','content-security-policy','location','via','x-cache','x-amz-cf-id','x-amz-cf-pop'}
+
+def public_asset(value,base,extensions):
+    resolved,_=urllib.parse.urldefrag(urllib.parse.urljoin(base,value))
+    parsed=urllib.parse.urlsplit(resolved)
+    if parsed.scheme=='https' and parsed.netloc=='pump.fun' and parsed.path.endswith(extensions):return resolved
+    return None
 def atomic_write(target, body):
     """Publish complete bytes on the same filesystem; retain the old file on failure."""
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -26,11 +32,14 @@ def capture(url):
     try:
         try: r = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': UA}), timeout=35)
         except urllib.error.HTTPError as e: r = e
-        body = r.read(); digest = hashlib.sha256(body).hexdigest()
-        # A fresh response must not overwrite bytes referenced by an older manifest.
-        target = OUT / 'objects' / (key + '-' + digest + (suffix if suffix in ['.js','.css','.woff2','.json','.txt','.svg','.png','.ttf','.woff'] else ''))
-        atomic_write(target, body)
-        return {'url':url,'final_url':r.url,'status':r.status,'path':target.relative_to(ROOT).as_posix(), 'bytes':len(body),'sha256':digest,'headers':{k.lower():v for k,v in r.headers.items() if k.lower() in HEADERS}}, body
+        try:
+            body = r.read(); digest = hashlib.sha256(body).hexdigest()
+            # A fresh response must not overwrite bytes referenced by an older manifest.
+            target = OUT / 'objects' / (key + '-' + digest + (suffix if suffix in ['.js','.css','.woff2','.json','.txt','.svg','.png','.ttf','.woff'] else ''))
+            atomic_write(target, body)
+            return {'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'url':url,'final_url':r.url,'status':r.status,'path':target.relative_to(ROOT).as_posix(), 'bytes':len(body),'sha256':digest,'headers':{k.lower():v for k,v in r.headers.items() if k.lower() in HEADERS}}, body
+        finally:
+            r.close()
     except Exception as e: return {'url':url,'error':str(e)}, b''
 class RetainedCaptureError(ValueError): pass
 def retained_id(url): return hashlib.sha256(str(url).encode('utf-8',errors='backslashreplace')).hexdigest()[:12]
@@ -63,7 +72,8 @@ def retained_body(record,url):
     except (OSError,RuntimeError) as error: raise RetainedCaptureError(f'Retained capture {identity} path cannot be resolved') from error
     try: resolved.relative_to(allowed_resolved)
     except ValueError: raise RetainedCaptureError(f'Retained capture {identity} path escaped evidence objects') from None
-    flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_CLOEXEC',0)|getattr(os,'O_NOFOLLOW',0)
+    # O_NONBLOCK lets a FIFO open without a writer so the regular-file check can reject it.
+    flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_CLOEXEC',0)|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
     try: descriptor=os.open(resolved,flags)
     except OSError as error: raise RetainedCaptureError(f'Retained capture {identity} object unavailable') from error
     try:
@@ -80,12 +90,18 @@ def retained_body(record,url):
         raise RetainedCaptureError(f'Retained capture {identity} integrity mismatch')
     return body
 REUSE={}
-def load_reuse(records):
+def load_reuse(records,captured_at=None):
     validated={}
     for index,record in enumerate(records):
         url=record.get('url') if isinstance(record,dict) else None
         if not isinstance(url,str): raise RetainedCaptureError(f'Retained capture {retained_id(f"index:{index}")} invalid record')
-        retained_body(record,url);validated[url]=record
+        # A transport failure has no retained body to reuse; leave it queued for retry.
+        if set(record)=={'url','error'} and isinstance(record['error'],str): continue
+        if url in validated: raise RetainedCaptureError(f'Retained capture {retained_id(url)} duplicate URL')
+        retained_body(record,url)
+        if isinstance(captured_at,str):
+            record=dict(record);record.setdefault('captured_at',captured_at)
+        validated[url]=record
     REUSE.update(validated)
 def pool(urls):
     ordered=sorted(urls);retained={}
@@ -98,14 +114,17 @@ def pool(urls):
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex: return list(ex.map(fetch, ordered))
 def main():
     if '--resume' in sys.argv and (OUT/'manifest.json').exists():
-        load_reuse(json.loads((OUT/'manifest.json').read_text())['records'])
+        previous=json.loads((OUT/'manifest.json').read_text())
+        load_reuse(previous['records'],previous.get('captured_at'))
     records=[]; pages=pool({'https://pump.fun'+p for p in PAGES} | {'https://docs.pump.fun/openapi.public.json','https://docs.pump.fun/llms-full.txt'})
     records.extend(r for r,b in pages)
     assets=set()
     for r,b in pages:
         if r.get('status')!=200 or not r['url'].startswith('https://pump.fun'): continue
         s=b.decode(errors='replace')
-        assets.update('https://pump.fun'+p for p in re.findall(r'(?:src|href)="(/[^"?]+\.(?:js|css|woff2|svg|png))',s))
+        for value in re.findall(r'(?:src|href)="(/[^"\s]+)"',s):
+            asset=public_asset(html.unescape(value),r['url'],('.js','.css','.woff2','.svg','.png'))
+            if asset:assets.add(asset)
     done=set(); waves=0
     while assets-done and waves<8:
         batch=assets-done; done|=batch; waves+=1
@@ -114,13 +133,14 @@ def main():
             if r.get('status')!=200: continue
             s=b.decode(errors='replace')
             # Follow literal Turbopack chunk paths and local font/image dependencies only.
-            for path in re.findall(r'["\'(]((?:/_next/)?static/(?:immutable/)?(?:chunks|media)/[^"\'\s)]+\.(?:js|css|woff2))',s):
-                assets.add('https://pump.fun/'+path.lstrip('/') if path.startswith('/') else 'https://pump.fun/_next/'+path)
-            if r['url'].endswith('.css'):
+            for path in re.findall(r'["\'(]((?:/_next/)?static/(?:immutable/)?(?:chunks|media)/[^"\'\s)]+)',s):
+                asset=public_asset(path,'https://pump.fun/_next/',('.js','.css','.woff2'))
+                if asset:assets.add(asset)
+            if urllib.parse.urlsplit(r['url']).path.endswith('.css'):
                 for relative in re.findall(r'url\([\"\']?([^\s)\"\']+)',s):
                     if not relative.startswith('data:'):
-                        resolved=urllib.parse.urljoin(r['url'],relative)
-                        if resolved.startswith('https://pump.fun/') and resolved.endswith(('.woff2','.woff','.ttf','.png','.svg')):assets.add(resolved)
+                        resolved=public_asset(relative,r['url'],('.woff2','.woff','.ttf','.png','.svg'))
+                        if resolved:assets.add(resolved)
     OUT.mkdir(parents=True,exist_ok=True)
     manifest={'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'user_agent':UA,'scope':PAGES,'exclusions':['support','terminal','mobile app','token/coin detail pages','pump-token'],'records':records,'limits':{'asset_discovery_waves':8,'waves_used':waves,'unfetched_discovered':sorted(assets-done)}}
     atomic_write(OUT/'manifest.json', (json.dumps(manifest,indent=2)+'\n').encode('utf-8'))

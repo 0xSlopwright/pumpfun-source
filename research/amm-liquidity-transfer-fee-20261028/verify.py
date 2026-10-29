@@ -1,14 +1,16 @@
-"""Verify the retained buy-exact transfer-fee receipts (no build claimed).
+"""Verify the retained liquidity (deposit/withdraw) transfer-fee receipts (no build claimed).
 
 Checks, independently of the producer:
 - packet manifest lists exactly the files present, with matching hashes;
-- repository inputs (images, trade fixture, IDL, evidence programs)
-  hash to the recorded values;
+- repository inputs (#424/#427 candidate.so.gz images, trade fixture,
+  config snapshot, IDL, token programs) hash to the recorded values, and the
+  original/control/candidate image hashes match the report;
 - 10 cases x 3 images = 30 receipts, ordered, with contexts matching the report;
 - every transaction verifies (all signatures valid, 1 signature field);
- - success cases match the exact-limit amounts for their instruction
-  (deposit: base spent, quote spent and LP gained; withdraw: base
-  gained, quote gained and LP burned);
+- success cases: base/quote/LP deltas recomputed from account data equal the
+  receipt's recorded observed amounts (deposit: base spent, quote spent and LP
+  gained; withdraw: base gained, quote gained and LP burned) and agree across
+  images; they are not compared to expected amounts;
 - error cases fail with the expected code and log fragment, and roll
   back every account except the payer's 5000 fee;
 - the recorded error sites match the receipts' logs;
@@ -144,7 +146,7 @@ def main():
             assert len(pairs) == 1, (case, "images must agree on amounts")
     print("PASS: 10 cases, 30 signed receipts, "
           "liquidity transfer fee pinned, "
-          "deposit grosses up, withdraw nets down, "
+          "success amounts recomputed, error codes/sites and rollback checked, "
           "all images agree")
 
 

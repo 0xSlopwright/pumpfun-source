@@ -26,9 +26,50 @@ def module(name, path):
     return value
 
 
+def checkpoint_module(name, path, root):
+    # Keep sealed historical builders/verifiers intact, including their hashes.
+    reader = module('amm_checkpoint_modules', Path(__file__).with_name('amm_checkpoint_modules.py'))
+    return reader.load(name, path, root)
+
+
 def verify(root=ROOT, runtime=None):
     root = Path(root).resolve()
     selected = json.loads((root / 'repro/status.json').read_text())['pump_amm']
+    closure = 'research/amm-layout-closure-20261028'
+    if selected['candidate_artifact'] == closure + '/results/build-a/candidate.so':
+        def require(value, message):
+            if not value:
+                raise ValueError(message)
+        packet = root / closure
+        require(sha(packet / 'manifest.json') == selected['checkpoint_manifest_sha256'] == 'f942488a78df7ce4a839fe01ab70112a138eca3979208d83f5d08f511cd836d3', 'AMM layout packet seal')
+        report = checkpoint_module('current_amm_layout_closure', packet / 'verify.py', root).verify(root, runtime=runtime, signatures=True)
+        require(report['candidate_sha256'] == selected['candidate_sha256'] == sha(root / selected['candidate_artifact']), 'AMM selected layout image')
+        require(selected['candidate_symbols_artifact'] == closure + '/results/build-a/symbols.so' and report['symbols_sha256'] == selected['symbols_sha256'] == sha(root / selected['candidate_symbols_artifact']), 'AMM selected layout symbols')
+        require(report['normalized'] == selected['normalized_function_matches'] == 784 and report['raw'] == selected['raw_function_matches'] == 784, 'AMM literal window scope')
+        require(report['cases'] == selected['validated_cases'] == 17462 and report['signature_fields'] == selected['verified_transaction_signatures'] == 35418, 'AMM current runtime scope')
+        require(report['current_source_verified'] and report['cold_dependency_build'] and selected['full_byte_equality'] is False, 'AMM current source/build scope')
+        return report
+    current = 'repro/pump_amm/canonical-frontier-20261028'
+    if selected['candidate_artifact'] == current + '/results/build-a/candidate.so':
+        def require(value, message):
+            if not value:
+                raise ValueError(message)
+        packet = root / current
+        require(sha(packet / 'MANIFEST.json') == 'd05b92a344e1e095e6f68276eb50ddc64a36a0792ac20cb0e7c31c6f6f384489', 'AMM canonical packet seal')
+        require(selected['checkpoint_manifest_sha256'] == sha(packet / 'MANIFEST.json'), 'AMM selected packet seal')
+        report = checkpoint_module('current_canonical_amm', packet / 'verify.py', root).verify(root, runtime=runtime, signatures=True)
+        require(report['status'] == 'PASS', 'AMM current verification')
+        require(report['candidate_sha256'] == selected['candidate_sha256'] == sha(root / selected['candidate_artifact']), 'AMM selected candidate')
+        require(selected['candidate_symbols_artifact'] == current + '/results/build-a/symbols.so', 'AMM selected symbol path')
+        require(report['symbols_sha256'] == selected['symbols_sha256'] == sha(root / selected['candidate_symbols_artifact']), 'AMM selected symbols')
+        require(report['current_source_verified'] and report['cold_build_and_repeat_identical'], 'AMM maintained build qualification')
+        require(report['normalized'] == selected['normalized_function_matches'] == 784 and report['raw'] == selected['raw_function_matches'] == 394, 'AMM selected window counts')
+        require(report['cases'] == selected['validated_cases'] == 17462 and selected['full_byte_equality'] is report['whole_elf_identical'] is False, 'AMM selected finite scope')
+        require(report['signature_fields'] == selected['verified_transaction_signatures'] == 35418, 'AMM selected signature scope')
+        require(report['canonical_inputs'] == selected['canonical_source_inputs'] == 68 and report['workspace_inputs'] == selected['materialized_workspace_inputs'] == 69, 'AMM selected source scope')
+        for key, relative in [('source_recipe', '/workspace_recipe.py'), ('source_builder', '/build.py'), ('source_binding_verifier', '/verify.py'), ('build_log', '/results/build-a/build.log.gz'), ('validation_report', '/results/runtime/audit.json')]:
+            require(selected[key] == current + relative and (root / selected[key]).is_file(), 'AMM selected ' + key)
+        return report
     assert selected['candidate_artifact'] == ARTIFACT
     assert selected['candidate_sha256'] == CANDIDATE
     checkpoint = root / CHECKPOINT

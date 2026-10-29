@@ -49,6 +49,16 @@ class ProgressTests(unittest.TestCase):
         with self.assertRaises(ValueError):progress.score({'one':{'status':'accepted','evidence':[]}})
     def test_not_applicable_requires_a_recorded_decision(self):
         with self.assertRaises(ValueError):progress.score({'one':{'status':'not-applicable','evidence':[]}})
+    def test_completion_source_gate_cannot_be_waived_while_source_is_pending(self):
+        ledger=progress.read('contracts/feature-progress.json')
+        row=next(r for r in ledger['frontend'] if r['completion']['source']['status']=='accepted')
+        evidence=row['completion']['source']['evidence']
+        row['source']={gate:{'status':'pending','evidence':[]} for gate in row['source']}
+        # Marking the completion source gate N/A drops it from the denominator; it must not skip the source check.
+        row['completion']['source']={'status':'not-applicable','evidence':evidence}
+        real=progress.read
+        with patch.object(progress,'read',lambda path:ledger if path=='contracts/feature-progress.json' else real(path)):
+            with self.assertRaisesRegex(ValueError,'Source completion requires all source gates'):progress.render()
     def test_check_rejects_stale_reports(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp)/'app';root.mkdir()

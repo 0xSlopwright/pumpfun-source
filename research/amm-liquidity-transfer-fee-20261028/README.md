@@ -5,7 +5,7 @@
 Deposit and withdraw move quote through the transfer-fee
 wrappers, but the direction of the fee math differs: deposit
 must gross the spend up, withdraw nets the receipt down. The
-amounts, the overflow boundary, and the slippage interactions
+amounts, overflow at 10000 and 10001 bps, and the slippage interactions
 are now pinned at runtime on the as-is fixture pool.
 
 ## Cases
@@ -13,8 +13,9 @@ are now pinned at runtime on the as-is fixture pool.
 Ten fresh-VM triples (original / #424 control / #427 candidate),
 30 signed executions on the repository's own liquidity harness
 (`scripts/pump_amm_liquidity_differential.py`). The clock is slot
-100, epoch 0. `producer.py` reproduces every receipt from the
-repository files.
+100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -31,7 +32,7 @@ repository files.
 
 All three images behave identically in every case. `verify.py`
 rechecks every receipt independently: signature validity, the
-user token and LP deltas against the expected values, the error
+user token and LP deltas recomputed from account data against the recorded observed values, the error
 code and log fragment, the recorded error site (6023 at
 `transfer_fee.rs:67` original/candidate vs `:35` control; 6004
 at `deposit.rs:100` vs `:23` and `withdraw.rs:107` vs `:24`),
@@ -43,9 +44,9 @@ them in order.
 ## Result
 
 - **Deposit grosses up**: a 1% fee adds 296,085 to the quote
-  spend, a 50% fee exactly doubles it, and a 100% fee overflows
-  in `amount_before_fee` because the gross-up divides by
-  (10000 - bps).
+  spend, a 50% fee exactly doubles it, and 10000 and 10001 bps fees
+  fail 6023 Overflow at `transfer_fee.rs:67` (original/candidate;
+  `:35` on control); the receipts do not show the arithmetic.
 - **Withdraw nets down**: a 1% fee removes 293,125 from the
   receipt, a 100% fee leaves 0, and the LP still burns in full.
 - **Slippage is fee-aware**: a deposit cap at the no-fee spend

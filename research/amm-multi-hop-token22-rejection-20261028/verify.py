@@ -1,4 +1,4 @@
-"""Verify the retained buy-exact transfer-fee receipts (no build claimed).
+"""Verify the retained multi_hop_swap Token-2022 rejection receipts (no build claimed).
 
 Checks, independently of the producer:
 - packet manifest lists exactly the files present, with matching hashes;
@@ -6,7 +6,7 @@ Checks, independently of the producer:
   hash to the recorded values;
 - 8 cases x 3 images = 24 receipts, ordered, with contexts matching the report;
 - every transaction verifies (all signatures valid, 1 signature field);
-- success cases spend the expected base and gain the expected quote;
+- success cases match the expected quote-spent/second-user-base-gained (buy) and second-user-base-spent/quote-gained (sell) amounts;
 - error cases fail with the expected code and log fragment, and roll
   back every account except the payer's 5000 fee;
 - the recorded error sites match the receipts' logs;
@@ -139,7 +139,7 @@ def main():
         if kind in ("hop", "sell-hop"):
             assert len(pairs) == 1, (case, "images must agree on amounts")
     print("PASS: 8 cases, 24 signed receipts, "
-          "multi-hop rejects Token-2022 mints, "
+          "multi-hop Token-2022 fixtures fail, "
           "base route fails IncorrectProgramId, "
           "quote route fails 6027, "
           "all images agree")

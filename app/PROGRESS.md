@@ -10,7 +10,7 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | --- | ---: | ---: | --- |
 | Published SDK source | 31 / 31 files | 100% | Exact npm 4.3.1 source bytes; full behavior parity still unqualified |
 | Frontend JavaScript capture | 648 / 648 scripts | 100% | Known scripts in the captured route/asset graph only |
-| Frontend factory extraction | 4915 / 4915 inventoried variants | 100% | Extracted factories, not original source files; authenticated/unseen modules unknown |
+| Frontend factory extraction | 5947 / 5947 inventoried variants | 100% | Extracted factories, not original source files; authenticated/unseen modules unknown |
 | Public developer API contract | 67 / 67 documented operations | 100% | Specification captured; native compatibility 0 / 67 (0%) |
 | Original backend source | Not observable | N/A | Implement replacement behavior from API evidence |
 
@@ -28,7 +28,7 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | Livestream / presence | 9 | 0/3 (0%) | 0/4 (0%) | LiveKit configuration observed; no native orchestration. |
 | Coin creation / media | 4 | 0/3 (0%) | 0/4 (0%) | No upload or metadata lifecycle; SDK source is tracked separately. |
 | Rewards / fees / referrals | 12 | 0/3 (0%) | 0/4 (0%) | No native reward accounting or claims. |
-| Portfolio / indexing | 17 | 0/3 (0%) | 0/4 (0%) | No local indexer, portfolio read models or reorg handling. |
+| Portfolio / indexing | 17 | 0/3 (0%) | 0/4 (0%) | Opt-in materialized spot positions and user trade/transfer-history reads exist; contract/feature completion stays pending. No local chain indexer, financial derivation, production compatibility or reorg handling. |
 | Settings / notifications | 29 | 0/3 (0%) | 0/4 (0%) | No native preferences, notification or messaging handlers. |
 
 ¹ 330 distinct static operation candidates overall. Family leads overlap, lack confirmed origin bindings and may include privileged/excluded paths; do not sum them or treat them as a full API denominator. The 67 public developer operations currently have **0% native compatibility qualification**: `content.read` 0/18, `graph.read` 0/17, `leaderboards.read` 0/11, `moderation.read` 0/1, `positions.read` 0/7, `profiles.read` 0/13.
@@ -41,13 +41,13 @@ Source acquisition/extraction is separate from editable feature reconstruction a
 | Home / feed | 3/3 (100%) | 3/4 (75%) | Evidence-mapped, hash-bound synthetic examples, strict local validation and honest For You/Following boundaries pass unit and browser tests. Native feed compatibility, authenticated personalization and original visual parity remain unqualified. |
 | Explore / search | 3/3 (100%) | 3/4 (75%) | Authenticated one-record historical snapshot, fail-closed adapter and offline name/symbol/mint search pass unit and browser tests. Native market discovery, production ranking and original visual parity remain unqualified. |
 | Leaderboards / competitions | 3/3 (100%) | 2/4 (50%) | Contract-driven read-only interface and failure paths verified. Live API success and original visual parity remain unqualified. |
-| Live discovery / playback | 0/3 (0%) | 0/4 (0%) | Live route scaffold; media and realtime behavior not implemented. |
-| GO | 0/3 (0%) | 0/4 (0%) | Route scaffold; campaign behavior and API binding unknown. |
-| Mayhem | 0/3 (0%) | 0/4 (0%) | Route scaffold only. |
-| Holder rewards | 3/3 (100%) | 3/4 (75%) | Published-SDK offline PDA derivation, validation and unavailable states pass unit and browser tests. Live account existence, balances, eligibility, claims and original visual parity remain unqualified. |
+| Live discovery / playback | 3/3 (100%) | 3/4 (75%) | Authenticated five-record historical discovery snapshot, fail-closed evidence adapter and local search/selection states pass unit and browser tests. Current livestream state, native API compatibility, playback, presence and original visual parity remain unqualified. |
+| GO | 3/3 (100%) | 3/4 (75%) | Authenticated 25-record historical bounty snapshot, fail-closed evidence adapter, local search/filter/sort/cursor state and unavailable account actions pass unit and browser tests. Current API compatibility, authenticated flows, mutations and original visual parity remain unqualified. |
+| Mayhem | 3/3 (100%) | 2/4 (50%) | Evidence-mapped state filters, sorting, strict validation and fail-closed offline states pass unit and browser tests. No archived Mayhem response, qualified live API compatibility or original visual parity is claimed. |
+| Holder rewards | 3/3 (100%) | 3/4 (75%) | Published-SDK PDA derivation now offers an explicit read of public SOL/token holdings through the existing mainnet RPC service. Holdings do not establish account existence, eligibility, accrued or claimable rewards. Claims and original visual/API parity remain unavailable or unqualified. See packages/frontend/HOLDER-PUBLIC-BALANCES.md. |
 | Create coin / upload | 3/3 (100%) | 3/4 (75%) | Evidence-mapped offline metadata drafting, validation, local image preview and failure states pass browser tests. Upload, wallet signing, transaction creation, token launch and original visual parity remain unqualified. |
 | Profiles / social graph | 3/3 (100%) | 3/4 (75%) | Evidence-mapped, hash-bound synthetic profiles resolve by exact user id or wallet and render filtered authored posts with responsive browser coverage. Native profile compatibility, follow graph, authenticated behavior and original visual parity remain unqualified. |
-| Authentication / wallets | 0/3 (0%) | 0/4 (0%) | No local authenticated UI or wallet workflow. |
+| Authentication / wallets | 0/3 (0%) | 0/4 (0%) | Sign-in remains unavailable. An opt-in Wallet Standard public-address connection/forget workflow is implemented with source witnesses and local protocol/UI tests; it supplies no authentication, signing or persisted identity. See packages/frontend/PUBLIC-WALLET-EVIDENCE.md. Full original auth/wallet parity remains pending. |
 | Portfolio / positions | 3/3 (100%) | 3/4 (75%) | Live mainnet SOL, SPL Token and Token-2022 account reads pass unit, browser and actual-RPC checks. Pump positions/PnL compatibility and original visual parity remain unqualified. |
 | Settings / notifications | 0/3 (0%) | 0/4 (0%) | No local settings or notification UI. |
 | Legal / fee information | 3/3 (100%) | 3/4 (75%) | Authenticated archived fee, privacy and terms documents now render through a fail-closed offline adapter with responsive navigation and corruption tests. Current legal authority and original visual parity remain unqualified. |

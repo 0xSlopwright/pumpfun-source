@@ -1,4 +1,4 @@
-"""Verify the retained buy-exact transfer-fee receipts (no build claimed).
+"""Verify the retained fee-sweep account-validation receipts (no build claimed).
 
 Checks, independently of the producer:
 - packet manifest lists exactly the files present, with matching hashes;

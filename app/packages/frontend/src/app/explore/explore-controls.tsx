@@ -1,18 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 export function ExploreSearchForm({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
+  const pendingClear = useRef(false);
 
   useEffect(() => {
-    setQuery(initialQuery);
+    // Clear has already emptied the input; its delayed response must not
+    // overwrite a draft typed since the click.
+    const completedClear = pendingClear.current && initialQuery === "";
+    pendingClear.current = false;
+    if (!completedClear) setQuery(initialQuery);
   }, [initialQuery]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      pendingClear.current = false;
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    pendingClear.current = false;
     const normalized = query.trim();
     router.push(
       normalized
@@ -22,6 +36,7 @@ export function ExploreSearchForm({ initialQuery }: { initialQuery: string }) {
   }
 
   function clear() {
+    pendingClear.current = initialQuery !== "";
     setQuery("");
     router.push("/explore");
   }

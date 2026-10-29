@@ -74,6 +74,9 @@ export type CompetitionSummary = {
   title: string;
   description: string;
   prizeCopy: string;
+  prizes: { rankFrom: number; rankTo: number; amount: string }[];
+  minMembers: number;
+  maxMembers: number;
   registrationOpensAt: string | null;
   registrationClosesAt: string | null;
   startsAt: string | null;
@@ -179,6 +182,8 @@ function isTraderEntry(value: unknown): value is TraderEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.rank === "number" &&
+    Number.isFinite(value.rank) &&
+    value.rank >= 0 &&
     typeof value.walletAddress === "string" &&
     (typeof value.username === "string" || value.username === null) &&
     (typeof value.userId === "string" || value.userId === null) &&
@@ -201,6 +206,8 @@ function isCreatorEntry(value: unknown): value is CreatorEntry {
   if (!isRecord(value)) return false;
   return (
     typeof value.rank === "number" &&
+    Number.isFinite(value.rank) &&
+    value.rank >= 0 &&
     (typeof value.userId === "string" || value.userId === null) &&
     (typeof value.username === "string" || value.username === null) &&
     (typeof value.walletAddress === "string" || value.walletAddress === null) &&
@@ -227,6 +234,20 @@ function isCompetitionSummary(value: unknown): value is CompetitionSummary {
     ) &&
     [value.maxEntries, value.entriesCount, value.participants].every(
       (number) => typeof number === "number" && Number.isFinite(number),
+    ) &&
+    [value.minMembers, value.maxMembers].every(
+      (number) =>
+        typeof number === "number" && Number.isFinite(number) && number >= 0,
+    ) &&
+    Array.isArray(value.prizes) &&
+    value.prizes.length <= 100 &&
+    value.prizes.every(
+      (prize) =>
+        isRecord(prize) &&
+        [prize.rankFrom, prize.rankTo].every(
+          (rank) => typeof rank === "number" && Number.isFinite(rank) && rank >= 0,
+        ) &&
+        typeof prize.amount === "string" && prize.amount.length <= 200,
     ) &&
     typeof value.joinable === "boolean" &&
     typeof value.isFinal === "boolean"
@@ -276,12 +297,16 @@ function isData(value: unknown): value is LeaderboardData {
       value.entries.length <= 25 &&
       value.entries.every(isCreatorEntry) &&
       typeof value.totalEarners === "number" &&
-      Number.isFinite(value.totalEarners) &&
+      Number.isSafeInteger(value.totalEarners) &&
+      value.totalEarners >= 0 &&
       (typeof value.generatedAt === "string" || value.generatedAt === null) &&
       typeof value.page === "number" &&
-      Number.isFinite(value.page) &&
+      Number.isSafeInteger(value.page) &&
+      value.page >= 1 &&
       typeof value.pageSize === "number" &&
-      Number.isFinite(value.pageSize)
+      Number.isSafeInteger(value.pageSize) &&
+      value.pageSize >= 1 &&
+      value.pageSize <= 200
     );
   }
   if (value.kind === "competitions") {

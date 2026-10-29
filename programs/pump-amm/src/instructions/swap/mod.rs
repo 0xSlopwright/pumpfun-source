@@ -1,28 +1,26 @@
-pub mod trade_v2;
-pub mod sell;
 pub mod buy;
+pub mod multi_hop_swap;
+pub mod sell;
 
 use anchor_lang::prelude::*;
 use crate::{GlobalConfig, Pool, PumpAmmError};
 
-pub fn validate_protocol_fee_recipient(
-    global_config: &Account<GlobalConfig>,
-    protocol_fee_recipient: &AccountInfo,
-    is_mayhem_mode: u8,
-) -> Result<()> {
-    let protocol_fee_recipient = protocol_fee_recipient.key();
-    if is_mayhem_mode != 0 {
-        if protocol_fee_recipient == global_config.reserved_fee_recipient.key()
-            || global_config.reserved_fee_recipients.contains(&protocol_fee_recipient)
-        {
-            return Ok(());
-        }
-    } else if global_config.protocol_fee_recipients.binary_search(&protocol_fee_recipient).is_ok() {
-        return Ok(());
-    }
-    err!(PumpAmmError::InvalidProtocolFeeRecipient)
-}
-pub mod multi_hop_swap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub mod trade_v2;
 
 
 pub fn prepare_pool<'info>(
@@ -49,3 +47,120 @@ pub fn prepare_pool<'info>(
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub fn validate_protocol_fee_recipient(
+    global_config: &Account<GlobalConfig>,
+    protocol_fee_recipient: &AccountInfo,
+    is_mayhem_mode: u8,
+) -> Result<()> {
+    let protocol_fee_recipient = protocol_fee_recipient.key();
+    let valid = if is_mayhem_mode != 0 {
+        protocol_fee_recipient == global_config.reserved_fee_recipient.key()
+            || global_config.reserved_fee_recipients.contains(&protocol_fee_recipient)
+    } else {
+        global_config.protocol_fee_recipients.binary_search(&protocol_fee_recipient).is_ok()
+    };
+    require!(valid, PumpAmmError::InvalidProtocolFeeRecipient);
+    Ok(())
+}

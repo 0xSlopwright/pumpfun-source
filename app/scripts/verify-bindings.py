@@ -45,7 +45,7 @@ def utf16_length(text):
 
 def utf16_slice(text, start, end):
     require(
-        isinstance(start, int) and isinstance(end, int) and 0 <= start < end,
+        type(start) is int and type(end) is int and 0 <= start < end,
         f'Invalid range {start}..{end}',
     )
     units = text.encode('utf-16-le')

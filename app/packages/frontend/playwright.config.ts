@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: ["native-home-feed.spec.ts", "native-home-feed-real.spec.ts"],
   outputDir: "../../artifacts/playwright",
   fullyParallel: false,
   forbidOnly: true,
@@ -11,6 +12,23 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3010",
     browserName: "chromium",
+    // Existing page cases explicitly exercise an already-closed local browser state.
+    // clickwrap.spec.ts overrides this fixture with an empty first-visit state.
+    storageState: {
+      cookies: [
+        {
+          name: "clickwrap_accepted",
+          value: "true",
+          domain: "127.0.0.1",
+          path: "/",
+          expires: -1,
+          httpOnly: false,
+          secure: false,
+          sameSite: "Lax",
+        },
+      ],
+      origins: [],
+    },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

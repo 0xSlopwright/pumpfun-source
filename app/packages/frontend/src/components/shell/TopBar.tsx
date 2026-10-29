@@ -2,12 +2,16 @@ import Link from 'next/link';
 import { ForwardIcon } from './captured-icons';
 import { Logomark } from './Logomark';
 import { TokenInfoBar } from './TokenInfoBar';
+import { SignInControl } from '@/app/auth/sign-in-control';
 import { ICON_BUTTON_CLASS } from './styles';
 import { BackButton, CreateMenuButton, SearchBox, SearchIconButton } from './TopBarControls';
 
 /** The disabled `prepaint` buttons the capture renders before its auth state resolves. */
 const PREPAINT_BUTTON =
   'flex h-8 shrink-0 cursor-default select-none items-center justify-center rounded-md bg-bg-accent px-[10px] leading-normal text-text-on-accent text-[13px] font-medium';
+/** The captured prepaint sign-in geometry, made interactive for the local auth dialog. */
+const SIGN_IN_BUTTON =
+  'flex h-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-md bg-bg-accent px-[10px] leading-normal text-text-on-accent text-[13px] font-medium whitespace-nowrap hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-accent';
 
 /**
  * The sticky top bar of the captured shell. The mobile-app promotion banner the
@@ -50,16 +54,7 @@ export function TopBar() {
               <CreateMenuButton />
             </div>
             <span data-pf-auth-slot="out" className="inline-flex">
-              <button
-                aria-label="Sign in"
-                className={PREPAINT_BUTTON}
-                data-testid="sign-in-prepaint"
-                disabled
-                title="Sign-in is not implemented in this reconstruction"
-                type="button"
-              >
-                Sign in
-              </button>
+              <SignInControl triggerClassName={SIGN_IN_BUTTON} />
             </span>
             <span data-pf-auth-slot="in" className="flex items-center gap-x-2">
               <span className="sr-only">Signed in</span>

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
+import { openShellSearch } from "./shell-controls";
 
 const MINT = "FwgY7679unGLV64cDpzYyfCtzocr7N2NNfbPnZhepump";
 
@@ -27,7 +28,10 @@ test("renders the exact verified one-record capture without remote imagery", asy
   await expect(page.getByText("$3,300.03", { exact: true })).toBeVisible();
   await expect(page.getByText(/exactly 1 historical record/)).toBeVisible();
   await expect(page.getByLabel("Local image placeholder")).toBeVisible();
-  await expect(page.locator("img")).toHaveCount(0);
+  await expect(page.locator("#main-content img")).toHaveCount(0);
+  await expect(page.locator('img:not([src="/pump-logomark.svg"])')).toHaveCount(
+    0,
+  );
   await expect(
     page.getByText(/never refreshed from a production service/),
   ).toBeVisible();
@@ -93,9 +97,7 @@ test("shared shell search interoperates with the offline Explore query", async (
   page,
 }) => {
   await page.goto("/");
-  const shellSearch = page.getByRole("searchbox", {
-    name: "Search for coins and users",
-  });
+  const shellSearch = await openShellSearch(page);
   await shellSearch.fill("MotoCrose");
   await shellSearch.press("Enter");
   await expect(page).toHaveURL(/\/explore\?q=MotoCrose$/);
@@ -174,4 +176,42 @@ test("normal interaction emits no console errors, external requests or mutations
 
   expect(violations).toEqual([]);
   expect(consoleErrors).toEqual([]);
+});
+
+test("a delayed page search clear preserves a newly typed draft", async ({
+  page,
+}) => {
+  await page.goto("/explore?q=previous", { waitUntil: "networkidle" });
+  const input = pageSearch(page);
+  await expect(input).toHaveValue("previous");
+  const held: Route[] = [];
+  let holdClear = true;
+  await page.route("**/explore?**", async (route) => {
+    if (
+      holdClear &&
+      new URL(route.request().url()).searchParams.has("_rsc")
+    ) {
+      held.push(route);
+    } else {
+      await route.continue();
+    }
+  });
+  try {
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect.poll(() => held.length).toBe(1);
+    await input.fill("new draft");
+    holdClear = false;
+    await Promise.all(held.map((route) => route.continue()));
+    await expect(page).toHaveURL(/\/explore$/);
+    await expect(input).toHaveValue("new draft");
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/explore\?q=new\+draft$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/explore$/);
+    await expect(input).toHaveValue("");
+    await page.goForward();
+    await expect(input).toHaveValue("new draft");
+  } finally {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  }
 });

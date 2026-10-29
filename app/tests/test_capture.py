@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -259,6 +261,40 @@ class CaptureResumeTests(unittest.TestCase):
             capture.pool([url])
         self.network.assert_not_called()
 
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'named pipes unavailable')
+    def test_fifo_target_is_rejected_without_waiting_for_a_writer(self):
+        url = 'https://pump.fun/fifo.js'
+        fifo = self.objects / 'fifo.js'
+        os.mkfifo(fifo)
+        self.record(url, 'evidence/web/objects/fifo.js', b'')
+        done = threading.Event()
+        released = threading.Event()
+
+        def release_blocked_reader():
+            # A blocking open of a FIFO waits for a writer and no test timeout
+            # can interrupt it, so open the write end if resume still waits.
+            if done.wait(2):
+                return
+            while not done.is_set():
+                try:
+                    os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+                except OSError:
+                    time.sleep(0.01)
+                    continue
+                released.set()
+                return
+
+        watchdog = threading.Thread(target=release_blocked_reader, daemon=True)
+        watchdog.start()
+        try:
+            with self.assertRaisesRegex(capture.RetainedCaptureError, 'not a regular file'):
+                capture.pool([url])
+        finally:
+            done.set()
+            watchdog.join()
+        self.assertFalse(released.is_set(), 'resume waited for a writer to open the FIFO')
+        self.network.assert_not_called()
+
     def test_valid_nested_object_path_is_accepted(self):
         url = 'https://pump.fun/nested.js'
         body = b'nested object bytes'
@@ -404,6 +440,19 @@ class CaptureResumeTests(unittest.TestCase):
         worker_pool.assert_not_called()
         self.network.assert_not_called()
         self.assertEqual(manifest_path.read_text(), original)
+
+    def test_duplicate_url_rejects_the_entire_resume_update(self):
+        url = 'https://pump.fun/synthetic.js'
+        self.write_object('one', b'one')
+        self.write_object('two', b'two')
+        first = self.record(url, 'evidence/web/objects/one', b'one')
+        second = self.record(url, 'evidence/web/objects/two', b'two')
+        sentinel = {'untouched': 'synthetic'}
+        self.reuse.clear()
+        self.reuse.update(sentinel)
+        with self.assertRaises(capture.RetainedCaptureError):
+            capture.load_reuse([first, second])
+        self.assertEqual(self.reuse, sentinel)
 
 
 if __name__ == '__main__':

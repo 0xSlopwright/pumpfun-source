@@ -280,26 +280,60 @@ test("performs no external browser request, mutation, signing or wallet action",
   page.on("request", (request) =>
     requests.push({ method: request.method(), url: request.url() }),
   );
+  await page.addInitScript(() => {
+    const state = { discoveryRequests: 0 };
+    Object.assign(window, { __portfolioWalletProbe: state });
+    window.addEventListener("wallet-standard:app-ready", () => {
+      state.discoveryRequests++;
+    });
+  });
   await mockSuccess(page);
   await page.goto(`/portfolio?address=${WALLET}`);
   await expect(page.getByTestId("portfolio-result")).toBeVisible();
-  expect(
-    requests.filter(({ url }) => {
-      const parsed = new URL(url);
-      return parsed.origin !== "http://127.0.0.1:3010";
-    }),
-  ).toEqual([]);
-  expect(
-    requests.some(({ method }) =>
-      ["POST", "PUT", "PATCH", "DELETE"].includes(method),
-    ),
-  ).toBe(false);
+  const assertReadOnlyRequests = () => {
+    expect(
+      requests.filter(({ url }) => {
+        const parsed = new URL(url);
+        return parsed.origin !== "http://127.0.0.1:3010";
+      }),
+    ).toEqual([]);
+    expect(
+      requests.some(({ method }) =>
+        ["POST", "PUT", "PATCH", "DELETE"].includes(method),
+      ),
+    ).toBe(false);
+  };
+  assertReadOnlyRequests();
   await expect(
     page.getByText(
       "Only public account data is read. Never enter a private key or seed phrase.",
     ),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /connect wallet|sign/i }),
-  ).toHaveCount(0);
+  const capturedSignIn = page.getByRole("button", {
+    name: /connect wallet|sign/i,
+  });
+  await expect(capturedSignIn).toHaveCount(1);
+  await expect(capturedSignIn).toBeEnabled();
+  await capturedSignIn.click();
+  const chooser = page.getByTestId("auth-dialog");
+  await expect(chooser).toBeVisible();
+  await expect(chooser).toContainText("sign-in is unavailable");
+  for (const provider of ["google", "apple", "github"])
+    await expect(page.getByTestId(`auth-${provider}-button`)).toBeDisabled();
+  await expect(chooser.locator("input, form, textarea")).toHaveCount(0);
+  await expect(page.getByTestId("public-wallet-panel")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __portfolioWalletProbe: { discoveryRequests: number };
+          }
+        ).__portfolioWalletProbe.discoveryRequests,
+    ),
+  ).toBe(0);
+  await expect(page.locator("html")).toHaveAttribute("data-pf-auth", "out");
+  await chooser.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(capturedSignIn).toBeFocused();
+  assertReadOnlyRequests();
 });

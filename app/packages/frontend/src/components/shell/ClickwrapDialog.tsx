@@ -1,39 +1,142 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef } from 'react';
-import { pumpButtonClass } from '@/components/ui/pump-button';
-import { CLICKWRAP_COOKIE, CLICKWRAP_MAX_AGE, isClickwrapOutOfScope } from './clickwrap';
-
-function shell(): Element | null {
-  return document.querySelector('[data-app-shell]');
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent,
+} from "react";
+import { pumpButtonClass } from "@/components/ui/pump-button";
+import {
+  acceptClickwrap,
+  CLICKWRAP_ACCEPTED_EVENT,
+  isClickwrapOutOfScope,
+  migrateClickwrapLegacy,
+  readClickwrapAccepted,
+  stopClickwrapPrepaintObserver,
+  type ClickwrapEnvironment,
+} from "./clickwrap";
+const subscribers = new Set<() => void>();
+function environment(): ClickwrapEnvironment {
+  return {
+    getCookie: () => document.cookie,
+    setCookie: (value) => {
+      document.cookie = value;
+    },
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+    now: () => new Date(),
+    notifyAccepted: () => {
+      for (const listener of subscribers) listener();
+      window.dispatchEvent(new Event(CLICKWRAP_ACCEPTED_EVENT));
+    },
+  };
 }
-
-/**
- * The captured first-visit terms dialog. It is always in the markup; CSS hides it
- * once `html` carries an accepted or out-of-scope attribute. Pre-paint scripts set
- * those on full loads; this component keeps them current on client navigation.
- */
+function subscribe(listener: () => void) {
+  subscribers.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    subscribers.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+const snapshot = () => readClickwrapAccepted(environment());
+const serverSnapshot = () => false;
+const focusable =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/** Original dismiss controls record the same preference as Continue. */
 export function ClickwrapDialog() {
-  const pathname = usePathname();
-  const continueRef = useRef<HTMLButtonElement>(null);
-
+  const pathname = usePathname(),
+    accepted = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  const [acceptedHere, setAcceptedHere] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  const outOfScope = isClickwrapOutOfScope(pathname),
+    visible = !accepted && !acceptedHere && !outOfScope;
   useEffect(() => {
-    const root = document.documentElement;
-    root.toggleAttribute('data-clickwrap-oos', isClickwrapOutOfScope(pathname));
-    const visible = !root.hasAttribute('data-clickwrap-accepted') && !root.hasAttribute('data-clickwrap-oos');
-    shell()?.toggleAttribute('inert', visible);
-    if (visible) continueRef.current?.focus();
-  }, [pathname]);
-
+    document.documentElement.toggleAttribute("data-clickwrap-oos", outOfScope);
+  }, [outOfScope]);
+  useEffect(() => {
+    migrateClickwrapLegacy(environment());
+  }, []);
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>("[data-app-shell]");
+    stopClickwrapPrepaintObserver();
+    if (!visible) {
+      shell?.removeAttribute("inert");
+      return;
+    }
+    const root = document.documentElement,
+      previousOverflow = root.style.overflow;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    root.style.overflow = "hidden";
+    const protect = () => {
+      const current = document.querySelector("[data-app-shell]");
+      if (current && !current.hasAttribute("inert"))
+        current.setAttribute("inert", "");
+    };
+    protect();
+    const observer = new MutationObserver(protect);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["inert"],
+    });
+    panel.current?.focus();
+    const keepFocus = (event: FocusEvent) => {
+      if (
+        event.target instanceof Element &&
+        !panel.current?.contains(event.target) &&
+        event.target.closest("[data-app-shell]")
+      )
+        (
+          panel.current?.querySelector<HTMLElement>(focusable) ?? panel.current
+        )?.focus();
+    };
+    document.addEventListener("focusin", keepFocus);
+    return () => {
+      observer.disconnect();
+      root.style.overflow = previousOverflow;
+      document.querySelector("[data-app-shell]")?.removeAttribute("inert");
+      document.removeEventListener("focusin", keepFocus);
+      previousFocus?.focus();
+    };
+  }, [visible]);
   function accept() {
-    document.cookie = `${CLICKWRAP_COOKIE}=true; path=/; max-age=${CLICKWRAP_MAX_AGE}; samesite=lax`;
-    document.documentElement.setAttribute('data-clickwrap-accepted', '');
-    shell()?.removeAttribute('inert');
-    document.getElementById('main-content')?.focus();
+    setAcceptedHere(true);
+    acceptClickwrap(environment());
   }
-
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      accept();
+      return;
+    }
+    // Local accessibility addition: wrap Tab inside captured modal content.
+    if (event.key !== "Tab") return;
+    const controls = Array.from(
+        panel.current?.querySelectorAll<HTMLElement>(focusable) ?? [],
+      ),
+      first = controls[0],
+      last = controls.at(-1);
+    if (
+      event.shiftKey &&
+      (document.activeElement === first ||
+        document.activeElement === panel.current)
+    ) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
+  if (!visible) return null;
   return (
     <div
       aria-describedby="clickwrap-description"
@@ -42,38 +145,75 @@ export function ClickwrapDialog() {
       className="fixed inset-0 z-[999] flex items-center justify-center p-6 max-[640px]:items-end max-[640px]:p-0"
       data-clickwrap-overlay=""
       role="dialog"
+      onKeyDown={onKeyDown}
     >
-      {/* Captured as an inert click target: dismissing does not accept the terms. */}
-      <button aria-label="Dismiss" className="absolute inset-0 cursor-default bg-black/75" tabIndex={-1} type="button" />
+      {/* Original quirk: backdrop Dismiss records the same preference as Continue. */}
+      <button
+        aria-label="Dismiss"
+        className="absolute inset-0 cursor-default bg-black/75"
+        tabIndex={-1}
+        type="button"
+        onClick={accept}
+      />
       <div
-        className="relative flex w-full max-w-[640px] flex-col bg-bg-primary p-6 shadow-[0_0_0_1px_var(--color-border-secondary)] rounded-[16px] max-[640px]:rounded-b-none max-[640px]:rounded-t-[24px]"
+        className="relative flex max-h-[100dvh] overflow-y-auto w-full max-w-[640px] flex-col bg-bg-primary p-6 shadow-[0_0_0_1px_var(--color-border-secondary)] rounded-[16px] max-[640px]:rounded-b-none max-[640px]:rounded-t-[24px]"
+        ref={panel}
         tabIndex={-1}
       >
         {/* The cover image (/dialog-clickwrap-cover.webp) is not in the capture; keep its 592x333 box. */}
-        <div aria-hidden="true" className="aspect-[592/333] w-full rounded-xl border border-solid border-border-secondary bg-bg-secondary max-[640px]:rounded-[20px]" />
+        <div
+          aria-hidden="true"
+          className="aspect-[592/333] w-full rounded-xl border border-solid border-border-secondary bg-bg-secondary max-[640px]:rounded-[20px]"
+        />
         <div className="_1AbQgq_spacer" style={{ height: 24 }} />
-        <p className="font-bold text-2xl text-text-primary text-center" id="clickwrap-title">
+        <p
+          className="font-bold text-2xl text-text-primary text-center"
+          id="clickwrap-title"
+        >
           Welcome to Pump<span className="text-text-accent">.</span>fun!
         </p>
         <div className="_1AbQgq_spacer" style={{ height: 16 }} />
-        <p className="text-text-tertiary text-center" id="clickwrap-description">
-          Pump lets anyone create coins, giving everyone equal access to buy and sell from the start. Prices can move quickly, so trade carefully.
+        <p
+          className="text-text-tertiary text-center"
+          id="clickwrap-description"
+        >
+          Pump lets anyone create coins, giving everyone equal access to buy and
+          sell from the start. Prices can move quickly, so trade carefully.
         </p>
         <div className="_1AbQgq_spacer" style={{ height: 24 }} />
-        <button ref={continueRef} aria-pressed="false" className={pumpButtonClass({ size: 48, width: 'full' })} type="button" onClick={accept}>
+        <button
+          aria-pressed="false"
+          className={pumpButtonClass({ size: 48, width: "full" })}
+          type="button"
+          onClick={accept}
+        >
           <span>Continue</span>
         </button>
         <div className="_1AbQgq_spacer" style={{ height: 16 }} />
         <p className="text-xs text-text-tertiary mx-auto max-w-[480px] text-center">
-          By clicking this button, you agree to the{' '}
-          <Link className="underline" href="/docs/terms-and-conditions">
+          By clicking this button, you agree to the{" "}
+          <Link
+            prefetch={false}
+            className="underline"
+            href="/docs/terms-and-conditions"
+          >
             Terms and Conditions
           </Link>
-          ,{' '}
-          <Link className="underline" href="/docs/privacy-policy">
+          ,{" "}
+          <Link
+            prefetch={false}
+            className="underline"
+            href="/docs/privacy-policy"
+          >
             Privacy Policy
           </Link>
           , and certify that you are over 18 years old.
+        </p>
+        <p
+          className="mt-3 text-xs text-text-tertiary text-center"
+          data-local-consent-notice=""
+        >
+          Archived interface; continuing saves a local browser preference.
         </p>
       </div>
     </div>

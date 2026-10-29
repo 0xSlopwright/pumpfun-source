@@ -6,6 +6,7 @@ import generatedReferencePages from "../packages/frontend/src/app/docs/reference
 import {
   REFERENCE_CAPTURED_AT,
   REFERENCE_SOURCES,
+  referenceLinkHref,
   sha256,
   validateReferenceDataset,
   verifyReferenceProvenance,
@@ -135,4 +136,39 @@ test("rejects untrusted link schemes and unsafe section ids", () => {
   if (!heading || heading.type !== "heading") throw new Error("Test fixture is missing a heading");
   heading.id = "unsafe id";
   assert.throws(() => validateReferenceDataset(identity), /unsafe id/);
+});
+
+test("uncopied document links retain the official origin instead of a local 404", () => {
+  const destinations = [
+    "/docs/charitycoins",
+    "/docs/custom-pairs",
+    "/docs/livestream-moderation-policy",
+    "/docs/dmca-policy",
+    "/docs/trademark-guidelines",
+    "/docs/tokenized-agent-disclaimer",
+    "/docs/go-fun-terms",
+    "/docs/referral-rewards",
+    "/docs/app-competition-terms",
+  ];
+  const retained = JSON.stringify(generatedReferencePages.documents);
+  for (const href of destinations) {
+    assert.ok(retained.includes(JSON.stringify(href)), `${href} is captured`);
+    assert.equal(referenceLinkHref(href), `https://pump.fun${href}`);
+  }
+  assert.equal(
+    referenceLinkHref("/docs/custom-pairs?source=fees#rewards"),
+    "https://pump.fun/docs/custom-pairs?source=fees#rewards",
+  );
+});
+
+test("copied reference routes stay local and recorded external links stay unchanged", () => {
+  for (const href of [
+    "/",
+    ...Object.values(REFERENCE_SOURCES).map((source) => source.route),
+    "/docs/fees?source=terms#platform-fee",
+    "https://www.allaboutcookies.org",
+    "mailto:legal@pump.fun",
+  ]) {
+    assert.equal(referenceLinkHref(href), href);
+  }
 });

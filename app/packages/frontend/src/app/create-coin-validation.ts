@@ -97,6 +97,7 @@ export function validateImage(file: File | null): string | undefined {
   ) {
     return "Choose a JPEG, PNG, GIF or WebP image.";
   }
+  if (file.size === 0) return "Choose a non-empty image file.";
   if (file.size > CREATE_LIMITS.imageBytes) {
     return "Choose an image smaller than 4.5 MB.";
   }

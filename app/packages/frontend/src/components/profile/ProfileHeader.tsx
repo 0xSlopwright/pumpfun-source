@@ -26,8 +26,14 @@ export function ProfileHeader({ profile }: { profile: LocalProfile }) {
         </div>
 
         <div className="profile-address-row">
-          <code>{profile.address}</code>
-          <CopyAddressButton address={profile.address} />
+          {profile.address ? (
+            <>
+              <code>{profile.address}</code>
+              <CopyAddressButton address={profile.address} />
+            </>
+          ) : (
+            <span>No wallet address recorded.</span>
+          )}
         </div>
 
         {profile.bio ? (

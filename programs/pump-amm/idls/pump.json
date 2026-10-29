@@ -296,6 +296,21 @@
       ]
     }
   ],
+  "events": [
+    {
+      "name": "ReservedFeeRecipientsEvent",
+      "discriminator": [
+        43,
+        188,
+        250,
+        18,
+        221,
+        75,
+        187,
+        95
+      ]
+    }
+  ],
   "types": [
     {
       "name": "BondingCurve",
@@ -353,6 +368,31 @@
           {
             "name": "buyback_fee",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReservedFeeRecipientsEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "reserved_fee_recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "reserved_fee_recipients",
+            "type": {
+              "array": [
+                "pubkey",
+                7
+              ]
+            }
           }
         ]
       }

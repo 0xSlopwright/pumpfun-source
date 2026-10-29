@@ -1,10 +1,11 @@
 import Link from "next/link";
 
-import type {
-  ReferenceBlock,
-  ReferenceDocument,
-  ReferenceInline,
-  ReferenceKey,
+import {
+  referenceLinkHref,
+  type ReferenceBlock,
+  type ReferenceDocument,
+  type ReferenceInline,
+  type ReferenceKey,
 } from "./reference-data";
 import { loadReferenceDocument } from "./reference-loader";
 import "./reference-pages.css";
@@ -14,7 +15,7 @@ function InlineContent({ nodes }: { nodes: readonly ReferenceInline[] }) {
     if (typeof node === "string") return node;
     const content = <InlineContent nodes={node.children} />;
     if (node.type === "strong") return <strong key={index}>{content}</strong>;
-    const href = node.href ?? "";
+    const href = referenceLinkHref(node.href ?? "");
     return href.startsWith("/") ? (
       <Link href={href} key={index}>
         {content}

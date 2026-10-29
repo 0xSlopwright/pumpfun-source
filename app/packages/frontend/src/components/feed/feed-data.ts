@@ -10,6 +10,7 @@ export type LocalFeedPost = {
   id: string;
   author: {
     address: string;
+    userId?: string;
     name: string;
     missing: boolean;
   };
@@ -105,7 +106,9 @@ function counter(record: UnknownRecord, field: string): number {
 
 function parseTimestamp(value: string, field: string): number {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) {
+  const iso = /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u.exec(value);
+  const calendar = iso ? new Date(`${iso[1]}T00:00:00Z`) : null;
+  if (!Number.isFinite(timestamp) || !iso || !calendar || !Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== iso[1]) {
     throw new FeedDataError(`Local feed ${field} must be an ISO timestamp`);
   }
   return timestamp;
@@ -158,7 +161,9 @@ function validateUsers(input: unknown): Map<string, ValidatedUser> {
     if (!isRecord(value)) {
       throw new FeedDataError(`Local feed user ${index} must be an object`);
     }
-    const address = safeString(value, "address") as string;
+    const address = safeString(value, "address", {
+      allowEmpty: true,
+    }) as string;
     const userIdValue = value.userId;
     const userId =
       userIdValue === undefined
@@ -166,11 +171,17 @@ function validateUsers(input: unknown): Map<string, ValidatedUser> {
         : (safeString(value, "userId") as string);
     const username = optionalSafeString(value, "username") ?? null;
 
-    if (addresses.has(address)) {
+    if (!address && !userId?.trim()) {
+      throw new FeedDataError(
+        `Local feed user ${index} requires an address or non-empty user id`,
+      );
+    }
+
+    if (address && addresses.has(address)) {
       throw new FeedDataError(`Local feed user ${index} repeats an address`);
     }
-    addresses.add(address);
-    const keys = [address, ...(userId ? [userId] : [])];
+    if (address) addresses.add(address);
+    const keys = [...(address ? [address] : []), ...(userId ? [userId] : [])];
     for (const key of keys) {
       if (users.has(key)) {
         throw new FeedDataError(`Local feed user ${index} repeats an identity`);
@@ -186,7 +197,9 @@ function displayName(user: ValidatedUser | undefined): string {
   if (!user) return "Unknown local author";
   return (
     user.username?.trim() ||
-    `${user.address.slice(0, 6)}…${user.address.slice(-4)}`
+    (user.address
+      ? `${user.address.slice(0, 6)}…${user.address.slice(-4)}`
+      : "Unnamed local account")
   );
 }
 
@@ -269,6 +282,7 @@ export function validateLocalFeed(
       id,
       author: {
         address: author?.address ?? authorId,
+        ...(author?.userId ? { userId: author.userId } : {}),
         name: displayName(author),
         missing: !author,
       },

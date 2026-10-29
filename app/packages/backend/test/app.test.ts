@@ -398,16 +398,17 @@ test("native /v1 operations sit behind the API-key gate", async () => {
 test("unimplemented domain routes cannot pass as working APIs", async () => {
   const app = buildApp();
   try {
-    // /v1/users is native now; use a documented operation with no native handler.
+    // /v1/users and /v1/pnl-leaderboard are native now; use a documented
+    // operation that still has no native handler.
     const response = await app.inject({
-      url: "/v1/pnl-leaderboard",
+      url: "/v1/payouts/leaderboard",
       headers: { authorization: `Bearer ${wellFormedKey}` },
     });
     assert.equal(response.statusCode, 501);
     assert.deepEqual(response.json(), {
       error: "COMPATIBILITY_NOT_IMPLEMENTED",
       method: "GET",
-      path: "/v1/pnl-leaderboard",
+      path: "/v1/payouts/leaderboard",
     });
   } finally {
     await app.close();
@@ -477,18 +478,18 @@ test("a key in the query string does not satisfy the gate", async () => {
 
 test("a well-formed key in either header reaches fixture replay", async () => {
   const app = buildApp([
-    fixture({ path: "/v1/pnl-leaderboard", query: undefined, body: { id: "test" } }),
+    fixture({ path: "/v1/payouts/leaderboard", query: undefined, body: { id: "test" } }),
   ]);
   try {
     for (const headers of [
       { authorization: `Bearer ${wellFormedKey}` },
       { "x-api-key": wellFormedKey },
     ]) {
-      const response = await app.inject({ url: "/v1/pnl-leaderboard", headers });
+      const response = await app.inject({ url: "/v1/payouts/leaderboard", headers });
       assert.equal(response.statusCode, 200);
       assert.deepEqual(response.json(), { id: "test" });
     }
-    const rejected = await app.inject("/v1/pnl-leaderboard");
+    const rejected = await app.inject("/v1/payouts/leaderboard");
     assert.equal(rejected.statusCode, 401);
   } finally {
     await app.close();

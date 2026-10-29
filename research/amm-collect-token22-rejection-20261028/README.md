@@ -2,12 +2,14 @@
 
 ## Problem
 
-collect_coin_creator_fee cannot move Token-2022 quote fees:
+collect_coin_creator_fee, given the Token program, cannot move
+Token-2022 quote fees (the Token-2022 program is not executed here):
 its associated-token constraint requires the creator vault
 and the destination to be associated under the Token program
 passed in, so a Token-2022 quote mint fails 2023
-ConstraintAssociatedTokenTokenProgram before any funds move,
-at any fee level and even without a fee extension.
+ConstraintAssociatedTokenTokenProgram before any funds move, at
+1%, 50% and 100% fees, and also when the vault and destination are
+Token-2022-owned without a fee extension.
 
 ## Cases
 
@@ -15,8 +17,9 @@ Six fresh-VM triples (original / #424 control / #427
 candidate), 18 signed executions on the repository's own
 collect harness setup (`scripts/pump_amm_collect_differential.py`
 account layout, creator vault 123,394). The clock is slot 100,
-epoch 0. `producer.py` reproduces every receipt from the
-repository files.
+epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -44,8 +47,8 @@ in order.
   alike, and a Token-2022-owned vault and destination with
   no fee extension at all fail the same 2023.
 - **The vault alone triggers it**: a Token-2022 vault with
-  a Token destination fails the same 2023, so the vault
-  check fires before any destination check.
+  a Token destination fails the same 2023, so the vault alone is
+  enough to trigger it (no destination-only case is executed).
 - **Trade_v2 does not share the failure**: with the matching
   Token-2022 program account, trade_v2 withholds quote
   transfer fees normally (see the sell transfer-fee packet).

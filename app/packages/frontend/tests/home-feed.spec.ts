@@ -31,6 +31,9 @@ test("renders validated root posts with explicit synthetic provenance", async ({
     }),
   ).toBeVisible();
   await expect(page.getByTestId("local-feed-item")).toHaveCount(3);
+  await expect(page.getByRole("tab", { name: "Local callouts" })).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId("local-feed-item").nth(0)).toContainText(
     "chad_group",
   );

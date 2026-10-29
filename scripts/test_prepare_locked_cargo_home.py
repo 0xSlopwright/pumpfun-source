@@ -10,6 +10,22 @@ import unittest
 
 
 class CargoHomeTests(unittest.TestCase):
+    def test_path_only_lockfile_needs_no_registry_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lock = root / 'Cargo.lock'
+            lock.write_text('version = 3\n[[package]]\nname = "local-only"\nversion = "1.0.0"\n', encoding='utf-8')
+            output = root / 'output'
+            result = subprocess.run([sys.executable, str(Path(__file__).with_name('prepare_locked_cargo_home.py')),
+                                     '--lockfile', str(lock), '--output', str(output)],
+                                    env={**os.environ, 'CARGO_HOME': str(root / 'absent-cargo-home')}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((output / 'cache-manifest.json').read_text())
+            self.assertEqual(manifest['packages'], [])
+            self.assertIsNone(manifest['registry_config_sha256'])
+            self.assertEqual(manifest['lockfile_sha256'], hashlib.sha256(lock.read_bytes()).hexdigest())
+            self.assertFalse((output / 'registry').exists())
+
     def test_supported_cache_namespaces_supply_configuration(self):
         for namespace in ('index.crates.io-1949cf8c6b5b557f', 'index.crates.io-6f17d22bba15001f'):
             with self.subTest(namespace=namespace):

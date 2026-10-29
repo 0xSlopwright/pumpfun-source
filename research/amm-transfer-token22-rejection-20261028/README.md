@@ -2,8 +2,9 @@
 
 ## Problem
 
-transfer_creator_fees_to_pump and its v2 cannot move
-Token-2022 quote fees: both handlers' associated-token
+transfer_creator_fees_to_pump and its v2, given the Token program,
+cannot move Token-2022 quote fees (the Token-2022 program is not
+executed here): both handlers' associated-token
 constraint requires the AMM creator vault to be associated
 under the Token program passed in, so a Token-2022 quote
 mint fails 2023 ConstraintAssociatedTokenTokenProgram before
@@ -16,8 +17,9 @@ candidate), 18 signed executions on the repository's own
 transfer harness setup
 (`scripts/pump_amm_transfer_creator_differential.py` account
 layout, AMM creator vault 1000). The clock is slot 100,
-epoch 0. `producer.py` reproduces every receipt from the
-repository files.
+epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -58,7 +60,7 @@ order.
   added.
 - The Token-2022 mint extension is synthetic: the fixture mint was
   mutated after the fact. The checks are pinned on the fixture pool
-  only. The pump-side ATA is derived inside the handler, not a passed
-  account, so the packet pins the vault drain, not the destination
-  balance. No live transaction was submitted. All executions are offline
+  only. v1 derives the pump-side ATA inside the handler; v2 takes it
+  as an account, but it is not snapshotted. The packet pins the
+  vault drain, not the destination balance. No live transaction was submitted. All executions are offline
   LiteSVM replays with normally signed transactions.

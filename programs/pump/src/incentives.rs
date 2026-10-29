@@ -71,7 +71,7 @@ pub fn execute(
         seconds_in_a_day,
         timestamp,
     };
-    emit!(event);
+    emit!(event.clone());
     emit_cpi!(event);
     msg!(
         "GlobalVolumeAccumulator={:?}",

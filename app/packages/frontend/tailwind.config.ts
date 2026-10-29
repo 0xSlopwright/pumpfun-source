@@ -10,7 +10,7 @@ const KEYWORDS = new Set(['current', 'inherit', 'transparent']);
 const colors = Object.fromEntries(Object.entries(captured.colors).filter(([name]) => !KEYWORDS.has(name)));
 
 export default {
-  content: ['./src/**/*.{ts,tsx}'],
+  content: ['./src/**/*.{ts,tsx}', './src/components/leaderboard/original-countdown.mjs'],
   // `.dark\:x:is(.dark *)` in the capture is the v3.4 `class` strategy.
   darkMode: 'class',
   theme: {

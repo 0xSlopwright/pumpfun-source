@@ -1,9 +1,11 @@
-# create_pool account validation: wrong accounts fail before allocation
+# create_pool account validation: wrong accounts fail and roll back
 
 ## Problem
 
-create_pool derives the pool address from seeds and checks
-every account before allocating it. The checks are now pinned
+create_pool derives the pool address from seeds and checks its
+accounts. Seed, config and signer failures happen before any
+allocation; mint and vault failures happen after the pool, LP
+mint and ATAs are created, and are rolled back. The checks are now pinned
 at runtime, including two cases where the failure surfaces
 outside program logic.
 
@@ -12,8 +14,9 @@ outside program logic.
 Nine fresh-VM triples (original / #424 control / #427
 candidate), 27 signed executions on the repository's own
 create harness (`scripts/pump_amm_create_differential.py`). The
-clock is slot 100, epoch 0. `producer.py` reproduces every
-receipt from the repository files.
+clock is slot 100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -45,7 +48,7 @@ them in order.
   not the derived PDA fails 2006 ConstraintSeeds, not an
   ownership check, because the PDA derivation runs first.
 - **Config ownership is checked**: a global config owned by
-  the wrong program fails 3007, as on trade and liquidity.
+  the wrong program fails 3007.
 - **Vault checks are token-constraint checks**: a base vault
   that is not pool-owned fails 2015 ConstraintTokenOwner,
   while a quote vault whose mint is not the quote fails 2014

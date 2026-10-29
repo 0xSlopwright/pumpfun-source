@@ -144,8 +144,10 @@ function parseTraderEntry(value: unknown, index: number): TraderEntry {
 
 function parseTraders(value: unknown): TradersData {
   const payload = record(value, "trader leaderboard");
-  const periodType = text(payload.periodType, "periodType", 40);
-  if (!["daily", "weekly", "monthly"].includes(periodType)) {
+  // The response uses a numeric enum; daily/weekly/monthly are request values.
+  // See OpenAPI 0.294.0 GET /pnl-leaderboard, 200 response periodType.
+  const periodType = number(payload.periodType, "periodType");
+  if (![0, 1, 2, 3].includes(periodType)) {
     throw new UpstreamValidationError("periodType is unsupported.");
   }
   return {
@@ -211,13 +213,18 @@ function parseCreators(value: unknown, page: number): CreatorsData {
   };
 }
 
-function validateCompetitionPrizes(value: unknown, label: string): void {
-  for (const [index, prizeValue] of array(value, label, 100).entries()) {
+function parseCompetitionPrizes(
+  value: unknown,
+  label: string,
+): CompetitionSummary["prizes"] {
+  return array(value, label, 100).map((prizeValue, index) => {
     const prize = record(prizeValue, `${label}[${index}]`);
-    nonNegativeNumber(prize.rankFrom, `${label}[${index}].rankFrom`);
-    nonNegativeNumber(prize.rankTo, `${label}[${index}].rankTo`);
-    text(prize.amount, `${label}[${index}].amount`, 200);
-  }
+    return {
+      rankFrom: nonNegativeNumber(prize.rankFrom, `${label}[${index}].rankFrom`),
+      rankTo: nonNegativeNumber(prize.rankTo, `${label}[${index}].rankTo`),
+      amount: text(prize.amount, `${label}[${index}].amount`, 200),
+    };
+  });
 }
 
 function parseCompetitionEntry(
@@ -275,10 +282,8 @@ function parseCompetitionSummary(
   if (!["upcoming", "registration", "live", "ended"].includes(phase)) {
     throw new UpstreamValidationError(`${label}.phase is unsupported.`);
   }
-  validateCompetitionPrizes(competition.prizes, `${label}.prizes`);
+  const prizes = parseCompetitionPrizes(competition.prizes, `${label}.prizes`);
   nullableText(competition.imageUrl, `${label}.imageUrl`, 2048);
-  nonNegativeNumber(competition.minMembers, `${label}.minMembers`);
-  nonNegativeNumber(competition.maxMembers, `${label}.maxMembers`);
   for (const key of ["top", "winners"] as const) {
     array(competition[key], `${label}.${key}`, 100).forEach((entry, index) =>
       parseCompetitionEntry(entry, `${label}.${key}[${index}]`),
@@ -291,6 +296,9 @@ function parseCompetitionSummary(
     title: text(competition.title, `${label}.title`, 500),
     description: text(competition.description, `${label}.description`, 5000),
     prizeCopy: text(competition.prizeCopy, `${label}.prizeCopy`, 1000),
+    prizes,
+    minMembers: nonNegativeNumber(competition.minMembers, `${label}.minMembers`),
+    maxMembers: nonNegativeNumber(competition.maxMembers, `${label}.maxMembers`),
     registrationOpensAt: date(
       competition.registrationOpensAt,
       `${label}.registrationOpensAt`,
@@ -375,6 +383,7 @@ export function normalizeUpstreamResponse(
 export async function readBoundedJson(response: Response): Promise<unknown> {
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_UPSTREAM_BYTES) {
+    await response.body?.cancel();
     throw new UpstreamValidationError("The upstream response is too large.");
   }
   if (!response.body) {
@@ -384,15 +393,19 @@ export async function readBoundedJson(response: Response): Promise<unknown> {
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_UPSTREAM_BYTES) {
-      await reader.cancel();
-      throw new UpstreamValidationError("The upstream response is too large.");
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_UPSTREAM_BYTES) {
+        await reader.cancel();
+        throw new UpstreamValidationError("The upstream response is too large.");
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
 
   const bytes = new Uint8Array(total);
@@ -402,7 +415,7 @@ export async function readBoundedJson(response: Response): Promise<unknown> {
     offset += chunk.byteLength;
   }
   try {
-    return JSON.parse(new TextDecoder().decode(bytes));
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     throw new UpstreamValidationError("The upstream response is not JSON.");
   }

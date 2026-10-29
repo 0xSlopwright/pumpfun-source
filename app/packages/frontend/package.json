@@ -7,6 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start -p 3000",
     "test:browser": "playwright test",
+    "test:browser:native-feed": "playwright test --config playwright.native-feed.config.ts",
+    "test:browser:native-feed-real": "playwright test --config playwright.native-feed-real.config.ts",
     "test:portfolio:live": "node tests/live-portfolio.mjs",
     "test:browser:install": "playwright install chromium",
     "typecheck": "tsc --noEmit"

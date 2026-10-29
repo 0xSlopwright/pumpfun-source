@@ -16,6 +16,46 @@ jobs:
       max-parallel: 12
       matrix:
         include:
+          - suite: pump-claim-v2-account-boundaries
+            commands: |
+              python -I -B research/pump-claim-v2-account-boundaries/verify.py
+              python -I -B research/pump-claim-v2-account-boundaries/mutation_controls.py
+          - suite: mayhem-canonical-exact
+            commands: |
+              python -O -B scripts/verify_current_checkpoint.py mayhem
+              python -O -B research/mayhem-canonical-promotion-20261028/test_verify.py
+          - suite: pump-multi-hop-quote-admission
+            commands: |
+              python -I -B research/pump-multi-hop-quote-admission/verify.py
+              python -I -B research/pump-multi-hop-quote-admission/test_controls.py
+          - suite: pump-canonical-frontier
+            commands: |
+              python -B scripts/verify_current_checkpoint.py pump
+              python -O -B scripts/test_pump_strict_ordered_logs.py
+              python -B research/pump-program-creator-notice-qualification-20261028/replay_focused.py --candidate research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so --output work/pump-canonical-focused
+              python -B research/pump-program-creator-notice-qualification-20261028/verify_focused.py --candidate research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so --reports work/pump-canonical-focused
+              python -B research/pump-program-creator-notice-qualification-20261028/replay_captured_create.py --candidate research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so --output work/pump-captured-create
+              python -B scripts/pump_verify_program_creator_captured_create.py --candidate research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so --runtime-directory work/pump-captured-create
+          - suite: pump-program-creator-notice
+            commands: |
+              python -B research/pump-multihop-accrual-qualification-20261028/verify.py
+              python -B research/pump-program-creator-notice-qualification-20261028/verify.py
+              python -B research/pump-program-creator-notice-qualification-20261028/integrity_controls.py --report work/pump-program-creator-notice-controls.json
+          - suite: relay-current-repeat
+            commands: |
+              python -O -B research/relay-current-repeat-20261028/verify.py --repo .
+              python -O -B research/relay-current-repeat-20261028/test_verify.py
+          - suite: amm-canonical-frontier
+            commands: |
+              python -O -B scripts/verify_current_checkpoint.py pump_amm
+              python -O -B research/amm-layout-closure-20261028/test_verify.py
+              python -O -B research/pump-create-portable-repeat-20261028/test_verify.py
+          - suite: fees-canonical-exact
+            commands: |
+              python -B scripts/verify_current_checkpoint.py pump_fees
+              python -O -B research/all-contract-completion-20261028/test_current_fees.py
+              python -O -B research/contract-completion-20261028/test_fees_runtime.py
+              python scripts/fees_validate_all.py --candidate research/all-contract-completion-20261028/fees-built/canonical-01/candidate.so --output work/fees-canonical-fresh.json
           - suite: pump-v3-buy-cost-overflow
             commands: |
               python -I -B research/pump-v3-buy-cost-overflow/verify.py
@@ -292,7 +332,8 @@ jobs:
               python repro/pump_fees/initializer-inline-runtime/verify.py
               python scripts/verify_recovered_builds.py
               python -B scripts/verify_current_reconstruction.py --repo .
-              python -I -B repro/donation-relay/canonical-exact-selection/test_selection.py
+              python -B research/all-contract-completion-20261028/relay/verify_current_bridge.py --repo .
+              python -B research/all-contract-completion-20261028/relay/test_current_bridge.py
               # The sealed Pump-only P27 transition assumes the old global workflow.
               # verify_current_reconstruction checks the current multi-contract selections.
               python -B repro/layered-passes/pass-19/ci-followup/verify.py --repo .
@@ -417,9 +458,10 @@ jobs:
               python -B research/amm-math-error-reference/test_verify.py
               python -B research/amm-transfer-fee-epoch/verify.py
               python -B research/amm-transfer-fee-epoch/test_verify.py
+              python -I -B scripts/test_amm_checkpoint_modules.py
               python -B scripts/verify_pump_amm_checkpoint.py
-              python -B repro/pump_amm/v2-mint-clone-recovery-20261028/replay_parallel.py --candidate repro/pump_amm/v2-mint-clone-recovery-20261028/results/build/candidate.so --output work/pump-amm-current-replay
-              python -B scripts/verify_pump_amm_checkpoint.py --runtime work/pump-amm-current-replay
+              python -B research/amm-layout-closure-20261028/replay.py --repo . --candidate research/amm-layout-closure-20261028/results/build-a/candidate.so --output work/pump-amm-current-replay
+              python -B scripts/verify_pump_amm_checkpoint.py --runtime work/pump-amm-current-replay/receipts
           - suite: mayhem-1
             commands: |
               python -B research/mayhem-trade-origins-validator/verify.py
@@ -446,35 +488,35 @@ jobs:
               python -B research/mayhem-quote-backend-replay-20261027/test_verify.py
               python -I -B research/mayhem-native-qualified-identity/verify.py
               python -I -B research/mayhem-native-qualified-identity/test_verify.py
-              python -B repro/mayhem/initializer-current-20261027/verify.py --current-source . --expected-seal b6b01b400fb7c5ab10db803ba27fe6a76e0e59e9ea7fad25250dc95760cf485c
-              python scripts/mayhem_validate_admin.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-admin.json
-              python scripts/mayhem_validate_fee_recipient.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-recipient.json
-              python scripts/mayhem_buy_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twenty/buy-cases.json --output work/mayhem-buy.json
-              python scripts/verify_mayhem_buy.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy.json --output work/mayhem-buy-verification.json
-              python scripts/mayhem_sell_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyone/sell-v2-cases.json --family token22 --output work/mayhem-sell-v2-token22.json
-              python scripts/verify_mayhem_sell_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-v2-token22.json --output work/mayhem-sell-v2-token22-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family token22 --output work/mayhem-buy-pump-swap-token22.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-pump-swap-token22.json --output work/mayhem-buy-pump-swap-token22-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family token22 --output work/mayhem-sell-pump-swap-token22.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-pump-swap-token22.json --output work/mayhem-sell-pump-swap-token22-verification.json
+              python -B scripts/verify_current_checkpoint.py mayhem
+              python scripts/mayhem_validate_admin.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-admin.json
+              python scripts/mayhem_validate_fee_recipient.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-recipient.json
+              python scripts/mayhem_buy_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twenty/buy-cases.json --output work/mayhem-buy.json
+              python scripts/verify_mayhem_buy.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy.json --output work/mayhem-buy-verification.json
+              python scripts/mayhem_sell_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyone/sell-v2-cases.json --family token22 --output work/mayhem-sell-v2-token22.json
+              python scripts/verify_mayhem_sell_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-v2-token22.json --output work/mayhem-sell-v2-token22-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family token22 --output work/mayhem-buy-pump-swap-token22.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-pump-swap-token22.json --output work/mayhem-buy-pump-swap-token22-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family token22 --output work/mayhem-sell-pump-swap-token22.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-pump-swap-token22.json --output work/mayhem-sell-pump-swap-token22-verification.json
               mkdir -p work/mayhem-captured-fixtures
               python -c "import tarfile; tarfile.open('repro/mayhem/twentyfour/captured-fixtures.tar.gz').extractall('work/mayhem-captured-fixtures', filter='data')"
               python work/mayhem-captured-fixtures/verify_fixtures.py
-              python scripts/mayhem_burn_sequence.py --fixtures work/mayhem-captured-fixtures --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-burn-replay
+              python scripts/mayhem_burn_sequence.py --fixtures work/mayhem-captured-fixtures --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-burn-replay
               python scripts/verify_mayhem_burn_sequence.py --fixtures work/mayhem-captured-fixtures --receipts work/mayhem-burn-replay
           - suite: mayhem-2
             commands: |
-              python scripts/mayhem_validate_withdraw.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-withdraw.json
-              python scripts/mayhem_validate_quote_withdraw.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-quote-withdraw.json
-              python scripts/mayhem_validate_sweeps.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-sweeps.json
-              python scripts/mayhem_sell_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyone/sell-v2-cases.json --family token --output work/mayhem-sell-v2-token.json
-              python scripts/verify_mayhem_sell_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-v2-token.json --output work/mayhem-sell-v2-token-verification.json
-              python scripts/mayhem_buy_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentytwo/buy-v2-cases.json --family token22 --output work/mayhem-buy-v2-token22.json
-              python scripts/verify_mayhem_buy_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-v2-token22.json --output work/mayhem-buy-v2-token22-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family token --output work/mayhem-buy-pump-swap-token.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-pump-swap-token.json --output work/mayhem-buy-pump-swap-token-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family token --output work/mayhem-sell-pump-swap-token.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-pump-swap-token.json --output work/mayhem-sell-pump-swap-token-verification.json
+              python scripts/mayhem_validate_withdraw.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-withdraw.json
+              python scripts/mayhem_validate_quote_withdraw.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-quote-withdraw.json
+              python scripts/mayhem_validate_sweeps.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-sweeps.json
+              python scripts/mayhem_sell_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyone/sell-v2-cases.json --family token --output work/mayhem-sell-v2-token.json
+              python scripts/verify_mayhem_sell_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-v2-token.json --output work/mayhem-sell-v2-token-verification.json
+              python scripts/mayhem_buy_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentytwo/buy-v2-cases.json --family token22 --output work/mayhem-buy-v2-token22.json
+              python scripts/verify_mayhem_buy_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-v2-token22.json --output work/mayhem-buy-v2-token22-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family token --output work/mayhem-buy-pump-swap-token.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-pump-swap-token.json --output work/mayhem-buy-pump-swap-token-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family token --output work/mayhem-sell-pump-swap-token.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-pump-swap-token.json --output work/mayhem-sell-pump-swap-token-verification.json
           - suite: mayhem-3
             commands: |
               python -B research/mayhem-sizing-panic-recovery/verify.py
@@ -483,19 +525,19 @@ jobs:
               python -B research/mayhem-control-work-20261027/verify_frontier.py
               python -B research/mayhem-control-work-20261027/test_restore.py
               python -B research/mayhem-control-work-20261027/test_frontier.py
-              python scripts/mayhem_validate_extend.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-extend.json
-              python scripts/mayhem_sell_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --output work/mayhem-sell.json
-              python scripts/verify_mayhem_sell.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell.json --output work/mayhem-sell-verification.json
-              python scripts/mayhem_sell_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyone/sell-v2-cases.json --family native --output work/mayhem-sell-v2-native.json
-              python scripts/verify_mayhem_sell_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-v2-native.json --output work/mayhem-sell-v2-native-verification.json
-              python scripts/mayhem_buy_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentytwo/buy-v2-cases.json --family native --output work/mayhem-buy-v2-native.json
-              python scripts/verify_mayhem_buy_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-v2-native.json --output work/mayhem-buy-v2-native-verification.json
-              python scripts/mayhem_buy_v2_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentytwo/buy-v2-cases.json --family token --output work/mayhem-buy-v2-token.json
-              python scripts/verify_mayhem_buy_v2.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-v2-token.json --output work/mayhem-buy-v2-token-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family native --output work/mayhem-buy-pump-swap-native.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-buy-pump-swap-native.json --output work/mayhem-buy-pump-swap-native-verification.json
-              python scripts/mayhem_pump_swap_differential.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family native --output work/mayhem-sell-pump-swap-native.json
-              python scripts/verify_mayhem_pump_swap.py --candidate repro/mayhem/initializer-current-20261027/candidate.so --receipts work/mayhem-sell-pump-swap-native.json --output work/mayhem-sell-pump-swap-native-verification.json
+              python scripts/mayhem_validate_extend.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-extend.json
+              python scripts/mayhem_sell_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --output work/mayhem-sell.json
+              python scripts/verify_mayhem_sell.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell.json --output work/mayhem-sell-verification.json
+              python scripts/mayhem_sell_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyone/sell-v2-cases.json --family native --output work/mayhem-sell-v2-native.json
+              python scripts/verify_mayhem_sell_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-v2-native.json --output work/mayhem-sell-v2-native-verification.json
+              python scripts/mayhem_buy_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentytwo/buy-v2-cases.json --family native --output work/mayhem-buy-v2-native.json
+              python scripts/verify_mayhem_buy_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-v2-native.json --output work/mayhem-buy-v2-native-verification.json
+              python scripts/mayhem_buy_v2_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentytwo/buy-v2-cases.json --family token --output work/mayhem-buy-v2-token.json
+              python scripts/verify_mayhem_buy_v2.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-v2-token.json --output work/mayhem-buy-v2-token-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/buy-pump-swap-cases.json --instruction buy_pump_swap --family native --output work/mayhem-buy-pump-swap-native.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-buy-pump-swap-native.json --output work/mayhem-buy-pump-swap-native-verification.json
+              python scripts/mayhem_pump_swap_differential.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --cases repro/mayhem/twentyfour/sell-pump-swap-cases.json --instruction sell_pump_swap --family native --output work/mayhem-sell-pump-swap-native.json
+              python scripts/verify_mayhem_pump_swap.py --candidate research/mayhem-canonical-promotion-20261028/runtime/loader/payload.bin --receipts work/mayhem-sell-pump-swap-native.json --output work/mayhem-sell-pump-swap-native-verification.json
           - suite: imported-lab
             commands: |
               git clone https://github.com/pump-fun/pump-public-docs.git work/pump-public-docs

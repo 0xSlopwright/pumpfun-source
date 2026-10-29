@@ -56,6 +56,22 @@ export interface ValidationIssue {
 
 export type SchemaRoot = Record<string, unknown>;
 
+/** Equality of decoded JSON values, independent of object key order. */
+function jsonEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) && left.length === right.length &&
+      left.every((item, index) => jsonEqual(item, right[index]));
+  }
+  if (left !== null && right !== null && typeof left === 'object' && typeof right === 'object') {
+    const a = left as Record<string, unknown>;
+    const b = right as Record<string, unknown>;
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && jsonEqual(a[key], b[key]));
+  }
+  return false;
+}
+
 function typeMatches(value: unknown, type: string): boolean {
   switch (type) {
     case 'null':
@@ -83,7 +99,7 @@ function resolveRef(ref: string, root?: SchemaRoot): SchemaNode | undefined {
   let node: unknown = root;
   for (const rawPart of ref.slice(2).split('/')) {
     const part = rawPart.replace(/~1/g, '/').replace(/~0/g, '~');
-    if (node === null || typeof node !== 'object') return undefined;
+    if (node === null || typeof node !== 'object' || !Object.hasOwn(node, part)) return undefined;
     node = (node as Record<string, unknown>)[part];
   }
   return node && typeof node === 'object' ? (node as SchemaNode) : undefined;
@@ -102,7 +118,15 @@ export function validateAgainstSchema(
   const issues: ValidationIssue[] = [];
   if (!schema || typeof schema !== 'object') return issues;
 
-  if (value === null && schema.nullable === true) return issues;
+  if (value === null && schema.nullable === true) {
+    if (schema.enum && !schema.enum.includes(null)) {
+      issues.push({ path, message: `value null is not one of ${JSON.stringify(schema.enum)}` });
+    }
+    if ('const' in schema && schema.const !== null) {
+      issues.push({ path, message: `value null is not the required const ${JSON.stringify(schema.const)}` });
+    }
+    return issues;
+  }
 
   if (schema.$ref) {
     const target = resolveRef(schema.$ref, root);
@@ -124,18 +148,18 @@ export function validateAgainstSchema(
     }
   }
 
-  if (schema.enum && !schema.enum.includes(value)) {
+  if (schema.enum && !schema.enum.some(candidate => jsonEqual(candidate, value))) {
     issues.push({ path, message: `value ${JSON.stringify(value)} is not one of ${JSON.stringify(schema.enum)}` });
   }
-  if ('const' in schema && schema.const !== value) {
+  if ('const' in schema && !jsonEqual(schema.const, value)) {
     issues.push({ path, message: `value ${JSON.stringify(value)} is not the required const ${JSON.stringify(schema.const)}` });
   }
 
-  for (const branch of schema.oneOf ?? []) {
-    if (validateAgainstSchema(value, branch, path, root).length === 0) return issues;
-  }
-  if (schema.oneOf && schema.oneOf.length > 0) {
-    issues.push({ path, message: 'value matched none of the oneOf branches' });
+  if (schema.oneOf) {
+    const matches = schema.oneOf.filter(branch => validateAgainstSchema(value, branch, path, root).length === 0).length;
+    if (matches !== 1) {
+      issues.push({ path, message: matches === 0 ? 'value matched none of the oneOf branches' : 'value matched multiple oneOf branches' });
+    }
   }
   if (schema.anyOf && schema.anyOf.length > 0) {
     const passed = schema.anyOf.some(branch => validateAgainstSchema(value, branch, path, root).length === 0);
@@ -143,10 +167,11 @@ export function validateAgainstSchema(
   }
 
   if (typeof value === 'string') {
-    if (schema.minLength !== undefined && value.length < schema.minLength) {
+    const length = [...value].length;
+    if (schema.minLength !== undefined && length < schema.minLength) {
       issues.push({ path, message: `string shorter than minLength ${schema.minLength}` });
     }
-    if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+    if (schema.maxLength !== undefined && length > schema.maxLength) {
       issues.push({ path, message: `string longer than maxLength ${schema.maxLength}` });
     }
     if (schema.pattern !== undefined) {
@@ -188,11 +213,11 @@ export function validateAgainstSchema(
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
     for (const key of schema.required ?? []) {
-      if (!(key in obj)) issues.push({ path: `${path}.${key}`, message: 'required property is missing' });
+      if (!Object.hasOwn(obj, key)) issues.push({ path: `${path}.${key}`, message: 'required property is missing' });
     }
     const props = schema.properties ?? {};
     for (const [key, v] of Object.entries(obj)) {
-      if (key in props) {
+      if (Object.hasOwn(props, key)) {
         issues.push(...validateAgainstSchema(v, props[key], `${path}.${key}`, root));
       } else if (schema.additionalProperties === false) {
         issues.push({ path: `${path}.${key}`, message: 'property is not allowed by additionalProperties: false' });

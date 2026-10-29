@@ -1,0 +1,41 @@
+{
+  "result": "PASS",
+  "classification": "Actual authored app Settings workflow; no captured visual parity or outbound-consumer integration claim",
+  "origin": "http://127.0.0.1:3027",
+  "browser": "156.0.8078.4",
+  "viewports": [
+    [
+      1280,
+      900
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "browserProcessRestarts": 2,
+  "checks": [
+    "actual Settings switch hydrates, supports keyboard input, writes JSON false and retains it on reload",
+    "full browser-process restart with isolated persistent profile retains choice and unrelated browser data",
+    "a second actual Settings page updates the first through a native cross-tab storage event",
+    "mobile actual Settings write failure keeps page fallback, reports unconfirmed persistence and restores stored choice after reload"
+  ],
+  "sourceInputs": {
+    "reconstruction/privacy-external-links/client.mjs": "be75c1cecf640db7e76545ce802623fa1fd78af84c10377993c82b36fa45df9b",
+    "reconstruction/privacy-external-links/client.d.mts": "7b19d881b2a2253e0ad37aedb1b5009f6f0c0163dfbba690865e57e03ed15410",
+    "reconstruction/privacy-external-links/contract.json": "7054d494459ccdaecad6f29aebb4b16284e574e258d10da7a55ae613b4b7cc50",
+    "packages/frontend/src/components/settings/privacy-setting-control.tsx": "7488aaf16006cf653d44dffc40fa0a955a034ddabf964ccc2ae100567dac9947",
+    "packages/frontend/src/components/settings/privacy-setting-control.module.css": "6aad577d476487b93183fef4f0931f545e216f4ab04204516a49e634ada92b98",
+    "packages/frontend/src/components/settings/settings-control.tsx": "81861f77cd0b89e501a2ad47bf28e67d8255f65ce0aef0cd13a7c9ed5d6bdd68",
+    "tests/original_privacy_settings.browser.mjs": "e35e8365f097c863ef55b4ec6836b2700a99512fff72d1d5868840dcad3b22ad"
+  },
+  "screenshots": {
+    "settings-desktop.png": "a03ff697cad149b4621c1f28a0931eccefe09e81497c6bffa165791431506025",
+    "settings-mobile-storage-failure.png": "e1d90dd2f4988922bb75192b57b1778103b42ae19a76e0c9fff7a12099b7bda5"
+  },
+  "pageErrors": [],
+  "externalRequests": [],
+  "capturedCodeExecuted": false,
+  "outboundConsumersConnected": false,
+  "serverCompatibilityClaimed": false
+}

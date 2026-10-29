@@ -9,6 +9,17 @@ directly (others run as libraries of those steps or by hand). The non-Python fil
 
 ## Conventions
 
+For saved AMM verification on Windows or POSIX, run
+`python -B scripts/verify_pump_amm_checkpoint.py` with the pinned packages in
+`requirements.txt`. The current gate uses `amm_checkpoint_modules.py` to read the
+sealed canonical and layout checkpoints. It checks each adapted module's original
+SHA-256 and changes only manifest-key path serialization in memory to POSIX form.
+The archived scripts, manifests, source inputs, compiler outputs and checks remain
+intact; direct invocation of the archived verifiers retains their original
+platform limitations. This is saved evidence verification, not a fresh build or
+VM replay. Run its stdlib-only regressions with
+`python -I -B scripts/test_amm_checkpoint_modules.py`.
+
 The main Pump builder also accepts `--target sbpf-solana-solana` for an uncached
 build with an installed native SDK. The default remains `sbf-solana-solana`.
 An explicit target must agree with a selected target-library profile. Native
@@ -82,6 +93,8 @@ guard generation. New tooling belongs in the evidence package that uses it, as
 | `reconstruction_identity_audit.py` |  | Measure exact byte gaps without treating size similarity as source completeness. |
 | `verify_current_bindings.py` | ✓ | Verify current tracked inputs; historical scratch paths use exact published copies. |
 | `verify_current_checkpoint.py` | ✓ | Check immutable checkpoint evidence and actual current sources/helper provenance. |
+| `verify_pump_amm_checkpoint.py` | ✓ | Verify selected AMM source and saved or fresh runtime receipts, including signatures. |
+| `amm_checkpoint_modules.py` |  | Read sealed AMM source and packet inventories with portable path keys; archived bytes remain unchanged. |
 | `verify_imported_lab.py` | ✓ | Verify frozen lab import and replay saved receipts in a disposable local tree. |
 | `verify_mayhem_burn_sequence.py` | ✓ | Independently verify saved runtime receipts; no VM or network use. |
 | `verify_mayhem_buy.py` | ✓ | Offline verification of saved signed buy receipts; never executes a VM or RPC. |
@@ -101,6 +114,7 @@ guard generation. New tooling belongs in the evidence package that uses it, as
 | Script | CI | Purpose |
 | --- | :-: | --- |
 | `test_build_source_manifest.py` | ✓ | Regression checks for compiler inputs omitted by earlier build records. |
+| `test_amm_checkpoint_modules.py` | ✓ | Verify sealed AMM source mapping and rejection of source, workspace, module and packet drift. |
 | `test_core_linux_pipeline.py` | ✓ | Synthetic preparation/provenance tests; no compiler, installer, tracer or network. |
 | `test_core_linux_v144_retention.py` | ✓ | Focused synthetic file-inventory tests; never invoke build/main/download/run. |
 | `test_localnet_sdk_plan.py` | ✓ | Fixture/argv tests only. No validator or transaction is executed. |

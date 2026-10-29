@@ -43,7 +43,7 @@
     "path": "/mayhem",
     "feature": "Mayhem",
     "scope": "included",
-    "status": "scaffolded",
+    "status": "offline-screener",
     "behaviorQualified": false,
     "visualQualified": false
   },
@@ -51,7 +51,7 @@
     "path": "/holder-rewards",
     "feature": "Holder rewards",
     "scope": "included",
-    "status": "offline-inspector",
+    "status": "public-configuration-read",
     "behaviorQualified": false,
     "visualQualified": false
   },

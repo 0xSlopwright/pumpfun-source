@@ -37,6 +37,18 @@ export const REFERENCE_SOURCES = {
   },
 } as const;
 
+const localReferenceRoutes = new Set<string>([
+  "/",
+  ...Object.values(REFERENCE_SOURCES).map((source) => source.route),
+]);
+
+/** Preserve the source origin for documents that have no local archive. */
+export function referenceLinkHref(href: string): string {
+  if (!href.startsWith("/") || href.startsWith("//")) return href;
+  const official = new URL(href, REFERENCE_SOURCES.fees.officialUrl);
+  return localReferenceRoutes.has(official.pathname) ? href : official.href;
+}
+
 export type ReferenceKey = keyof typeof REFERENCE_SOURCES;
 
 export type ReferenceInline =

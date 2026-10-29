@@ -54,11 +54,79 @@ pub struct TradeV2<'info> {
     pub program: Program<'info, PumpAmmProgram>,
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[inline(never)]
 pub fn validate_cashback_coin(is_cashback_coin: u8) -> Result<()> {
     require!(is_cashback_coin == 0, PumpAmmError::CashbackCoinNotSupported);
     Ok(())
 }
+
+
+
+
+
+
+
+
+
+
+#[inline(always)]
+pub fn validate_multi_hop_pool(pool: &Pool, charges_creator_fee: bool) -> Result<()> {
+
+    require!(pool.creator == crate::utils::pool_authority(&pool.base_mint), PumpAmmError::OnlyPumpPools);
+    require!(!charges_creator_fee || !pool.is_cashback_coin, PumpAmmError::CashbackCoinNotSupported);
+    // Mayhem pools route their fees through the Mayhem program, which a
+    // multi-hop swap does not forward, so they are rejected even when this
+    // hop charges no fees.
+    require!(!pool.is_mayhem_mode, PumpAmmError::MayhemPoolNotSupported);
+    Ok(())
+}
+
+
+
 
 #[inline(never)]
 pub fn validate_buyback_token_account(
@@ -72,13 +140,16 @@ pub fn validate_buyback_token_account(
         let data = token_account.try_borrow_data()?;
         let mut data_slice = data.as_ref();
         let state = TokenAccount::try_deserialize(&mut data_slice)?;
+
+
+
         require_keys_eq!(state.mint, *quote_mint, PumpAmmError::InvalidQuoteMint);
         state.owner
     };
     global_config.validate_buyback_recipient(&owner, &token_account.key(), quote_mint, token_program)
 }
 
-#[inline(never)]
+
 pub fn quote_reserves(pool: &Pool, raw_quote_reserves: u64) -> Result<(u64, u64)> {
     let available = pool.available_quote_reserves(raw_quote_reserves)?;
     let effective = pool.effective_quote_reserves(raw_quote_reserves)?;
@@ -86,14 +157,83 @@ pub fn quote_reserves(pool: &Pool, raw_quote_reserves: u64) -> Result<(u64, u64)
 }
 
 pub struct BuyResult {
-    pub fees: AppliedFees,
     pub base_amount_out: u64,
     pub quote_amount_in: u64,
+    pub fees: AppliedFees,
     pub user_quote_amount_in: u64,
     pub buyback_fee: u64,
     pub pool_quote_amount_in: u64,
     pub quote_transfer_fee: u64,
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #[inline(never)]
 fn total_quote(amounts: &[u64; 4]) -> Result<u64> {
@@ -109,34 +249,52 @@ pub fn calculate_buy_result(
     quote_transfer_fee: &TransferFeeData,
     base_amount_out: u64,
     quote_amount_in: u64,
-    fees: &AppliedFees,
+    fees: AppliedFees,
 ) -> Result<BuyResult> {
-    let user_quote_amount_in = total_quote(&[
-        quote_amount_in, fees.lp_fee, fees.protocol_fee, fees.creator_fee,
-    ])?;
-    let buyback_fee = if is_mayhem_mode == 0 {
-        let buyback_fee = u64::try_from(
-            (fees.protocol_fee as u128) * (buyback_basis_points as u128) / 10_000,
-        ).expect("buyback fee is at most protocol_fee");
-        fees.protocol_fee.checked_sub(buyback_fee)
-            .expect("buyback_fee never exceeds protocol_fee");
-        buyback_fee
-    } else { 0 };
-    let net_pool_quote = user_quote_amount_in.checked_sub(buyback_fee)
+    let user_quote_amount_in = {
+        let amounts = [quote_amount_in, fees.lp_fee, fees.protocol_fee, fees.creator_fee];
+        total_quote(&amounts)
+    }?;
+    let (buyback_fee, _) = GlobalConfig::split_buyback_fee(buyback_basis_points, fees.protocol_fee, is_mayhem_mode != 0);
+    let net_pool_quote = user_quote_amount_in
+        .checked_sub(buyback_fee)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         .ok_or_else(|| error!(PumpAmmError::Overflow))?;
     let pool_quote_amount_in = transfer_fee::amount_before_fee(quote_transfer_fee, net_pool_quote)?;
-    let quote_transfer_fee = pool_quote_amount_in.checked_sub(net_pool_quote)
-        .ok_or_else(|| error!(PumpAmmError::Overflow))?;
     Ok(BuyResult {
-        fees: fees.clone(),
+        fees,
         base_amount_out,
         quote_amount_in,
         user_quote_amount_in,
         buyback_fee,
         pool_quote_amount_in,
-        quote_transfer_fee,
+        quote_transfer_fee: pool_quote_amount_in
+            .checked_sub(net_pool_quote)
+            .ok_or_else(|| error!(PumpAmmError::Overflow))?,
     })
 }
+
 
 impl BuyResult {
     pub(crate) fn total_user_quote(&self) -> Result<u64> {
@@ -144,32 +302,68 @@ impl BuyResult {
             .ok_or_else(|| error!(PumpAmmError::Overflow))
     }
 }
-
-pub struct BuyPreviewContext<'a, 'info> {
-    pub pool: &'a Box<Account<'info, Pool>>,
-    pub global_config: &'a Box<Account<'info, GlobalConfig>>,
-    pub quote_transfer_fee: &'a TransferFeeData,
-    pub fees: &'a AppliedFees,
-}
-
+/// Initial exact-input quote and its fee amounts, before buyback/transfer-fee preview.
 #[inline(never)]
-pub fn preview_total_quote(context: BuyPreviewContext, quote_amount_in: u64) -> Result<u64> {
-    let global_config = context.global_config.as_ref();
-    let pool = context.pool.as_ref();
-    let quote_transfer_fee = context.quote_transfer_fee;
-    let result = {
-        let fees = context.fees.clone();
-        calculate_buy_result(
-            global_config.buyback_basis_points,
-            pool.is_mayhem_mode as u8,
-            quote_transfer_fee,
-            0,
-            quote_amount_in,
-            &fees,
-        )
+pub fn estimate_buy_quote(pool: &Pool, selected: &AppliedFees, available: u64) -> Result<(u64, AppliedFees)> {
+    let creator_bps = if pool.coin_creator == Pubkey::default() { 0 } else { selected.creator_fee_bps };
+    let fee_bps = selected.protocol_fee_bps.saturating_add(selected.lp_fee_bps).saturating_add(creator_bps);
+    let estimate = if fee_bps == 0 { available } else if available == 0 { 0 } else {
+        // The denominator is at least 10_000, so this quotient is <= available.
+        ((available as u128) * 10_000 / ((fee_bps as u128) + 10_000)) as u64
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    require_gt!(estimate, 0, PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees);
+    let lp_fee = crate::curve::fees::fee(estimate, selected.lp_fee_bps)?;
+    let protocol_fee = crate::curve::fees::fee(estimate, selected.protocol_fee_bps)?;
+    let creator_fee = crate::curve::fees::fee(estimate, creator_bps)?;
+    let required = {
+        let amounts = [estimate, lp_fee, protocol_fee, creator_fee];
+        total_quote(&amounts)
     }?;
-    result.total_user_quote()
+    let mut quote = estimate;
+    if required > available {
+        quote = quote.checked_sub(required.saturating_sub(available))
+            .ok_or(PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees)?;
+
+
+
+
+
+
+        require_gt!(quote, 0, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
+    }
+    return Ok((quote, AppliedFees { lp_fee_bps: selected.lp_fee_bps, protocol_fee_bps: selected.protocol_fee_bps,
+        creator_fee_bps: selected.creator_fee_bps, lp_fee, protocol_fee, creator_fee }));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /// Returns the quote after LP fees and the quote paid to the seller.
 #[inline(never)]
@@ -182,6 +376,10 @@ pub fn calculate_sell_quote(
         .ok_or_else(|| error!(PumpAmmError::Overflow))?;
     require_gte!(real_quote_reserves, quote_amount_out_without_lp_fee,
         PumpAmmError::InsufficientRealQuoteReserves);
+
+
+
+
     let user_quote_amount_out = quote_amount_out_without_lp_fee.checked_sub(fees.creator_fee)
         .and_then(|amount| amount.checked_sub(fees.protocol_fee))
         .ok_or_else(|| error!(PumpAmmError::Overflow))?;
@@ -191,11 +389,11 @@ pub fn calculate_sell_quote(
 pub struct TradeEventContext<'a, 'info> {
     pub pool: &'a Account<'info, Pool>,
     pub global_config: &'a GlobalConfig,
-    pub user_volume_accumulator: &'a UserVolumeAccumulator,
     pub base_supply: u64,
     pub user: Pubkey,
     pub user_base_token_account: Pubkey,
     pub user_quote_token_account: Pubkey,
+    pub user_volume_accumulator: &'a UserVolumeAccumulator,
 }
 
 #[inline(never)]
@@ -260,6 +458,35 @@ pub fn create_sell_event(
         };
     Ok(event)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #[inline(never)]
 pub fn create_buy_event(
@@ -337,55 +564,353 @@ pub fn create_buy_event(
     Ok(event)
 }
 
-/// Initial exact-input quote and its fee amounts, before buyback/transfer-fee preview.
-#[inline(never)]
-pub fn estimate_buy_quote(pool: &Pool, selected: &AppliedFees, available: u64) -> Result<(u64, AppliedFees)> {
-    let creator_bps = if pool.coin_creator == Pubkey::default() { 0 } else { selected.creator_fee_bps };
-    let fee_bps = selected.lp_fee_bps.saturating_add(selected.protocol_fee_bps).saturating_add(creator_bps);
-    let estimate = if fee_bps == 0 { available } else {
-        // The denominator is at least 10_000, so this quotient is <= available.
-        ((available as u128) * 10_000 / ((fee_bps as u128) + 10_000)) as u64
-    };
-    require_gt!(estimate, 0, PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees);
-    let lp_fee = crate::curve::fees::fee(estimate, selected.lp_fee_bps)?;
-    let protocol_fee = crate::curve::fees::fee(estimate, selected.protocol_fee_bps)?;
-    let creator_fee = crate::curve::fees::fee(estimate, creator_bps)?;
-    let required = total_quote(&[estimate, lp_fee, protocol_fee, creator_fee])?;
-    let quote = estimate.checked_sub(required.saturating_sub(available))
-        .ok_or(PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees)?;
-    require_gt!(quote, 0, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
-    Ok((quote, AppliedFees { lp_fee_bps: selected.lp_fee_bps, protocol_fee_bps: selected.protocol_fee_bps,
-        creator_fee_bps: selected.creator_fee_bps, lp_fee, protocol_fee, creator_fee }))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub struct BuyPreviewContext<'a, 'info> {
+    pub pool: &'a Box<Account<'info, Pool>>,
+    pub global_config: &'a Box<Account<'info, GlobalConfig>>,
+    pub quote_transfer_fee: &'a TransferFeeData,
+    pub fees: &'a AppliedFees,
 }
 
+#[inline(never)]
+pub fn preview_total_quote(context: BuyPreviewContext, quote_amount_in: u64) -> Result<u64> {
+    let global_config = context.global_config.as_ref();
+    let pool = context.pool.as_ref();
+    let quote_transfer_fee = context.quote_transfer_fee;
+    let result = {
+        let fees = context.fees.clone();
+        calculate_buy_result(
+            global_config.buyback_basis_points,
+            pool.is_mayhem_mode as u8,
+            quote_transfer_fee,
+            0,
+            quote_amount_in,
+            fees,
+        )
+    }?;
+    result.total_user_quote()
+}
+
+#[inline(never)]
+pub fn execute_buy(ctx: Context<TradeV2>, amount: u64, limit: u64) -> Result<()> {
+    let a = &mut *ctx.accounts;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    require!(a.global_config.disable_flags & 8 == 0, PumpAmmError::DisabledBuy);
+    validate_cashback_coin(a.pool.is_cashback_coin as u8)?;
+    crate::instructions::swap::prepare_pool(&a.pool, a.system_program.as_ref(), a.user.as_ref())?;
+
+
+
+
+
+
+
+
+    require_gt!(amount, 0, PumpAmmError::ZeroBaseAmount);
+    require_gt!(limit, 0, PumpAmmError::ZeroQuoteAmount);
+    validate_buyback_token_account(
+        &a.global_config, a.buyback_fee_recipient.as_ref(), &a.quote_mint.key(), &a.quote_token_program.key(),
+    )?;
+    let user_base_reserves = a.user_base_token_account.amount;
+    let user_quote_reserves = a.user_quote_token_account.amount;
+    let b = a.pool_base_token_account.amount;
+    let raw_quote_reserves = a.pool_quote_token_account.amount;
+    let (_, q) = quote_reserves(&a.pool, raw_quote_reserves)?;
+
+    let old_virtual = a.pool.virtual_quote_reserves;
+    let quote = crate::curve::constant_product::quote_for_base(amount, b, q)?;
+    let selected = fees(a, b, q, quote)?;
+    let quote_fee_data = transfer_fee::from_mint(&a.quote_mint.to_account_info())?;
+    let result = calculate_buy_result(a.global_config.buyback_basis_points, a.pool.is_mayhem_mode as u8,
+        &quote_fee_data, amount, quote, selected)?;
+    let user_quote_amount_in = result.user_quote_amount_in;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    require_gte!(limit, result.total_user_quote()?, PumpAmmError::ExceededSlippage);
+    let buyback_fee = buy_transfers(a, &result)?;
+
+    let event = create_buy_event(
+        TradeEventContext {
+            pool: &a.pool, global_config: &a.global_config,
+            base_supply: a.base_mint.supply,
+            user: a.user.key(), user_base_token_account: a.user_base_token_account.key(),
+            user_quote_token_account: a.user_quote_token_account.key(),
+            user_volume_accumulator: &a.user_volume_accumulator,
+        }, &result, limit, amount, quote, user_quote_amount_in,
+        user_base_reserves, user_quote_reserves, b, raw_quote_reserves,
+        old_virtual, transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?, "buy_v2",
+    )?;
+    emit!(event);
+    emit_cpi!(event);
+    Ok(())
+}
+
+#[inline(never)]
+pub fn execute_buy_exact_quote(ctx: Context<TradeV2>, amount: u64, limit: u64) -> Result<()> {
+    let a = &mut *ctx.accounts;
+
+
+
+
+
+
+
+
+
+
+
+
+    require!(a.global_config.disable_flags & 8 == 0, PumpAmmError::DisabledBuy);
+    validate_cashback_coin(a.pool.is_cashback_coin as u8)?;
+    crate::instructions::swap::prepare_pool(&a.pool, a.system_program.as_ref(), a.user.as_ref())?;
+
+
+
+
+
+
+
+
+
+    require_gt!(limit, 0, PumpAmmError::ZeroBaseAmount);
+    require_gt!(amount, 0, PumpAmmError::ZeroQuoteAmount);
+    validate_buyback_token_account(
+        &a.global_config, a.buyback_fee_recipient.as_ref(), &a.quote_mint.key(), &a.quote_token_program.key(),
+    )?;
+    let user_base_reserves = a.user_base_token_account.amount;
+    let user_quote_reserves = a.user_quote_token_account.amount;
+    let b = a.pool_base_token_account.amount;
+    let raw_quote_reserves = a.pool_quote_token_account.amount;
+    let (_, q) = quote_reserves(&a.pool, raw_quote_reserves)?;
+
+    let old_virtual = a.pool.virtual_quote_reserves;
+    let quote_fee_data = transfer_fee::from_mint(&a.quote_mint.to_account_info())?;
+    let available = transfer_fee::amount_after_fee(&quote_fee_data, amount)?;
+
+
+
+
+    require_gt!(available, 0, PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees);
+    let selected = fees(a, b, q, available)?;
+    let (estimate, exact_fees) = estimate_buy_quote(&a.pool, &selected, available)?;
+    let context = BuyPreviewContext { pool: &a.pool, global_config: &a.global_config,
+        quote_transfer_fee: &quote_fee_data, fees: &exact_fees };
+    let preview = preview_total_quote(context, estimate)?;
+    let mut quote = estimate;
+    if preview > amount {
+        quote = estimate.checked_sub(preview.saturating_sub(amount))
+            .ok_or(PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees)?;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        require_gt!(quote, 0, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
+    }
+    let out = crate::curve::constant_product::base_for_quote(quote, b, q)?;
+
+
+
+
+
+
+
+
+
+    require_gte!(out, limit, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
+
+
+
+
+    require_gte!(b, out, PumpAmmError::TooLittlePoolTokenLiquidity);
+    let result = buy_result(BuyPreviewContext { pool: &a.pool, global_config: &a.global_config,
+        quote_transfer_fee: &quote_fee_data, fees: &exact_fees }, out, quote)?;
+    let buyback_fee = buy_transfers(a, &result)?;
+
+    let event = create_buy_event(
+        TradeEventContext {
+            pool: &a.pool, global_config: &a.global_config,
+            base_supply: a.base_mint.supply,
+            user: a.user.key(), user_base_token_account: a.user_base_token_account.key(),
+            user_quote_token_account: a.user_quote_token_account.key(),
+            user_volume_accumulator: &a.user_volume_accumulator,
+        }, &result, amount, limit, amount, quote,
+        user_base_reserves, user_quote_reserves, b, raw_quote_reserves,
+        old_virtual, transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?, "buy_exact_quote_in_v2",
+    )?;
+    emit!(event);
+    emit_cpi!(event);
+    Ok(())
+}
 
 /// V2 sell execution follows the original transfer and state-update order.
 #[inline(never)]
 pub fn execute_sell(ctx: Context<TradeV2>, base_amount: u64, limit: u64) -> Result<()> {
     let a = &mut *ctx.accounts;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     require!(a.global_config.disable_flags & 16 == 0, PumpAmmError::DisabledSell);
-    prepare(a)?;
+    validate_cashback_coin(a.pool.is_cashback_coin as u8)?;
+    crate::instructions::swap::prepare_pool(&a.pool, a.system_program.as_ref(), a.user.as_ref())?;
+
+
+
+
+
+
+
+
     require_gt!(base_amount, 0, PumpAmmError::ZeroBaseAmount);
-    crate::instructions::swap::trade_v2::validate_buyback_token_account(
+    validate_buyback_token_account(
         &a.global_config, a.buyback_fee_recipient.as_ref(), &a.quote_mint.key(), &a.quote_token_program.key(),
     )?;
-
     let user_base_reserves = a.user_base_token_account.amount;
     let user_quote_reserves = a.user_quote_token_account.amount;
     let b = a.pool_base_token_account.amount;
     let raw_quote_reserves = a.pool_quote_token_account.amount;
-    let real_quote_reserves = crate::liquidity_quote_reserves(&a.pool, raw_quote_reserves)?;
-    let q = a.pool.effective_quote_reserves(raw_quote_reserves)?;
+    let (real_quote_reserves, q) = quote_reserves(&a.pool, raw_quote_reserves)?;
+
     let old_virtual = a.pool.virtual_quote_reserves;
     let curve_quote = crate::curve::constant_product::quote_for_sell(base_amount, b, q)?;
     let selected = fees(a, b, q, curve_quote)?;
     let (quote_without_lp_fee, total_quote) = calculate_sell_quote(curve_quote, &selected, real_quote_reserves)?;
     let quote_fee_data = transfer_fee::from_mint(&a.quote_mint.to_account_info())?;
     let quote_received = transfer_fee::amount_after_fee(&quote_fee_data, total_quote)?;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     require_gte!(quote_received, limit, PumpAmmError::ExceededSlippage);
     let quote_transfer_fee = total_quote.checked_sub(quote_received)
-        .ok_or_else(|| error!(PumpAmmError::Overflow))?;
 
+
+
+
+
+        .ok_or_else(|| error!(PumpAmmError::Overflow))?;
     crate::utils::token::transfer_checked(
         a.base_token_program.as_ref(), &a.base_mint, &a.user_base_token_account,
         &a.pool_base_token_account, a.user.as_ref(), base_amount, &[],
@@ -401,112 +926,197 @@ pub fn execute_sell(ctx: Context<TradeV2>, base_amount: u64, limit: u64) -> Resu
         a.quote_token_program.as_ref(), &a.quote_mint, &a.pool_quote_token_account,
         &a.pool, a.buyback_fee_recipient.as_ref(), buyback_fee,
     )?;
-    if a.user_volume_accumulator.user == Pubkey::default() {
-        a.user_volume_accumulator.user.as_mut().copy_from_slice(a.user.key.as_ref());
-    }
-    let buyback_received = transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?;
-    let event = crate::instructions::swap::trade_v2::create_sell_event(
-        crate::instructions::swap::trade_v2::TradeEventContext {
+    set_accumulator_user(&mut a.user_volume_accumulator, a.user.as_ref());
+
+
+
+    let event = create_sell_event(
+        TradeEventContext {
             pool: &a.pool,
             global_config: &a.global_config,
-            user_volume_accumulator: &a.user_volume_accumulator,
             base_supply: a.base_mint.supply,
             user: a.user.key(),
+            user_volume_accumulator: &a.user_volume_accumulator,
             user_base_token_account: a.user_base_token_account.key(),
             user_quote_token_account: a.user_quote_token_account.key(),
         },
         base_amount, limit, user_base_reserves, user_quote_reserves, b,
         raw_quote_reserves, curve_quote, &selected, quote_without_lp_fee, total_quote,
-        old_virtual, buyback_received, quote_transfer_fee,
+        old_virtual, transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?, quote_transfer_fee,
     )?;
-        emit!(event); emit_cpi!(event);
+    emit!(event);
+    emit_cpi!(event);
     Ok(())
 }
 
-#[inline(never)]
-pub fn execute_buy(ctx: Context<TradeV2>, amount: u64, limit: u64) -> Result<()> {
-    let a = &mut *ctx.accounts;
-    require!(a.global_config.disable_flags & 8 == 0, PumpAmmError::DisabledBuy);
-    prepare(a)?;
-    require_gt!(amount, 0, PumpAmmError::ZeroBaseAmount);
-    require_gt!(limit, 0, PumpAmmError::ZeroQuoteAmount);
-    crate::instructions::swap::trade_v2::validate_buyback_token_account(
-        &a.global_config, a.buyback_fee_recipient.as_ref(), &a.quote_mint.key(), &a.quote_token_program.key(),
-    )?;
-    let user_base_reserves = a.user_base_token_account.amount;
-    let user_quote_reserves = a.user_quote_token_account.amount;
-    let b = a.pool_base_token_account.amount;
-    let raw_quote_reserves = a.pool_quote_token_account.amount;
-    crate::liquidity_quote_reserves(&a.pool, raw_quote_reserves)?;
-    let q = a.pool.effective_quote_reserves(raw_quote_reserves)?;
-    let old_virtual = a.pool.virtual_quote_reserves;
-    let quote = crate::curve::constant_product::quote_for_base(amount, b, q)?;
-    let selected = fees(a, b, q, quote)?;
-    let quote_fee_data = transfer_fee::from_mint(&a.quote_mint.to_account_info())?;
-    let result = calculate_buy_result(a.global_config.buyback_basis_points, a.pool.is_mayhem_mode as u8,
-        &quote_fee_data, amount, quote, &selected)?;
-    require_gte!(limit, result.total_user_quote()?, PumpAmmError::ExceededSlippage);
-    let buyback_fee = buy_transfers(a, &result)?;
-    let buyback_received = transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?;
-    let event = crate::instructions::swap::trade_v2::create_buy_event(
-        crate::instructions::swap::trade_v2::TradeEventContext {
-            pool: &a.pool, global_config: &a.global_config,
-            user_volume_accumulator: &a.user_volume_accumulator,
-            base_supply: a.base_mint.supply, user: a.user.key(),
-            user_base_token_account: a.user_base_token_account.key(),
-            user_quote_token_account: a.user_quote_token_account.key(),
-        }, &result, limit, amount, result.quote_amount_in, result.user_quote_amount_in,
-        user_base_reserves, user_quote_reserves, b, raw_quote_reserves,
-        old_virtual, buyback_received, "buy_v2",
-    )?;
-    emit!(event); emit_cpi!(event);
-    Ok(())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#[inline(always)]
+pub fn set_accumulator_user(accumulator: &mut UserVolumeAccumulator, user: &AccountInfo) {
+    if accumulator.user == Pubkey::default() {
+        accumulator.user.as_mut().copy_from_slice(user.key.as_ref());
+    }
 }
 
-#[inline(never)]
-pub fn execute_buy_exact_quote(ctx: Context<TradeV2>, amount: u64, limit: u64) -> Result<()> {
-    let a = &mut *ctx.accounts;
-    require!(a.global_config.disable_flags & 8 == 0, PumpAmmError::DisabledBuy);
-    prepare(a)?;
-    require_gt!(limit, 0, PumpAmmError::ZeroBaseAmount);
-    require_gt!(amount, 0, PumpAmmError::ZeroQuoteAmount);
-    crate::instructions::swap::trade_v2::validate_buyback_token_account(
-        &a.global_config, a.buyback_fee_recipient.as_ref(), &a.quote_mint.key(), &a.quote_token_program.key(),
-    )?;
-    let user_base_reserves = a.user_base_token_account.amount;
-    let user_quote_reserves = a.user_quote_token_account.amount;
-    let b = a.pool_base_token_account.amount;
-    let raw_quote_reserves = a.pool_quote_token_account.amount;
-    crate::liquidity_quote_reserves(&a.pool, raw_quote_reserves)?;
-    let q = a.pool.effective_quote_reserves(raw_quote_reserves)?;
-    let old_virtual = a.pool.virtual_quote_reserves;
-    let quote_fee_data = transfer_fee::from_mint(&a.quote_mint.to_account_info())?;
-    let available = transfer_fee::amount_after_fee(&quote_fee_data, amount)?;
-    require_gt!(available, 0, PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees);
-    let selected = fees(a, b, q, available)?;
-    let (estimate, exact_fees) = crate::instructions::swap::trade_v2::estimate_buy_quote(&a.pool, &selected, available)?;
-    let preview = preview_total_quote(BuyPreviewContext { pool: &a.pool, global_config: &a.global_config,
-        quote_transfer_fee: &quote_fee_data, fees: &exact_fees }, estimate)?;
-    let quote = estimate.checked_sub(preview.saturating_sub(amount))
-        .ok_or(PumpAmmError::BuyNotEnoughQuoteTokensToCoverFees)?;
-    require_gt!(quote, 0, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
-    let out = crate::curve::constant_product::base_for_quote(quote, b, q)?;
-    require_gte!(out, limit, PumpAmmError::BuySlippageBelowMinBaseAmountOut);
-    let result = calculate_buy_result(a.global_config.buyback_basis_points, a.pool.is_mayhem_mode as u8,
-        &quote_fee_data, out, quote, &exact_fees)?;
-    let buyback_fee = buy_transfers(a, &result)?;
-    let buyback_received = transfer_fee::amount_after_fee(&quote_fee_data, buyback_fee)?;
-    let event = crate::instructions::swap::trade_v2::create_buy_event(
-        crate::instructions::swap::trade_v2::TradeEventContext {
-            pool: &a.pool, global_config: &a.global_config,
-            user_volume_accumulator: &a.user_volume_accumulator,
-            base_supply: a.base_mint.supply, user: a.user.key(),
-            user_base_token_account: a.user_base_token_account.key(),
-            user_quote_token_account: a.user_quote_token_account.key(),
-        }, &result, amount, limit, amount, result.quote_amount_in,
-        user_base_reserves, user_quote_reserves, b, raw_quote_reserves,
-        old_virtual, buyback_received, "buy_exact_quote_in_v2",
-    )?;
-    emit!(event); emit_cpi!(event);
-    Ok(())
+#[inline(always)]
+fn buy_result(context: BuyPreviewContext, base_amount_out: u64, quote_amount_in: u64) -> Result<BuyResult> {
+    let global_config = context.global_config.as_ref();
+    let pool = context.pool.as_ref();
+    let quote_transfer_fee = context.quote_transfer_fee;
+    let fees = context.fees.clone();
+    calculate_buy_result(
+        global_config.buyback_basis_points,
+        pool.is_mayhem_mode as u8,
+        quote_transfer_fee,
+        base_amount_out,
+        quote_amount_in,
+        fees,
+    )
 }

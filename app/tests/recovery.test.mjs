@@ -16,7 +16,7 @@ test('bundle formatting signals incomplete recovery while retaining per-source d
    await mkdir(path.join(directory,'evidence/web'),{recursive:true});
    await writeFile(path.join(directory,'evidence/web/good.js'),'const good = 1;');
    if(failure==='malformed')await writeFile(path.join(directory,'evidence/web/bad.js'),'const broken = ;');
-   const records=['bad','good'].map(name=>({url:`https://example.invalid/${name}.js`,path:`evidence/web/${name}.js`,status:200,sha256:'fixture'}));
+   const records=['bad','good'].map(name=>({url:`https://example.invalid/${name}.js`,path:`evidence/web/${name}.js`,status:200,sha256:createHash('sha256').update(name==='good'?'const good = 1;':'const broken = ;').digest('hex')}));
    await writeFile(path.join(directory,'evidence/web/manifest.json'),JSON.stringify({records}));
    const entry=new URL('../scripts/format-bundles.mjs',import.meta.url).href;
    const result=spawnSync(process.execPath,['--input-type=module','-e',`import {formatBundles} from ${JSON.stringify(entry)}; await formatBundles(process.argv[1]);`,directory],{encoding:'utf8'});

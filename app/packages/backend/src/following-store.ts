@@ -63,7 +63,10 @@ function byUsername(a: User, b: User): number {
   const an = a.username ?? '\uffff';
   const bn = b.username ?? '\uffff';
   if (an !== bn) return an < bn ? -1 : 1;
-  return (a.userId ?? '') < (b.userId ?? '') ? -1 : 1;
+  const left = a.userId ?? a.address;
+  const right = b.userId ?? b.address;
+  if (left !== right) return left < right ? -1 : 1;
+  return a.address === b.address ? 0 : a.address < b.address ? -1 : 1;
 }
 
 /**
@@ -85,7 +88,7 @@ export class FollowingStore {
 
   constructor(userStore: UserStore = defaultStore, seed: FollowEdge[] = edges) {
     this.users = userStore;
-    this.edges = seed;
+    this.edges = structuredClone(seed);
   }
 
   /** Number of edges pointing at `userId`. */
@@ -173,13 +176,14 @@ export class FollowingStore {
   }
 
   private search(users: User[], rawTerm: string): User[] {
-    const term = rawTerm.trim().toLowerCase();
-    if (term.length < 2) return [];
+    const trimmed = rawTerm.trim();
+    if ([...trimmed].length < 2) return [];
+    const term = trimmed.toLowerCase();
     return users
       .map((user) => ({ user, score: relevance(user, term) }))
       .filter((row) => row.score > 0)
       .sort((a, b) => (a.score !== b.score ? b.score - a.score : byUsername(a.user, b.user)))
-      .map((row) => row.user);
+      .map((row) => structuredClone(row.user));
   }
 }
 

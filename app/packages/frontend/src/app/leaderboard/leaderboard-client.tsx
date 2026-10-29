@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  creatorPagination,
+  CREATOR_LEADERBOARD_LIMIT,
+} from "./creator-pagination";
+import { CompetitionCountdown } from "../../components/leaderboard/CompetitionCountdown";
+import { useSearchParams } from "next/navigation";
 import {
   FormEvent,
   useCallback,
@@ -31,6 +36,7 @@ import {
   type TraderEntry,
   type TradersData,
 } from "./types";
+import { CompetitionRules } from "./competition-rules";
 
 const PAGE_SIZE = 10;
 const SEARCH_LIMIT = 200;
@@ -400,6 +406,7 @@ function CompetitionCards({
               <dd>{safeDate(competition.endsAt)}</dd>
             </div>
           </dl>
+          <CompetitionCountdown competition={competition} />
           <Link className="competition-link" href={detailHref(competition)}>
             View ranked entries
           </Link>
@@ -453,7 +460,6 @@ function CompetitionEntryRows({ entries }: { entries: CompetitionEntry[] }) {
 }
 
 export default function LeaderboardClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const category = oneOf(
     searchParams.get("category"),
@@ -563,11 +569,15 @@ export default function LeaderboardClient() {
       }
       if (resetPage && !Object.hasOwn(changes, "page")) next.delete("page");
       const serialized = next.toString();
-      router.push(serialized ? `/leaderboard?${serialized}` : "/leaderboard", {
-        scroll: false,
-      });
+      // Commit the URL synchronously so a second control change merges with it
+      // even before React renders. Next syncs native history with useSearchParams.
+      window.history.pushState(
+        null,
+        "",
+        serialized ? `/leaderboard?${serialized}` : "/leaderboard",
+      );
     },
-    [router],
+    [],
   );
 
   const setSearch = (nextQuery: string) =>
@@ -625,24 +635,47 @@ export default function LeaderboardClient() {
         .filter(Boolean)
         .some((value) => value!.toLocaleLowerCase().includes(lowerQuery)),
     );
-    const totalPages = Math.max(
-      1,
-      Math.ceil(data.totalEarners / data.pageSize),
-    );
-    content = entries.length ? (
+    const { totalPages, outOfRange } = creatorPagination(data);
+    content = (
       <>
         <div className="leaderboard-summary">
           <span>{compact.format(data.totalEarners)} confirmed earners</span>
+          {data.totalEarners > CREATOR_LEADERBOARD_LIMIT ? (
+            <span>Top {CREATOR_LEADERBOARD_LIMIT} available</span>
+          ) : null}
           <span>
             Generated{" "}
             {data.generatedAt ? safeTime(data.generatedAt) : "unknown"}
           </span>
         </div>
-        <CreatorRows entries={entries} />
-        <Pagination page={data.page} totalPages={totalPages} onPage={setPage} />
+        {outOfRange ? (
+          <>
+            <EmptyState
+              message={`Page ${data.page} is outside the available payout board (pages 1–${totalPages}).`}
+            />
+            <button
+              className="leaderboard-button"
+              type="button"
+              onClick={() => setPage(1)}
+            >
+              Back to first payout page
+            </button>
+          </>
+        ) : (
+          <>
+            {entries.length ? (
+              <CreatorRows entries={entries} />
+            ) : (
+              <EmptyState message="No creator on this loaded page matches the local filter." />
+            )}
+            <Pagination
+              page={data.page}
+              totalPages={totalPages}
+              onPage={setPage}
+            />
+          </>
+        )}
       </>
-    ) : (
-      <EmptyState message="No creator on this loaded page matches the local filter." />
     );
   } else if (response?.ok && response.data.kind === "competitions") {
     const data: CompetitionsData = response.data;
@@ -712,6 +745,7 @@ export default function LeaderboardClient() {
           </span>
           <h2>{data.competition.title}</h2>
           <p>{data.competition.description}</p>
+          <CompetitionRules key={data.competition.id} competition={data.competition} />
           <dl>
             <div>
               <dt>Ranked entries</dt>

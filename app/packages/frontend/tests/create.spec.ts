@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createViaShell } from "./shell-controls";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -63,14 +64,14 @@ test("/create serves an editable form instead of the unavailable scaffold", asyn
 test("desktop and mobile shell navigation reach the form", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await page.getByRole("link", { name: "Create a coin", exact: true }).click();
+  await createViaShell(page);
   await expect(page).toHaveURL(/\/create$/);
   await expect(page.getByRole("form")).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Create a coin", exact: true }).click();
+  await createViaShell(page);
   await expect(page).toHaveURL(/\/create$/);
   await expect(page.getByRole("form")).toBeVisible();
 });

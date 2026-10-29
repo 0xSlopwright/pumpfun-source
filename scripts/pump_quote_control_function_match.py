@@ -4,10 +4,13 @@
 For every candidate function whose symbol mentions quote_control (plus explicitly
 requested symbols), search the captured .text for windows with the same length and
 the same instructions after masking only:
-  * lddw immediates (loader-relocated addresses), and
-  * immediates of internal relative calls (src register 1 / pc-relative call).
-Every other byte (opcodes, registers, offsets, branch displacements, constants) must
-be identical. Raw-byte equality is reported separately. This is analysis only; no
+  * both lddw immediate words (this heuristic also masks literal constants), and
+  * non-sentinel call immediates with src register 0 or 1, following the
+    unrelocated legacy-SBPF relative-call convention.
+This is a legacy, pre-loader heuristic, not a version-aware decoder for modern
+static syscalls or post-relocation call IDs. Every other byte (opcodes, registers,
+offsets and branch displacements) must be identical. Raw equality is separate;
+masked matches do not prove callee or data identity. This is analysis only; no
 executable is written or patched.
 """
 import argparse, hashlib, json, pathlib, re, struct, subprocess
@@ -26,11 +29,15 @@ def sections(blob):
 
 
 def mask(code):
+    if len(code) % 8:
+        raise ValueError("SBF code must contain complete 8-byte instruction slots")
     out = bytearray(code)
     i = 0
     while i + 8 <= len(out):
         op = out[i]
         if op == 0x18:  # lddw spans two slots
+            if i + 16 > len(out):
+                raise ValueError("truncated lddw instruction")
             out[i + 4:i + 8] = b'\0' * 4
             out[i + 12:i + 16] = b'\0' * 4
             i += 16
@@ -39,6 +46,19 @@ def mask(code):
             out[i + 4:i + 8] = b'\0' * 4  # internal relative call target
         i += 8
     return bytes(out)
+
+
+def _aligned_matches(needle, haystack):
+    """Return every instruction-aligned occurrence, including overlapping ones."""
+    if not needle:
+        raise ValueError("candidate function body must not be empty")
+    hits = []
+    start = haystack.find(needle)
+    while start != -1:
+        if start % 8 == 0:
+            hits.append(start)
+        start = haystack.find(needle, start + 1)
+    return hits
 
 
 def candidate_functions(path, objdump, pattern):
@@ -70,7 +90,7 @@ def main():
         off = addr - cs['addr'] + cs['offset']
         body = cand[off:off + size]
         mb = mask(body)
-        hits = [m.start() for m in re.finditer(re.escape(mb), omask) if m.start() % 8 == 0]
+        hits = _aligned_matches(mb, omask)
         raw = [h for h in hits if otext[h:h + size] == body]
         rows.append({'symbol': name, 'size': size, 'masked_matches': [os_['addr'] + h for h in hits],
                      'raw_matches': [os_['addr'] + h for h in raw], 'sha256': hashlib.sha256(body).hexdigest()})

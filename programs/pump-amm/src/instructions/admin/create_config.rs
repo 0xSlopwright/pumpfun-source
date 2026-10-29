@@ -24,3 +24,24 @@ pub struct CreateConfigEvent {
     pub coin_creator_fee_basis_points: u64,
     pub admin_set_coin_creator_authority: Pubkey,
 }
+
+pub fn create_config(ctx: Context<CreateConfig>, lp_fee_basis_points: u64,
+    protocol_fee_basis_points: u64, protocol_fee_recipients: [Pubkey; 8],
+    coin_creator_fee_basis_points: u64, admin_set_coin_creator_authority: Pubkey) -> Result<()> {
+    let admin = ctx.accounts.admin.key();
+    let global_config = &mut ctx.accounts.global_config;
+    global_config.admin = admin;
+    global_config.set_lp_fee_basis_points(lp_fee_basis_points)?;
+    global_config.set_protocol_fee_basis_points(protocol_fee_basis_points)?;
+    global_config.set_protocol_fee_recipients(protocol_fee_recipients)?;
+    global_config.set_coin_creator_fee_basis_points(coin_creator_fee_basis_points)?;
+    global_config.disable_flags = 0;
+    global_config.admin_set_coin_creator_authority = admin_set_coin_creator_authority;
+    let event = CreateConfigEvent { timestamp: Clock::get()?.unix_timestamp,
+        admin, lp_fee_basis_points, protocol_fee_basis_points,
+        protocol_fee_recipients, coin_creator_fee_basis_points,
+        admin_set_coin_creator_authority };
+    emit!(event);
+    emit_cpi!(event);
+    Ok(())
+}

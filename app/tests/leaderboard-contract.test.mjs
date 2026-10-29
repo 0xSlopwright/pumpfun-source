@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { validateAgainstSchema } from "../packages/backend/src/schema-validator.ts";
 import { test } from "node:test";
 import {
   MAX_UPSTREAM_BYTES,
@@ -105,7 +107,7 @@ test("normalizes documented trader and creator responses", () => {
     "traders",
     {
       entries: [trader],
-      periodType: "daily",
+      periodType: 0,
       periodLabel: "Daily",
       windowStartSec: 1_700_000_000,
     },
@@ -127,6 +129,77 @@ test("normalizes documented trader and creator responses", () => {
   assert.equal(creators.kind, "creators");
   assert.equal(creators.page, 3);
   assert.equal(creators.entries[0].totalPaidUsdc, 20);
+});
+
+// These payloads are synthetic contract cases, not observed production rankings.
+const developerSpec = JSON.parse(
+  readFileSync(new URL("../contracts/developer.openapi.json", import.meta.url), "utf8"),
+);
+const traderResponseSchema =
+  developerSpec.paths["/pnl-leaderboard"].get.responses["200"].content[
+    "application/json"
+  ].schema;
+const declaredPeriodTypes =
+  traderResponseSchema.properties.periodType.anyOf.flatMap((branch) => branch.enum);
+
+test("accepts every documented numeric PNL period type without changing the board", () => {
+  assert.deepEqual(declaredPeriodTypes, [0, 1, 2, 3]);
+  const entries = [
+    { ...trader, rank: 7, pnlUsd: -25.125, username: null, userId: null },
+    { ...trader, rank: 3, pnlUsd: 10.625, walletAddress: "synthetic-other-wallet" },
+  ];
+  for (const periodType of declaredPeriodTypes) {
+    const payload = {
+      entries,
+      periodType,
+      periodLabel: "Synthetic period label",
+      windowStartSec: 1_700_000_000,
+    };
+    const before = structuredClone(payload);
+    assert.deepEqual(
+      validateAgainstSchema(payload, traderResponseSchema, "$", developerSpec),
+      [],
+    );
+    const result = normalizeUpstreamResponse("traders", payload, {
+      page: 1,
+      competitionId: null,
+    });
+    assert.equal(result.kind, "traders");
+    assert.deepEqual(
+      result.entries.map((row) => [row.rank, row.pnlUsd, row.walletAddress]),
+      entries.map((row) => [row.rank, row.pnlUsd, row.walletAddress]),
+    );
+    assert.equal(result.entries[0].username, null);
+    assert.equal(result.entries[0].userId, null);
+    assert.equal(result.periodLabel, payload.periodLabel);
+    assert.equal(result.windowStartSec, payload.windowStartSec);
+    assert.deepEqual(payload, before);
+  }
+});
+
+test("rejects request period strings and other undeclared response period types", () => {
+  for (const periodType of [
+    "daily", "weekly", "monthly", "0", -1, 4, 0.5,
+    null, undefined, true, {}, [], NaN, Infinity,
+  ]) {
+    const payload = {
+      entries: [trader],
+      periodType,
+      periodLabel: "Synthetic period label",
+      windowStartSec: 1_700_000_000,
+    };
+    assert.notDeepEqual(
+      validateAgainstSchema(payload, traderResponseSchema, "$", developerSpec),
+      [],
+    );
+    assert.throws(
+      () => normalizeUpstreamResponse("traders", payload, {
+        page: 1,
+        competitionId: null,
+      }),
+      (error) => error instanceof UpstreamValidationError && /periodType/.test(error.message),
+    );
+  }
 });
 
 test("normalizes competition lists and ranked entry detail", () => {
@@ -162,7 +235,12 @@ test("rejects missing fields, unsupported competition enums and oversized arrays
     () =>
       normalizeUpstreamResponse(
         "traders",
-        { entries: [{ ...trader, pnlUsd: "25" }] },
+        {
+          entries: [{ ...trader, pnlUsd: "25" }],
+          periodType: 0,
+          periodLabel: "Synthetic period label",
+          windowStartSec: 1_700_000_000,
+        },
         { page: 1, competitionId: null },
       ),
     UpstreamValidationError,
@@ -186,7 +264,7 @@ test("rejects missing fields, unsupported competition enums and oversized arrays
         "traders",
         {
           entries: Array.from({ length: 101 }, () => trader),
-          periodType: "daily",
+          periodType: 0,
           periodLabel: "Daily",
           windowStartSec: 1_700_000_000,
         },

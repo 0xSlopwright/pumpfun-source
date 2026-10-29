@@ -25,6 +25,123 @@ pub fn execute(ctx:Context<SweepFees>,creator:bool)->Result<()>{
  let a=&mut *ctx.accounts;
  crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.payer)?;
  let native=a.bonding_curve.quote_mint==Pubkey::default();let cf=a.bonding_curve.creator_fee;let pf=a.bonding_curve.protocol_fees;let info=a.bonding_curve.to_account_info();
+// layout-pad(117): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ require_keys_neq!(a.recipient.key(),Pubkey::default(),PumpError::NotAuthorized);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
  if creator{let expected=Pubkey::find_program_address(&[b"creator-vault",a.bonding_curve.creator.as_ref()],&crate::ID).0;require_keys_eq!(a.recipient.key(),expected,anchor_lang::error::ErrorCode::ConstraintSeeds);}
  else{crate::legacy_sell::fee_recipient::validate_fee_recipient(&a.recipient,&a.global,&a.bonding_curve)?;}
  let amount=if creator{cf}else{pf};if amount==0{msg!("Nothing to sweep for fee bucket {}",if creator{1u8}else{0u8});return Ok(());}
@@ -34,8 +151,8 @@ pub fn execute(ctx:Context<SweepFees>,creator:bool)->Result<()>{
  }
  else{
 
-  crate::buy_v2::admit_associated_token_account(a.associated_quote_bonding_curve.as_ref(),&a.bonding_curve.to_account_info(),&a.quote_mint.key(),&a.quote_token_program.key(),a.payer.as_ref(),&a.quote_mint.to_account_info(),false,a.system_program.as_ref(),a.quote_token_program.as_ref())?;
-  crate::buy_v2::admit_associated_token_account(a.associated_quote_recipient.as_ref(),a.recipient.as_ref(),&a.quote_mint.key(),&a.quote_token_program.key(),a.payer.as_ref(),&a.quote_mint.to_account_info(),true,a.system_program.as_ref(),a.quote_token_program.as_ref())?;
+  crate::buy_v2::admit_associated_token_account(a.associated_quote_bonding_curve.as_ref(),&a.bonding_curve.to_account_info(),a.quote_mint.key(),a.quote_token_program.key(),&a.quote_mint.to_account_info(),a.quote_token_program.as_ref(),false,a.payer.as_ref(),a.system_program.as_ref())?;
+  crate::buy_v2::admit_associated_token_account(a.associated_quote_recipient.as_ref(),a.recipient.as_ref(),a.quote_mint.key(),a.quote_token_program.key(),&a.quote_mint.to_account_info(),a.quote_token_program.as_ref(),true,a.payer.as_ref(),a.system_program.as_ref())?;
   let mint=a.base_mint.key();let bump=[ctx.bumps.bonding_curve];let seeds:&[&[u8]]=&[b"bonding-curve",mint.as_ref(),&bump];
   crate::sell_v2::quote_token_transfers::transfer_quote_tokens(&a.quote_token_program,a.associated_quote_bonding_curve.as_ref(),a.associated_quote_recipient.as_ref(),info,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),amount,&[seeds])?;
  }

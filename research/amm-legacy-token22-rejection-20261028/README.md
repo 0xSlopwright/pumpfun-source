@@ -2,9 +2,8 @@
 
 ## Problem
 
-The legacy buy and sell handlers pass the Token program for
-transfers regardless of the mint's program, so a Token-2022
-base or quote mint cannot be traded through them at all, while
+Given the Token program, the legacy buy and sell handlers fail for a
+Token-2022 base or quote mint (every case passes the legacy Token program; passing the Token-2022 program is not executed here), while
 trade_v2 withholds base and quote transfer fees normally when
 given the matching Token-2022 program account.
 
@@ -14,8 +13,9 @@ Eight fresh-VM triples (original / #424 control / #427
 candidate), 24 signed executions on the repository's own legacy
 harness (`scripts/pump_amm_legacy_buy_differential.py` and
 `scripts/pump_amm_legacy_sell_differential.py`). The clock is
-slot 100, epoch 0. `producer.py` reproduces every receipt from
-the repository files.
+slot 100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -41,9 +41,9 @@ order.
 ## Result
 
 - **Token-2022 mints fail in legacy, in both directions**:
-  a legacy buy or sell with a Token-2022 base mint or a
-  Token-2022 quote mint fails InvalidAccountData, at 1% and
-  50% fees alike.
+  a legacy buy or sell given the Token program fails
+  InvalidAccountData with a Token-2022 base mint (1% and 50%
+  fees) or a Token-2022 quote mint (1% fee only).
 - **The Token program itself rejects first**: the logs show
   the Token program failing with "invalid account data for
   instruction" before the AMM fails, because the legacy
@@ -54,10 +54,11 @@ order.
   quote transfer fees normally (see the trade base and quote
   transfer-fee packets). The legacy handlers have no
   equivalent path.
-- **Legacy quote vault deltas differ from v2**: the legacy
-  buy adds 1,825,348 to the quote vault (v2: 1,839,310) and
-  the legacy sell draws 182,458 (v2: 181,061), pinned here
-  for the record.
+- **Legacy quote vault deltas**: the legacy buy adds 1,825,348
+  to the quote vault and the legacy sell draws 182,458, pinned
+  here. No v2 instruction runs in this packet; the v2 figures
+  (1,839,310 and 181,061) come from the trade base transfer-fee
+  packet.
 
 ## Limits
 

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import AppShell from "./app-shell";
+import { AppShell } from "@/components/shell/AppShell";
+import { ClickwrapDialog } from "@/components/shell/ClickwrapDialog";
+import {
+  CLICKWRAP_STATE_SCRIPT,
+  CLICKWRAP_INERT_SCRIPT,
+} from "@/components/shell/clickwrap";
 import "./globals.css";
+import "./captured-shell.css";
 
 export const metadata: Metadata = {
   title: {
@@ -13,9 +19,12 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-pf-auth="out" suppressHydrationWarning>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: CLICKWRAP_STATE_SCRIPT }} />
+        <ClickwrapDialog />
         <AppShell>{children}</AppShell>
+        <script dangerouslySetInnerHTML={{ __html: CLICKWRAP_INERT_SCRIPT }} />
       </body>
     </html>
   );

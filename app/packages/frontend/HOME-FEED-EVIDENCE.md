@@ -35,6 +35,11 @@ The static operation inventory separately records `GET /home-feed`,
 `7783..7803`, and `8108..8134`. Their service binding remains unresolved and
 all three operations remain unimplemented and unqualified.
 
+The opt-in frontend connection to PR #700's independently reconstructed local
+read model is documented in [`NATIVE-HOME-FEED.md`](NATIVE-HOME-FEED.md). It
+does not change the authority of these captured observations or qualify the
+original production service.
+
 ## Declared local input
 
 The merged native-read work documents the checked-in backend seeds as

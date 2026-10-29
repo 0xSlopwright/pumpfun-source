@@ -6,7 +6,7 @@
  * in-memory UserStore.
  */
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { UserStore, defaultStore, DATA_SOURCE } from './users-store.js';
+import { UserStore, defaultStore, DATA_SOURCE, type User } from './users-store.js';
 
 /**
  * Response marker for hand-authored synthetic data.
@@ -30,6 +30,62 @@ export function errorBody(statusCode: number, error: string, extra: Record<strin
   return { statusCode, error, ...extra };
 }
 
+/**
+ * The shared profile schema permits last_active_at for signed-in website reads,
+ * but explicitly says it is absent on the developer API host. An API key is not
+ * a website viewer. Project without changing the underlying domain-store row.
+ */
+export function toDeveloperUser(user: User): Omit<User, 'last_active_at'> {
+  const { last_active_at: _activity, ...profile } = user;
+  return profile;
+}
+
+/** Hydrated search and batch rows omit the single-profile rename timestamp. */
+function toHydratedDeveloperUser(user: User): Omit<User, 'last_active_at' | 'last_username_update_timestamp'> {
+  const { last_username_update_timestamp: _renamed, ...profile } = toDeveloperUser(user);
+  return profile;
+}
+
+/**
+ * Keep the existing replay harness's fail-closed duplicate-query boundary on
+ * native reads too. The scalar OpenAPI parameters do not establish semantics
+ * for repeated keys; selecting a value or coercing an array would invent them.
+ * Decode key names so `searchTerm` and `%73earchTerm` cannot bypass the check.
+ */
+export function rejectDuplicateQueryKeys(request: { url: string }, reply: FastifyReply): boolean {
+  const separator = request.url.indexOf('?');
+  if (separator < 0) return false;
+  const keys = new Set<string>();
+  for (const key of new URLSearchParams(request.url.slice(separator + 1)).keys()) {
+    if (keys.has(key)) {
+      reply.code(501).send({ error: 'DUPLICATE_QUERY_KEYS_UNIMPLEMENTED' });
+      return true;
+    }
+    keys.add(key);
+  }
+  return false;
+}
+
+/**
+ * Both user read contracts bound offset/limit to JavaScript safe integers.
+ * An empty or whitespace-only value is not an integer literal (Number('') is
+ * 0, so it would otherwise read as offset=0 / limit=0) and is rejected like
+ * any other non-integer, matching /v1/pnl-leaderboard.
+ */
+function userPageValue(raw: string | undefined): number | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw.trim() === '') return null;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function userPagination(qs: Record<string, string | undefined>) {
+  const offset = userPageValue(qs.offset);
+  const limit = userPageValue(qs.limit);
+  if (offset === null || limit === null) return null;
+  return { offset, limit };
+}
+
 export function registerUserRoutes(app: FastifyInstance, store: UserStore = defaultStore): void {
   /**
    * GET /v1/users
@@ -37,24 +93,21 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * Returns: 200, JSON array of User.
    */
   app.get('/v1/users', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const qs = request.query as Record<string, string | undefined>;
-    // Contract permits any integer for offset/limit (including negatives).
+    // Contract permits any safe integer for offset/limit (including negatives).
     // Documented assumption: negatives clamp to 0 rather than producing
     // slicing surprises, so offset<0 behaves as 0 and limit<0 returns [].
-    const asInt = (v?: string) => {
-      if (v === undefined) return undefined;
-      const n = Number(v);
-      return Number.isFinite(n) ? Math.trunc(n) : undefined;
-    };
-    const offset = asInt(qs.offset);
-    const limit = asInt(qs.limit);
+    const pagination = userPagination(qs);
+    if (!pagination) return reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
+    const { offset, limit } = pagination;
     const result = store.list({
       sort: qs.sort,
       order: qs.order,
       offset: offset === undefined ? undefined : Math.max(0, offset),
       limit: limit === undefined ? undefined : Math.max(0, limit),
     });
-    return sendSynthetic(reply, 200, result);
+    return sendSynthetic(reply, 200, result.map(toDeveloperUser));
   });
 
   /**
@@ -66,15 +119,28 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * "search-v2" is not captured as `:id`.
    */
   app.get('/v1/users/search-v2', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const qs = request.query as Record<string, string | undefined>;
-    const asInt = (v?: string) => {
-      if (v === undefined) return undefined;
-      const n = Number(v);
-      return Number.isFinite(n) ? Math.trunc(n) : undefined;
-    };
-    const offset = asInt(qs.offset);
-    const limit = asInt(qs.limit);
-    const includeLabelledWallets = qs.includeLabelledWallets === 'true' || qs.includeLabelledWallets === '1';
+    const pagination = userPagination(qs);
+    if (!pagination) return reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
+    const { offset, limit } = pagination;
+    // includeLabelledWallets is a boolean in the contract, but any value other
+    // than 'true'/'1' previously read as false, so a typo or garbage value
+    // silently narrowed the result set instead of failing. The sibling
+    // boolean parsers reject anything else: positions boolean() throws on
+    // anything but true/1/false/0, home-feed boolean() on anything but
+    // true/false, and this file's own batch handler rejects a non-boolean
+    // forceFetch. Accept the same true/1/false/0 spellings positions does.
+    let includeLabelledWallets = false;
+    if (qs.includeLabelledWallets !== undefined) {
+      if (qs.includeLabelledWallets === 'true' || qs.includeLabelledWallets === '1') {
+        includeLabelledWallets = true;
+      } else if (qs.includeLabelledWallets === 'false' || qs.includeLabelledWallets === '0') {
+        includeLabelledWallets = false;
+      } else {
+        return reply.code(400).send(errorBody(400, 'INVALID_QUERY'));
+      }
+    }
     const result = store.search({
       searchTerm: qs.searchTerm,
       sort: qs.sort,
@@ -83,7 +149,7 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
       limit: limit === undefined ? undefined : Math.max(0, limit),
       includeLabelledWallets,
     });
-    return sendSynthetic(reply, 200, result);
+    return sendSynthetic(reply, 200, result.map(user => user.wallet_label?.trim() ? toDeveloperUser(user) : toHydratedDeveloperUser(user)));
   });
 
   /**
@@ -95,6 +161,7 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * "username-exists" is not captured as `:id`.
    */
   app.get('/v1/users/username-exists/:username', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const { username } = request.params as { username: string };
     return sendSynthetic(reply, 200, { exists_flag: store.usernameExists(username) });
   });
@@ -108,6 +175,7 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * NOTE: This must be registered BEFORE /v1/users/:id.
    */
   app.post('/v1/users/batch', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const body = request.body as { addresses?: string[]; forceFetch?: boolean } | null;
     if (!body || !Array.isArray(body.addresses)) {
       return reply.code(400).send(errorBody(400, 'ADDRESSES_REQUIRED'));
@@ -116,8 +184,14 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
     if (body.addresses.length > 100) {
       return reply.code(400).send(errorBody(400, 'TOO_MANY_ADDRESSES', { maxItems: 100, received: body.addresses.length }));
     }
+    if (body.addresses.some(address => typeof address !== 'string')) {
+      return reply.code(400).send(errorBody(400, 'INVALID_ADDRESS'));
+    }
+    if (body.forceFetch !== undefined && typeof body.forceFetch !== 'boolean') {
+      return reply.code(400).send(errorBody(400, 'INVALID_FORCE_FETCH'));
+    }
     const result = store.batch(body.addresses);
-    return sendSynthetic(reply, 201, result);
+    return sendSynthetic(reply, 201, result.map(toHydratedDeveloperUser));
   });
 
   /**
@@ -128,12 +202,13 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * NOTE: This must be registered BEFORE /v1/users/:id.
    */
   app.get('/v1/users/:id/overview', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const { id } = request.params as { id: string };
     const overview = store.getOverview(id);
     if (!overview) {
       return reply.code(404).send(errorBody(404, 'NOT_FOUND'));
     }
-    return sendSynthetic(reply, 200, overview);
+    return sendSynthetic(reply, 200, { ...overview, profile: toDeveloperUser(overview.profile) });
   });
 
   /**
@@ -145,12 +220,13 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * we return 404 with { error: "NOT_FOUND" } when no user matches.
    */
   app.get('/v1/users/:id', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const { id } = request.params as { id: string };
     const user = store.getById(id);
     if (!user) {
       return reply.code(404).send(errorBody(404, 'NOT_FOUND'));
     }
-    return sendSynthetic(reply, 200, user);
+    return sendSynthetic(reply, 200, toDeveloperUser(user));
   });
 
   /**
@@ -160,6 +236,7 @@ export function registerUserRoutes(app: FastifyInstance, store: UserStore = defa
    * Returns: 201, object mapping each requested id to boolean.
    */
   app.post('/v1/profiles/verified', async (request, reply) => {
+    if (rejectDuplicateQueryKeys(request, reply)) return reply;
     const body = request.body as { ids?: unknown } | null;
     if (!body || typeof body !== 'object' || !Array.isArray(body.ids)) {
       return reply.code(400).send(errorBody(400, 'IDS_REQUIRED'));

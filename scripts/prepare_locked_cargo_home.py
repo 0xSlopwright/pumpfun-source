@@ -54,16 +54,18 @@ for package in lock['package']:
     records.append({'package': name, 'version': version,
                     'archive_sha256': package['checksum'],
                     'index_sha256': sha(indexes[0])})
-configs = [source / 'index' / namespace / 'config.json'
-           for namespace in reversed(namespaces)
-           if (source / 'index' / namespace / 'config.json').is_file()]
-if not configs:
-    raise RuntimeError('No local crates.io registry configuration')
-config = configs[0]
-for namespace in namespaces:
-    shutil.copyfile(config, args.output / 'registry/index' / namespace / 'config.json')
+config = None
+if records:
+    configs = [source / 'index' / namespace / 'config.json'
+               for namespace in reversed(namespaces)
+               if (source / 'index' / namespace / 'config.json').is_file()]
+    if not configs:
+        raise RuntimeError('No local crates.io registry configuration')
+    config = configs[0]
+    for namespace in namespaces:
+        shutil.copyfile(config, args.output / 'registry/index' / namespace / 'config.json')
 manifest = {'scope': 'Existing local archives verified against a fixed Cargo.lock; no network download.',
             'lockfile_sha256': hashlib.sha256(raw_lock).hexdigest(),
-            'registry_config_sha256': sha(config), 'packages': records}
+            'registry_config_sha256': sha(config) if config is not None else None, 'packages': records}
 (args.output / 'cache-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 print(f'Prepared {len(records)} checksum-verified packages in {args.output}')

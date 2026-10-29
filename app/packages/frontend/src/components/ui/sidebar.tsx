@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   createContext,
@@ -6,13 +6,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
-} from 'react';
-import { InlineScript } from '@/components/commons/InlineScript';
-import { SidebarToggleIcon } from '@/components/shell/captured-icons';
-import { cn } from '@/lib/cn';
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { usePathname } from "next/navigation";
+import { lockBodyScroll } from "@/lib/body-scroll-lock";
+import { SidebarToggleIcon } from "@/components/shell/captured-icons";
+import { cn } from "@/lib/cn";
 
 /*
  * Sidebar primitives matching the captured shadcn-style markup (factory 103547):
@@ -20,75 +23,127 @@ import { cn } from '@/lib/cn';
  * ("icon"), one variant ("sidebar") and one side ("left"), which is all the shell uses.
  */
 
-export type SidebarState = 'expanded' | 'collapsed';
+export type SidebarState = "expanded" | "collapsed";
 
-const SIDEBAR_ID = 'app-sidebar';
-const TRIGGER_ID = 'app-sidebar-trigger';
-const COOKIE = 'sidebar_state';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const COOKIE_PATTERN = /(?:^|;\s*)sidebar_state=(expanded|collapsed)(?:;|$)/;
+const SIDEBAR_ID = "app-sidebar";
+const TRIGGER_ID = "app-sidebar-trigger";
 /** Every captured page server-renders the sidebar collapsed to its icon rail. */
-const DEFAULT_STATE: SidebarState = 'collapsed';
-
-function persistedState(): SidebarState {
-  if (typeof document === 'undefined') return DEFAULT_STATE;
-  return (document.cookie.match(COOKIE_PATTERN)?.[1] as SidebarState | undefined) ?? DEFAULT_STATE;
-}
-
-/*
- * Pages render statically with the default state. This applies a persisted choice to
- * the server markup before first paint, so there is no flash; the client's initial
- * state reads the same cookie, so hydration finds matching attributes.
- */
-const PREPAINT_SCRIPT =
-  `(function(){try{var m=document.cookie.match(${COOKIE_PATTERN});if(!m||m[1]!=='expanded')return;` +
-  `var s=document.getElementById(${JSON.stringify(SIDEBAR_ID)});if(s){s.setAttribute('data-state','expanded');s.setAttribute('data-collapsible','');}` +
-  `var t=document.getElementById(${JSON.stringify(TRIGGER_ID)});if(t)t.setAttribute('aria-expanded','true');}catch(e){}})();`;
+const DEFAULT_STATE: SidebarState = "collapsed";
 
 interface SidebarContextValue {
   state: SidebarState;
   toggle: () => void;
+  isMobile: boolean;
+  mobileOpen: boolean;
+  closeMobile: (restoreFocus?: boolean) => void;
+  openMobile: () => void;
+  mobileTrigger: React.RefObject<HTMLButtonElement | null>;
+  mobileClose: React.RefObject<HTMLButtonElement | null>;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 export function useSidebar(): SidebarContextValue {
   const value = useContext(SidebarContext);
-  if (!value) throw new Error('useSidebar must be used within SidebarProvider');
+  if (!value) throw new Error("useSidebar must be used within SidebarProvider");
   return value;
 }
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SidebarState>(persistedState);
+  const [state, setState] = useState<SidebarState>(DEFAULT_STATE);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileTrigger = useRef<HTMLButtonElement>(null);
+  const mobileClose = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
 
   const toggle = useCallback(() => {
-    const next: SidebarState = state === 'expanded' ? 'collapsed' : 'expanded';
-    document.cookie = `${COOKIE}=${next}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-    setState(next);
-  }, [state]);
+    if (window.matchMedia("(max-width: 767px)").matches)
+      setMobileOpen((open) => !open);
+    else
+      setState((current) =>
+        current === "expanded" ? "collapsed" : "expanded",
+      );
+  }, []);
+  const closeMobile = useCallback((restoreFocus = false) => {
+    setMobileOpen(false);
+    if (restoreFocus)
+      requestAnimationFrame(() => mobileTrigger.current?.focus());
+  }, []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
 
   useEffect(() => {
-    // Cmd/Ctrl+B, as in the recovered provider. Narrow viewports use the bottom nav.
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => {
+      setIsMobile(media.matches);
+      if (!media.matches) setMobileOpen(false);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+  useEffect(() => {
+    const content = document.querySelector<HTMLElement>("[data-shell-content]");
+    content?.toggleAttribute("inert", mobileOpen);
+    if (!mobileOpen) return;
+    const unlockScroll = lockBodyScroll();
+    mobileClose.current?.focus();
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobile(true);
+      }
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => {
+      content?.removeAttribute("inert");
+      unlockScroll();
+      window.removeEventListener("keydown", dismiss);
+    };
+  }, [mobileOpen, closeMobile]);
+
+  useEffect(() => {
+    // The recovered provider toggles desktop or mobile state with the same shortcut.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'b' || !(event.metaKey || event.ctrlKey)) return;
-      if (window.matchMedia('(max-width: 767px)').matches) return;
+      if (event.key !== "b" || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
       toggle();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [toggle]);
 
-  const value = useMemo(() => ({ state, toggle }), [state, toggle]);
+  const value = useMemo(
+    () => ({
+      state,
+      toggle,
+      isMobile,
+      mobileOpen,
+      closeMobile,
+      openMobile,
+      mobileTrigger,
+      mobileClose,
+    }),
+    [state, toggle, isMobile, mobileOpen, closeMobile, openMobile],
+  );
 
   return (
     <SidebarContext.Provider value={value}>
       <div
-        style={{ '--sidebar-width': '13rem', '--sidebar-width-icon': '3.5rem' } as CSSProperties}
+        style={
+          {
+            "--sidebar-width": "13rem",
+            "--sidebar-width-icon": "3.5rem",
+          } as CSSProperties
+        }
         className="group/sidebar-wrapper flex min-h-svh w-full"
-        data-app-shell=""
-        // The first-visit terms dialog marks the shell inert before hydration.
+        // The consent pre-paint helper may add inert before hydration.
         suppressHydrationWarning
+        data-app-shell=""
+        data-mobile-navigation={mobileOpen ? "open" : "closed"}
       >
         {children}
       </div>
@@ -97,21 +152,76 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 }
 
 export function Sidebar({ children }: { children: ReactNode }) {
-  const { state } = useSidebar();
+  const { state, isMobile, mobileOpen, closeMobile } = useSidebar();
+  const ref = useRef<HTMLElement>(null);
+  function keepFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (!isMobile || !mobileOpen || event.key !== "Tab") return;
+    const entries = Array.from(
+      ref.current?.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter(
+      (element) => element.tabIndex >= 0 && element.getClientRects().length > 0,
+    );
+    const first = entries[0],
+      last = entries.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
   return (
     <>
-      <div
+      {isMobile && mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation backdrop"
+          tabIndex={-1}
+          className="fixed inset-0 z-[55] bg-black/60"
+          onClick={() => closeMobile(true)}
+        />
+      ) : null}
+      <aside
         id={SIDEBAR_ID}
-        className="group peer hidden text-text-primary md:block"
-        data-state={state}
-        data-collapsible={state === 'collapsed' ? 'icon' : ''}
+        ref={ref}
+        aria-label="Application navigation"
+        aria-hidden={isMobile && !mobileOpen ? true : undefined}
+        inert={isMobile && !mobileOpen}
+        onKeyDown={keepFocus}
+        className={cn(
+          "group peer text-text-primary",
+          isMobile
+            ? "fixed inset-y-0 left-0 z-[60] w-[18rem] max-w-[calc(100vw-24px)] border-r border-border-secondary"
+            : "hidden md:block",
+        )}
+        style={
+          isMobile
+            ? { visibility: mobileOpen ? "visible" : "hidden" }
+            : undefined
+        }
+        data-state={isMobile ? "expanded" : state}
+        data-collapsible={!isMobile && state === "collapsed" ? "icon" : ""}
         data-variant="sidebar"
         data-side="left"
       >
-        <div className="relative w-[--sidebar-width] bg-transparent transition-[width] duration-200 ease-linear group-data-[collapsible=offcanvas]:w-0 group-data-[side=right]:rotate-180 group-data-[collapsible=icon]:w-[--sidebar-width-icon]" />
+        {!isMobile ? (
+          <div className="relative w-[--sidebar-width] bg-transparent transition-[width] duration-200 ease-linear group-data-[collapsible=offcanvas]:w-0 group-data-[side=right]:rotate-180 group-data-[collapsible=icon]:w-[--sidebar-width-icon]" />
+        ) : null}
         <div
-          className="z-40 hidden w-[--sidebar-width] transform-gpu transition-[left,right,width] duration-200 ease-linear md:flex left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l"
-          style={{ position: 'fixed', top: 0, bottom: 0 }}
+          className={cn(
+            "z-40 transform-gpu transition-[left,right,width] duration-200 ease-linear left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            isMobile
+              ? "flex w-full"
+              : "hidden w-[--sidebar-width] md:flex group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
+          )}
+          style={{
+            position: isMobile ? "absolute" : "fixed",
+            top: 0,
+            bottom: 0,
+          }}
         >
           <div
             data-sidebar="sidebar"
@@ -120,15 +230,17 @@ export function Sidebar({ children }: { children: ReactNode }) {
             {children}
           </div>
         </div>
-      </div>
-      <InlineScript html={PREPAINT_SCRIPT} />
+      </aside>
     </>
   );
 }
 
 export function SidebarHeader({ children }: { children: ReactNode }) {
   return (
-    <div data-sidebar="header" className="flex h-12 shrink-0 flex-row items-center justify-between gap-0 p-0">
+    <div
+      data-sidebar="header"
+      className="flex h-12 shrink-0 flex-row items-center justify-between gap-0 p-0"
+    >
       {children}
     </div>
   );
@@ -145,9 +257,18 @@ export function SidebarContent({ children }: { children: ReactNode }) {
   );
 }
 
-export function SidebarFooter({ className, children }: { className: string; children?: ReactNode }) {
+export function SidebarFooter({
+  className,
+  children,
+}: {
+  className: string;
+  children?: ReactNode;
+}) {
   return (
-    <div data-sidebar="footer" className={cn('flex flex-col gap-2 p-2', className)}>
+    <div
+      data-sidebar="footer"
+      className={cn("flex flex-col gap-2 p-2", className)}
+    >
       {children}
     </div>
   );
@@ -170,9 +291,9 @@ export function SidebarMenuItem({ children }: { children: ReactNode }) {
 }
 
 const MENU_BUTTON_BASE =
-  'peer/menu-button flex w-full items-center overflow-hidden p-2 text-left outline-none transition-[width,height,padding] focus-visible:ring-2 focus-visible:ring-text-accent active:bg-bg-tertiary active:text-text-primary disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50';
+  "peer/menu-button flex w-full items-center overflow-hidden p-2 text-left outline-none transition-[width,height,padding] focus-visible:ring-2 focus-visible:ring-text-accent active:bg-bg-tertiary active:text-text-primary disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50";
 const MENU_BUTTON_ICON_RAIL =
-  'group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center [&>svg]:size-[18px] [&>svg]:shrink-0';
+  "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center [&>svg]:size-[18px] [&>svg]:shrink-0";
 
 /** Primary and Discover navigation links. */
 export const NAV_BUTTON_CLASS = `${MENU_BUTTON_BASE} data-[state=open]:hover:bg-bg-secondary data-[state=open]:hover:text-text-primary [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:last-child]:hidden relative h-8 gap-2.5 rounded-md px-2.5 text-[13px] font-medium text-text-secondary hover:bg-bg-secondary hover:text-text-primary data-[active=true]:bg-bg-tertiary data-[active=true]:font-medium data-[active=true]:text-text-primary ${MENU_BUTTON_ICON_RAIL}`;
@@ -181,7 +302,19 @@ export const NAV_BUTTON_CLASS = `${MENU_BUTTON_BASE} data-[state=open]:hover:bg-
 export const FOOTER_BUTTON_CLASS = `${MENU_BUTTON_BASE} data-[active=true]:font-medium data-[state=open]:hover:bg-bg-secondary data-[state=open]:hover:text-text-primary [&>span:last-child]:truncate group-data-[collapsible=icon]:[&>span:last-child]:hidden relative h-8 gap-2.5 rounded-md px-2.5 text-[13px] font-medium text-text-tertiary hover:bg-bg-secondary hover:text-text-primary data-[active=true]:bg-bg-tertiary data-[active=true]:text-text-primary ${MENU_BUTTON_ICON_RAIL}`;
 
 export function SidebarTrigger() {
-  const { state, toggle } = useSidebar();
+  const { state, toggle, isMobile, closeMobile, mobileClose } = useSidebar();
+  if (isMobile)
+    return (
+      <button
+        type="button"
+        ref={mobileClose}
+        aria-label="Close navigation"
+        className="m-2 flex size-11 items-center justify-center rounded-md border border-border-secondary"
+        onClick={() => closeMobile(true)}
+      >
+        ×
+      </button>
+    );
   return (
     <button
       id={TRIGGER_ID}
@@ -190,7 +323,7 @@ export function SidebarTrigger() {
       aria-label="Toggle Sidebar"
       title="Toggle Sidebar"
       aria-controls={SIDEBAR_ID}
-      aria-expanded={state === 'expanded'}
+      aria-expanded={state === "expanded"}
       onClick={toggle}
       className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border-secondary bg-bg-primary text-text-quaternary transition-colors hover:border-border-tertiary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-accent [&>svg]:size-3.5 mr-3 md:absolute md:right-0 md:top-3 md:z-50 md:mr-0 md:translate-x-1/2"
     >

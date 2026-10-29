@@ -10,23 +10,21 @@ pub struct SyncUserVolumeAccumulator<'info> {
     #[account(mut,seeds=[b"user_volume_accumulator",user.key().as_ref()],bump)]
     pub user_volume_accumulator: Account<'info,UserVolumeAccumulator>,
 }
+fn reset(g:&GlobalVolumeAccumulator,u:&mut UserVolumeAccumulator,now:i64){if u.last_update_timestamp<g.start_time && now<g.start_time {u.total_claimed_tokens=0;u.has_total_claimed_tokens=false;}}
 pub fn execute(ctx:Context<SyncUserVolumeAccumulator>)->Result<()> {
-    let timestamp=Clock::get()?.unix_timestamp;
-    let start=ctx.accounts.global_volume_accumulator.start_time;
-    let user=&mut ctx.accounts.user_volume_accumulator;
-    if user.last_update_timestamp<start && timestamp<start {
-        let before=user.total_claimed_tokens;
-        user.total_claimed_tokens=0;
-        user.has_total_claimed_tokens=false;
-        if before>0 {
-            let event=SyncUserVolumeAccumulatorEvent{user:ctx.accounts.user.key(),total_claimed_tokens_before:before,total_claimed_tokens_after:0,timestamp};
-            emit!(event.clone());emit_cpi!(event);
-            return Ok(());
-        }
+    let a=&mut *ctx.accounts; let timestamp=Clock::get()?.unix_timestamp;
+    let before=a.user_volume_accumulator.total_claimed_tokens;
+    reset(&a.global_volume_accumulator,&mut a.user_volume_accumulator,timestamp);
+    let after=a.user_volume_accumulator.total_claimed_tokens;
+    if before==after {
+        msg!("No changes in accumulator for user={}",a.user.key());
+    }else{
+        let event=SyncUserVolumeAccumulatorEvent{user:a.user.key(),total_claimed_tokens_before:before,total_claimed_tokens_after:after,timestamp};
+        emit!(event);emit_cpi!(event);
     }
-    msg!("No changes in accumulator for user={}", ctx.accounts.user.key());
     Ok(())
 }
+
 #[event]
 #[derive(Clone)]
 pub struct SyncUserVolumeAccumulatorEvent {

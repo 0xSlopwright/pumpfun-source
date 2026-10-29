@@ -83,6 +83,7 @@ pnpm --filter @pump-reconstruction/frontend exec playwright test tests/reference
 - The renderer uses typed React elements; it never uses `dangerouslySetInnerHTML`.
 - Captured scripts, event handlers, style tags, and application chrome are excluded.
 - External links are inert until activated and use safe new-tab semantics; no external resource is embedded.
+- Local navigation keeps the three copied documents and home on this app. The ten retained links to nine uncopied document routes resolve against `https://pump.fun`, so they open the original destination instead of a local 404. This is a `LOCAL DESIGN` navigation choice; captured links, generated blocks, and content hashes remain unchanged.
 - Rendering performs no production API call, mutation, RPC request, wallet interaction, upload, or transaction.
 - Visiting a reconstructed document does not constitute acceptance.
 - The archived label links to the corresponding official public URL and explicitly says the local copy may be outdated.

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { PublicWalletRecordPanel } from "../wallet-program-record/panel";
 import {
   isPortfolioResponse,
   type PortfolioMintHolding,
@@ -252,6 +253,7 @@ function PortfolioResult({ value }: { value: PortfolioSuccess }) {
         prices, USD values, Pump positions, realized PnL or token legitimacy
         claims are inferred from RPC balances.
       </p>
+      <PublicWalletRecordPanel key={value.address} address={value.address} />
     </div>
   );
 }

@@ -167,11 +167,21 @@ function validateUsers(input: unknown): ValidatedProfileRow[] {
         `Local profile user ${index} must be an object`,
       );
     }
-    const address = safeString(value, "address") as string;
+    const address = safeString(value, "address", {
+      allowEmpty: true,
+    }) as string;
     const userId = safeString(value, "userId", { optional: true }) as
       | string
       | undefined;
-    for (const identity of [address, ...(userId ? [userId] : [])]) {
+    if (!address && (!userId || !isValidProfileIdentifier(userId))) {
+      throw new ProfileDataError(
+        `Local profile user ${index} requires a usable user id when its wallet is absent`,
+      );
+    }
+    for (const identity of [
+      ...(address ? [address] : []),
+      ...(userId ? [userId] : []),
+    ]) {
       if (identities.has(identity)) {
         throw new ProfileDataError(
           `Local profile user ${index} repeats an identity`,
@@ -206,10 +216,15 @@ function validateUsers(input: unknown): ValidatedProfileRow[] {
     const hasRecordedAvatar = validateExternalImage(value, "profile_image");
     validateExternalImage(value, "header_image_url");
 
-    const canonicalWallet = safeString(value, "canonical_svm_wallet", {
+    const canonicalSvmWallet = safeString(value, "canonical_svm_wallet", {
       optional: true,
       allowEmpty: true,
     });
+    const canonicalEvmWallet = safeString(value, "canonical_evm_wallet", {
+      optional: true,
+      allowEmpty: true,
+    });
+    const canonicalWallet = canonicalSvmWallet || canonicalEvmWallet;
     if (canonicalWallet && canonicalWallet !== address) {
       throw new ProfileDataError(
         `Local profile user ${index} has an inconsistent canonical wallet`,
@@ -217,7 +232,10 @@ function validateUsers(input: unknown): ValidatedProfileRow[] {
     }
 
     const displayName =
-      username?.trim() || `${address.slice(0, 6)}…${address.slice(-4)}`;
+      username?.trim() ||
+      (address
+        ? `${address.slice(0, 6)}…${address.slice(-4)}`
+        : "Unnamed local account");
     return {
       address,
       userId,
@@ -245,7 +263,7 @@ function validatePostReferences(
   }
   const identities = new Set(
     users.flatMap((user) => [
-      user.address,
+      ...(user.address ? [user.address] : []),
       ...(user.userId ? [user.userId] : []),
     ]),
   );
@@ -283,7 +301,13 @@ export function validateLocalProfiles(
     dataSource: LOCAL_PROFILE_DATA_SOURCE,
     profiles: users.map((user) => ({
       ...user,
-      posts: feed.posts.filter((post) => post.author.address === user.address),
+      // An absent wallet is not an identity shared by every walletless account.
+      // Feed adaptation resolves both id/address aliases to this stable user id.
+      posts: feed.posts.filter((post) =>
+        user.userId
+          ? post.author.userId === user.userId
+          : !!user.address && post.author.address === user.address,
+      ),
       dataSource: LOCAL_PROFILE_DATA_SOURCE,
     })),
   };

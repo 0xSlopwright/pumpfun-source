@@ -1,6 +1,7 @@
 """Fail-closed controls for the historical SBPF tooling view."""
 from pathlib import Path
 import tempfile
+import shutil
 import unittest
 
 import verify_supported_sbpf_history as bridge
@@ -40,6 +41,36 @@ class HistoricalViewTests(unittest.TestCase):
         for name in ['/tmp/absolute', '../escape', 'inside/../../escape']:
             with self.subTest(name=name), self.assertRaises(AssertionError):
                 bridge.relative(name)
+
+
+class InstalledTransitionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / 'input'
+        self.root.mkdir()
+        bridge.stage_historical_view(bridge.ROOT, self.root)
+        target = self.root / bridge.TRANSITION
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(bridge.ROOT / bridge.TRANSITION, target)
+        for name in ('build_supported_sbpf_candidate.py', 'build_source_manifest.py', 'test_supported_sbpf_policy.py', 'test_supported_sbpf_entry_paths.py'):
+            shutil.copyfile(bridge.ROOT / 'scripts' / name, self.root / 'scripts' / name)
+        bridge.transition(self.root)
+
+    def test_changed_current_adapter_rejected(self):
+        (self.root / 'scripts/build_supported_sbpf_candidate.py').write_text('changed\n')
+        with self.assertRaises(AssertionError):
+            bridge.transition(self.root)
+
+    def test_changed_current_inventory_rejected(self):
+        (self.root / 'scripts/build_source_manifest.py').write_text('changed\n')
+        with self.assertRaises(AssertionError):
+            bridge.transition(self.root)
+
+    def test_changed_transition_diff_rejected(self):
+        (self.root / bridge.TRANSITION / 'build_source_manifest.py.patch').write_text('changed\n')
+        with self.assertRaises(AssertionError):
+            bridge.transition(self.root)
 
 
 if __name__ == '__main__':

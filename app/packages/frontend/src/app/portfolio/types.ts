@@ -72,6 +72,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function hasAmount(raw: unknown, decimals: unknown, amount: unknown): boolean {
+  if (
+    typeof raw !== "string" ||
+    raw.length > 20 ||
+    !/^(0|[1-9]\d*)$/.test(raw) ||
+    BigInt(raw) > 18_446_744_073_709_551_615n
+  )
+    return false;
+  if (
+    typeof decimals !== "number" ||
+    !Number.isInteger(decimals) ||
+    decimals < 0 ||
+    decimals > 255
+  )
+    return false;
+  const padded = raw.padStart(decimals + 1, "0");
+  return (
+    amount ===
+    (decimals === 0
+      ? raw
+      : `${padded.slice(0, -decimals)}.${padded.slice(-decimals)}`)
+  );
+}
+
 function isTokenAccount(value: unknown): value is PortfolioTokenAccount {
   return (
     isRecord(value) &&
@@ -80,10 +104,9 @@ function isTokenAccount(value: unknown): value is PortfolioTokenAccount {
     typeof value.owner === "string" &&
     (value.program === "spl-token" || value.program === "token-2022") &&
     typeof value.programId === "string" &&
-    typeof value.rawAmount === "string" &&
-    Number.isInteger(value.decimals) &&
-    typeof value.amount === "string" &&
-    ["uninitialized", "initialized", "frozen"].includes(String(value.state)) &&
+    hasAmount(value.rawAmount, value.decimals, value.amount) &&
+    typeof value.state === "string" &&
+    ["uninitialized", "initialized", "frozen"].includes(value.state) &&
     typeof value.isNative === "boolean" &&
     Array.isArray(value.extensions) &&
     value.extensions.every((extension) => typeof extension === "string")
@@ -96,24 +119,39 @@ function isMintHolding(value: unknown): value is PortfolioMintHolding {
     typeof value.mint === "string" &&
     (value.program === "spl-token" || value.program === "token-2022") &&
     typeof value.programId === "string" &&
-    typeof value.rawAmount === "string" &&
-    Number.isInteger(value.decimals) &&
-    typeof value.amount === "string" &&
+    hasAmount(value.rawAmount, value.decimals, value.amount) &&
     Number.isSafeInteger(value.accountCount) &&
     Number(value.accountCount) > 0
   );
 }
 
-function isProgramHoldings(value: unknown): value is PortfolioProgramHoldings {
+function isProgramHoldings(
+  value: unknown,
+  expected: TokenProgram,
+): value is PortfolioProgramHoldings {
   return (
     isRecord(value) &&
-    (value.program === "spl-token" || value.program === "token-2022") &&
-    typeof value.programId === "string" &&
+    value.program === expected &&
+    value.programId ===
+      (expected === "spl-token"
+        ? SPL_TOKEN_PROGRAM_ID
+        : TOKEN_2022_PROGRAM_ID) &&
     Number.isSafeInteger(value.contextSlot) &&
+    Number(value.contextSlot) >= 0 &&
     Array.isArray(value.accounts) &&
-    value.accounts.every(isTokenAccount) &&
+    value.accounts.every(
+      (account) =>
+        isTokenAccount(account) &&
+        account.program === expected &&
+        account.programId === value.programId,
+    ) &&
     Array.isArray(value.mints) &&
-    value.mints.every(isMintHolding)
+    value.mints.every(
+      (mint) =>
+        isMintHolding(mint) &&
+        mint.program === expected &&
+        mint.programId === value.programId,
+    )
   );
 }
 
@@ -138,11 +176,11 @@ export function isPortfolioResponse(
     Number.isFinite(Date.parse(value.observedAt)) &&
     typeof value.endpointHost === "string" &&
     isRecord(value.sol) &&
-    typeof value.sol.lamports === "string" &&
-    typeof value.sol.amount === "string" &&
+    hasAmount(value.sol.lamports, 9, value.sol.amount) &&
     Number.isSafeInteger(value.sol.contextSlot) &&
-    isProgramHoldings(value.splToken) &&
-    isProgramHoldings(value.token2022) &&
+    Number(value.sol.contextSlot) >= 0 &&
+    isProgramHoldings(value.splToken, "spl-token") &&
+    isProgramHoldings(value.token2022, "token-2022") &&
     value.snapshotAtomic === false
   );
 }

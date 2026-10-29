@@ -1,4 +1,4 @@
-"""Verify the retained buy-exact transfer-fee receipts (no build claimed).
+"""Verify the retained admin account-validation receipts (no build claimed).
 
 Checks, independently of the producer:
 - packet manifest lists exactly the files present, with matching hashes;
@@ -6,8 +6,8 @@ Checks, independently of the producer:
   hash to the recorded values;
  - 9 cases x 3 images = 27 receipts, ordered, with contexts matching the report;
 - every transaction verifies (all signatures valid, 1 signature field);
-- success cases show the expected config change (flags byte, mayhem
-  byte, or admin key bytes 8..40);
+- the two success cases (admin-base, admin-noncanonical) set the flags
+  byte (offset 56) to 8 on the config account in transaction slot 1;
 - error cases fail with the expected code and log fragment, and roll
   back every account except the payer's 5000 fee;
 - the recorded error sites match the receipts' logs;

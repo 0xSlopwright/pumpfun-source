@@ -13,10 +13,11 @@ pub struct AdminSetIdlAuthority<'info> {
     #[account(seeds=[],bump)]
     pub program_signer: AccountInfo<'info>,
 }
-pub fn execute(ctx:Context<AdminSetIdlAuthority>,idl_authority:Pubkey)->Result<()> {
+pub(crate) fn execute(ctx:Context<AdminSetIdlAuthority>,idl_authority:Pubkey)->Result<()> {
     let account=&ctx.accounts.idl_account;
     if account.owner==&ctx.accounts.system_program.key() {
-        anchor_lang::system_program::transfer_with_seed(
+        let signer_seeds:&[&[&[u8]]]=&[&[&[],&[ctx.bumps.program_signer]]];
+        return anchor_lang::system_program::transfer_with_seed(
             CpiContext::new_with_signer(
                 ctx.accounts.system_program.to_account_info(),
                 anchor_lang::system_program::TransferWithSeed {
@@ -24,23 +25,83 @@ pub fn execute(ctx:Context<AdminSetIdlAuthority>,idl_authority:Pubkey)->Result<(
                     base:ctx.accounts.program_signer.to_account_info(),
                     to:ctx.accounts.authority.to_account_info(),
                 },
-                &[&[b"", &[ctx.bumps.program_signer]]],
+                signer_seeds,
             ),
             String::from("anchor:idl"),
             &crate::ID,
             account.lamports(),
-        )?;
-        return Ok(());
+        );
+
+// layout-pad(36): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     } else {
         require!(account.owner==&crate::ID,PumpError::AccountTypeNotSupported);
         account.realloc(10240,false)?;
+// layout-pad(5): aligns the next Source site with the original line
+
+
+
+
         require!(account.data_len()>=8,PumpError::AccountTypeNotSupported);
-        require!(account.try_borrow_data()?[..8]==[24,70,98,191,58,144,123,158],PumpError::AccountTypeNotSupported);
+// layout-pad(10): aligns the next Source site with the original line
+
+
+
+
+        let is_idl_account = account.try_borrow_data()?
+            [..8] == *anchor_lang::idl::IdlAccount::DISCRIMINATOR;
+
+
+
+        require!(is_idl_account,PumpError::AccountTypeNotSupported);
     }
-    let mut header=anchor_lang::idl::IdlAccount::try_deserialize(&mut &account.data.borrow()[..])?;
+
+
+
+
+    let account_data = account.data.borrow();
+    let mut header=anchor_lang::idl::IdlAccount::try_deserialize(&mut &account_data[..])?;
+    drop(account_data);
     header.authority=idl_authority;
-    header.try_serialize(&mut &mut account.data.borrow_mut()[..])?;
-    let event=AdminSetIdlAuthorityEvent{idl_authority};emit!(event.clone());emit_cpi!(event);Ok(())
+
+    let mut account_data_mut = account.data.borrow_mut();
+    header.try_serialize(&mut &mut account_data_mut[..])?;
+    drop(account_data_mut);
+    let event=AdminSetIdlAuthorityEvent{idl_authority};emit!(event.clone());emit_cpi!(event);return Ok(());
 }
 #[event]
 #[derive(Clone)]

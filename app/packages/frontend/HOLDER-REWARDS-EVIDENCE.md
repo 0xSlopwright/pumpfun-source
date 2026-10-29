@@ -1,3 +1,6 @@
+> Current configuration extension: [HOLDER-CONFIGURATION.md](HOLDER-CONFIGURATION.md) adds opt-in public Global/curve observations through published SDK decoders. Missing legacy fields remain unknown; no eligibility or claim behavior is established.
+> Current extension: [HOLDER-PUBLIC-BALANCES.md](HOLDER-PUBLIC-BALANCES.md) adds an explicit public account read using the existing Solana RPC service. The offline derivation and unavailable reward/claim values below are preserved. No fees API, reward eligibility or authenticated behavior is established by public holdings.
+
 # Holder Rewards offline inspector evidence
 
 This document scopes the local `/holder-rewards` reconstruction. It supports

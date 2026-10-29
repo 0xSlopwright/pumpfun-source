@@ -1,0 +1,5 @@
+*.gz -text
+*.patch -text whitespace=-blank-at-eol
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf

@@ -39,7 +39,7 @@ pub fn transfer_curve_tokens_ref<'info>(
     token_program: &Interface<'info, TokenInterface>,
     source: &InterfaceAccount<'info, TokenAccount>,
     destination: &InterfaceAccount<'info, TokenAccount>,
-    authority: &&Account<'info, BondingCurve>,
+    authority: &&mut Account<'info, BondingCurve>,
     decimals: u8,
     mint: &AccountInfo<'info>,
     amount: u64,

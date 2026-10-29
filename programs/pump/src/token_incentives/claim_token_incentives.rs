@@ -53,62 +53,62 @@ pub struct ClaimTokenIncentivesEvent {
 }
 
 pub fn claim(ctx: Context<ClaimTokenIncentives>) -> Result<()> {
+    let accounts = &mut *ctx.accounts;
     let now = Clock::get()?.unix_timestamp;
-    let global = &mut ctx.accounts.global_volume_accumulator;
-    let user = &mut ctx.accounts.user_volume_accumulator;
-    super::volume_accumulator::update(global, user, now, 0, &ctx.accounts.user.key())?;
-    let amount = user.total_unclaimed_tokens;
+    super::volume_accumulator::update(&mut accounts.global_volume_accumulator, &mut accounts.user_volume_accumulator, now, 0, &accounts.user.key())?;
+    let amount = accounts.user_volume_accumulator.total_unclaimed_tokens;
     if amount == 0 {
         msg!("No tokens to claim");
         return Ok(());
     }
-    let bump = [ctx.bumps.global_volume_accumulator];
-    let signer: &[&[u8]] = &[b"global_volume_accumulator", &bump];
-    let transfer = TransferChecked {
-        from: ctx
-            .accounts
-            .global_incentive_token_account
-            .to_account_info(),
-        mint: ctx.accounts.mint.to_account_info(),
-        to: ctx.accounts.user_ata.to_account_info(),
-        authority: global.to_account_info(),
-    };
-    token_interface::transfer_checked(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            transfer,
-            &[signer],
-        ),
-        amount,
-        ctx.accounts.mint.decimals,
-    )?;
+    { let token_program = accounts.token_program.as_ref();
+        let authority = accounts.global_volume_accumulator.to_account_info(); let signer_seeds: &[&[&[u8]]] = &[&[b"global_volume_accumulator", &[ctx.bumps.global_volume_accumulator]]];
+        fn transfer<'info>(decimals: u8, token_program: &AccountInfo<'info>, mint: &AccountInfo<'info>, from: &AccountInfo<'info>, to: &AccountInfo<'info>, authority: &AccountInfo<'info>, signer_seeds: &[&[&[u8]]], amount: u64) -> Result<()> {
+            token_interface::transfer_checked(
+                CpiContext::new_with_signer(
+                    token_program.clone(),
+                    TransferChecked { from: from.clone(), mint: mint.clone(), to: to.clone(), authority: authority.clone() },
+                    signer_seeds,
+                ),
+                amount,
+                decimals,
+            )
+        }
+ 
+ 
+        transfer(accounts.mint.decimals, token_program, accounts.mint.as_ref(), accounts.global_incentive_token_account.as_ref(), accounts.user_ata.as_ref(), &authority, signer_seeds, amount)?;
+    }
+    let user = &mut accounts.user_volume_accumulator;
     super::volume_accumulator::record_claim(user, now);
     let event = ClaimTokenIncentivesEvent {
-        user: ctx.accounts.user.key(),
-        mint: ctx.accounts.mint.key(),
+        user: accounts.user.key(),
+        mint: accounts.mint.key(),
         amount,
         timestamp: now,
         total_claimed_tokens: user.total_claimed_tokens,
         current_sol_volume: user.current_sol_volume,
     };
-    emit!(event.clone());
-    let mut data = EVENT_CPI_DISCRIMINATOR.to_vec();
-    data.extend_from_slice(&event.data());
-    let ix = Instruction {
-        program_id: crate::ID,
-        accounts: vec![AccountMeta::new_readonly(
-            ctx.accounts.event_authority.key(),
-            true,
-        )],
-        data,
-    };
-    let event_bump = [ctx.bumps.event_authority];
-    let event_signer: &[&[u8]] = &[b"__event_authority", &event_bump];
-    invoke_signed(
-        &ix,
-        &[ctx.accounts.event_authority.to_account_info()],
-        &[event_signer],
-    )?;
+
+
+
+    emit!(event);
+    emit_cpi!(event);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     Ok(())
 }
 
@@ -149,30 +149,202 @@ pub mod cashback {
  #[derive(Clone)]
  pub struct ClaimCashbackEvent{pub user:Pubkey,pub amount:u64,pub timestamp:i64,pub total_claimed:u64,pub total_cashback_earned:u64}
  pub fn claim(ctx:Context<ClaimCashback>)->Result<()>{
-  let a=&mut *ctx.accounts;let amount=a.user_volume_accumulator.to_account_info().lamports().saturating_sub(Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len()));if amount==0{msg!("No cashback to claim");return Ok(());}
-  a.user_volume_accumulator.total_cashback_claimed=a.user_volume_accumulator.total_cashback_claimed.checked_add(amount).ok_or_else(||error!(PumpError::Overflow))?;
-  a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;
-  let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp:Clock::get()?.unix_timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event.clone());emit_cpi!(event);Ok(())
+  let user_volume_accumulator=&mut ctx.accounts.user_volume_accumulator;let timestamp=Clock::get()?.unix_timestamp;let min=Rent::get()?.minimum_balance(user_volume_accumulator.to_account_info().data_len());let amount=user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}
+// layout-pad(99): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  user_volume_accumulator.sub_lamports(amount)?;ctx.accounts.user.add_lamports(amount)?;
+  user_volume_accumulator.total_cashback_claimed=user_volume_accumulator.total_cashback_claimed.checked_add(amount).ok_or(error!(PumpError::Overflow))?;
+  let total_cashback_earned=user_volume_accumulator.cashback_earned;
+  let event=ClaimCashbackEvent{user:ctx.accounts.user.key(),amount,timestamp,total_claimed:user_volume_accumulator.total_cashback_claimed,total_cashback_earned};emit!(event);emit_cpi!(event);Ok(())
  }
  pub fn claim_v2(ctx:Context<ClaimCashbackV2>)->Result<()>{
-  let a=&mut *ctx.accounts;let native=a.quote_mint.key()==anchor_spl::token::spl_token::native_mint::ID;
-  if !native{
-   require!(a.quote_token_program.key()==anchor_spl::token::ID || a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
-   require_keys_eq!(*a.quote_mint.owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
-  }
+  let a=&mut *ctx.accounts;let timestamp=Clock::get()?.unix_timestamp;let native=a.quote_mint.key()==anchor_spl::token::spl_token::native_mint::ID;
+// layout-pad(52): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  if !native{require!(a.quote_token_program.key()==anchor_spl::token::ID||a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
+
+
+
+
+   require_keys_eq!(*a.quote_mint.owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);}
   let amount=if native{a.user_volume_accumulator.to_account_info().lamports().saturating_sub(Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len()))}else{let data=a.associated_user_volume_accumulator.try_borrow_data()?;if data.is_empty(){0}else{TokenAccount::try_deserialize(&mut &data[..])?.amount}};
   if amount==0{msg!("No cashback to claim");return Ok(());}
   if native{a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;}
   else{
    
-   let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;
+
+// layout-pad(16): aligns the next Source site with the original line
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
    require_keys_eq!(*a.associated_quote_user.owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
+// layout-pad(8): aligns the next Source site with the original line
+
+
+
+
+
+
+
    let recipient=TokenAccount::try_deserialize(&mut &a.associated_quote_user.try_borrow_data()?[..])?;require_keys_eq!(recipient.owner,a.user.key(),PumpError::InvalidCashbackRecipient);
-   let user=a.user.key();let bump=[ctx.bumps.user_volume_accumulator];let seeds:&[&[u8]]=&[b"user_volume_accumulator",user.as_ref(),&bump];
+   let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;let user=a.user.key();let bump=[ctx.bumps.user_volume_accumulator];let seeds:&[&[u8]]=&[b"user_volume_accumulator",user.as_ref(),&bump];
    token_interface::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),TransferChecked{from:a.associated_user_volume_accumulator.to_account_info(),mint:a.quote_mint.to_account_info(),to:a.associated_quote_user.to_account_info(),authority:a.user_volume_accumulator.to_account_info()},&[seeds]),amount,mint.decimals)?;
 
   }
   crate::token_incentives::volume_accumulator::record_cashback_claim(&mut a.user_volume_accumulator,amount,native)?;
-  let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp:Clock::get()?.unix_timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event.clone());emit_cpi!(event);Ok(())
+  let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event.clone());emit_cpi!(event);Ok(())
  }
 }

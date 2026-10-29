@@ -8,13 +8,19 @@ parser=argparse.ArgumentParser();parser.add_argument('--program',choices=['pump'
 for name,status in json.loads((ROOT/'repro/status.json').read_text()).items():
  if args.program and name!=args.program:continue
  if not status.get('candidate_artifact'):continue
+ if name=='pump_fees' and status['candidate_artifact']=='research/all-contract-completion-20261028/fees-built/canonical-01/candidate.so':
+  subprocess.run([sys.executable,'-B',str(ROOT/'scripts/verify_current_checkpoint.py'),'pump_fees'],check=True)
+  continue
+ if name=='mayhem' and status['candidate_artifact']=='research/mayhem-canonical-promotion-20261028/hosted/40770208958/candidate.so':
+  subprocess.run([sys.executable,'-B',str(ROOT/'scripts/verify_mayhem_checkpoint.py')],check=True)
+  continue
  if name=='mayhem' and status['candidate_artifact']=='repro/mayhem/initializer-current-20261027/candidate.so':
   subprocess.run([sys.executable,'-B',str(ROOT/'repro/mayhem/initializer-current-20261027/verify.py'),'--current-source',str(ROOT),'--expected-seal','b6b01b400fb7c5ab10db803ba27fe6a76e0e59e9ea7fad25250dc95760cf485c'],check=True)
   continue
- if name=='pump_amm' and status['candidate_artifact']=='repro/pump_amm/v2-mint-clone-recovery-20261028/results/build/candidate.so':
+ if name=='pump_amm' and status['candidate_artifact'] in ['repro/pump_amm/v2-mint-clone-recovery-20261028/results/build/candidate.so','repro/pump_amm/canonical-frontier-20261028/results/build-a/candidate.so','research/amm-layout-closure-20261028/results/build-a/candidate.so']:
   subprocess.run([sys.executable,'-B',str(ROOT/'scripts/verify_pump_amm_checkpoint.py')],check=True)
   continue
- if name=='pump' and status['candidate_artifact']=='repro/pump/main-contract-round47-20261027/candidate.so':
+ if name=='pump' and status['candidate_artifact'] in ['repro/pump/main-contract-round47-20261027/candidate.so','repro/pump/canonical-frontier-20261028/candidate.so','research/pump-create-used-boundaries-20261028/artifacts/candidate.so', 'research/pump-final-composition-673-20261028/artifacts/candidate.so', 'research/pump-multihop-accrual-qualification-20261028/artifacts/candidate.so', 'research/pump-program-creator-notice-qualification-20261028/artifacts/candidate.so']:
   subprocess.run([sys.executable,'-B',str(ROOT/'scripts/verify_pump_main_checkpoint.py')],check=True)
   continue
  if name=='mayhem' and status['candidate_artifact']=='repro/mayhem/compiler-v154-main/main/candidate.so':

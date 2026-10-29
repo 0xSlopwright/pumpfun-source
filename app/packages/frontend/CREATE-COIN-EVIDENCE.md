@@ -35,7 +35,7 @@ page call site.
 | X / Twitter | OBSERVED and optional; captured regex names `twitter.com` and `x.com` | Optional HTTPS URL restricted to those hosts. The captured frontend also tolerated omitted protocol; requiring HTTPS is a documented LOCAL DESIGN safety narrowing. |
 | Telegram | OBSERVED and optional; captured regex names `t.me` and `telegram.me` | Optional HTTPS URL restricted to those hosts. Requiring HTTPS is LOCAL DESIGN. |
 | Image | OBSERVED production requirement and selector | One local JPEG, PNG, GIF or WebP up to 4,500,000 bytes. MIME and browser decode checks improve feedback but do not prove file-content safety. The object URL is preview-only and is revoked on replacement, removal and unmount. |
-| Video | OBSERVED in the production selector and metadata helper | Deliberately unavailable here. Uploading, transcoding, thumbnail selection and lifecycle behavior are not qualified for an offline draft. |
+| Video | OBSERVED in the production selector and metadata helper | Optional offline MP4/WebM preview with three selectable JPEG covers; the chosen cover becomes the separate draft image. No upload, transcoding service or browser compatibility qualification. See `CREATE-VIDEO-EVIDENCE.md` for exact bindings, local safety bounds and test limitations. |
 | Creator fee | OBSERVED as an optional advanced control in `734638`, admitted from 0.01 through 3 percent when a qualifying token/quote pair is selected | Not implemented. The necessary quote-pair dependency and applicability state are absent from this offline draft. |
 | Initial buy / quote asset / banner | OBSERVED in conditional production UI | Not implemented. Their wallet, quote-pair, fee-sharing, upload and transaction dependencies are outside this local metadata draft. |
 

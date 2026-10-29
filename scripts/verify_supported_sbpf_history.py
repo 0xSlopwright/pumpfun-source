@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Run unchanged SBPF tooling checks on sealed historical sources, then current Mayhem."""
+if not __debug__: raise SystemExit("Normal Python is required; do not use -O.")
 from pathlib import Path
 import argparse
+import difflib
 import hashlib
 import json
 import subprocess
@@ -14,6 +16,8 @@ HISTORY_SEAL = '45753774bd4cf003d94aef7a1f19114639833fb435992c36fd0a7894837e3182
 HISTORY_VERIFIER = 'b9ac7844605bfe5a48328e08f1d655b21dddd5ae6aa8ce93ba1eb3b536a7bf5b'
 PROPOSAL = Path('repro/build-tooling/supported-sbpf-proposal')
 PROPOSAL_SEAL = 'edac5debf5d734e2eb5968fd0c6526196cce91256b182d1d3d43bedadf8e0042'
+TRANSITION = Path('repro/build-tooling/supported-sbpf-transition-20261029')
+TRANSITION_SEAL = '9346126280488466b5b71def18d06e03f311626d7e39bc197246c0f773da9bbf'
 CURRENT = Path('repro/mayhem/initializer-current-20261027')
 CURRENT_SEAL = 'b6b01b400fb7c5ab10db803ba27fe6a76e0e59e9ea7fad25250dc95760cf485c'
 CURRENT_CANDIDATE = '8dac1ff7575e3aa74ffa1ab4c4db2152781f0c644665dbf1c278e284751b19cb'
@@ -90,10 +94,60 @@ def stage_historical_view(root, view):
         write(view, name, authenticated(root, HISTORY / 'source' / name, digest))
     installed = json.loads((view / HISTORY / 'installed-files.json').read_bytes())
     for name, digest in installed.items():
-        write(view, name, authenticated(root, name, digest))
+        write(view, name, installed_historical_bytes(root, name, digest))
     for name, digest in REFERENCES.items():
         write(view, name, authenticated(root, name, digest))
     return len(installed)
+
+
+def transition(root):
+    raw = authenticated(root, TRANSITION / 'manifest.json', TRANSITION_SEAL)
+    manifest = json.loads(raw)
+    actual = {p.relative_to(root / TRANSITION).as_posix() for p in (root / TRANSITION).rglob('*') if p.is_file()}
+    assert actual == set(manifest) | {'manifest.json'}, 'transition inventory'
+    for name, digest in manifest.items():
+        authenticated(root, TRANSITION / relative(name), digest)
+    record = json.loads((root / TRANSITION / 'transition.json').read_bytes())
+    assert set(record['entries']) == {'scripts/build_supported_sbpf_candidate.py', 'scripts/build_source_manifest.py'}
+    historical_manifest = json.loads(authenticated(root, HISTORY / 'manifest.json', HISTORY_SEAL))
+    installed = json.loads(authenticated(root, HISTORY / 'installed-files.json', historical_manifest['installed-files.json']))
+    for name, entry in record['entries'].items():
+        before = historical_helper(root, name, installed[name])
+        after = authenticated(root, TRANSITION / relative(entry['after_file']), entry['after_sha256'])
+        assert authenticated(root, name, entry['after_sha256']) == after, name
+        assert entry['before_sha256'] == installed[name]
+        diff = ''.join(difflib.unified_diff(before.decode().splitlines(True), after.decode().splitlines(True), fromfile='historical/' + name, tofile='current/' + name))
+        assert diff == (root / TRANSITION / entry['diff_file']).read_text(), name
+    assert set(record['policy_tests']) == {'scripts/test_supported_sbpf_policy.py', 'scripts/test_supported_sbpf_entry_paths.py'}
+    for name, expected in record['policy_tests'].items():
+        authenticated(root, name, expected['sha256'])
+    return record
+
+
+def historical_helper(root, name, expected):
+    if name == 'scripts/build_source_manifest.py':
+        raw = (root / PROPOSAL / 'historical/build_source_manifest.py').read_bytes()
+    elif name == 'scripts/build_supported_sbpf_candidate.py':
+        old = (root / HISTORY / 'adapter-at-build.py').read_text()
+        block = (root / HISTORY / 'preflight-hardening-block.txt').read_text()
+        assert old.count('    for name in sources:\n') == 1
+        raw = old.replace('    for name in sources:\n', block + '    for name in sources:\n').encode()
+    else:
+        raise AssertionError('unreviewed historical helper transition: ' + name)
+    assert sha(raw) == expected, name
+    return raw
+
+
+def installed_historical_bytes(root, name, expected):
+    path = root / relative(name)
+    assert path.is_file() and not path.is_symlink(), name
+    raw = path.read_bytes()
+    if sha(raw) == expected:
+        return raw
+    assert (root / TRANSITION / 'manifest.json').is_file(), 'unreviewed installed helper change: ' + name
+    record = transition(root)
+    assert name in record['entries'], 'unreviewed installed helper change: ' + name
+    return historical_helper(root, name, expected)
 
 
 def run_json(command, cwd):
@@ -110,20 +164,31 @@ def verify(root):
         historical = run_json([sys.executable, '-B', str(view / HISTORY / 'verify.py')], view)
     assert historical['verified'] and historical['unchanged_source_inputs'] == 14
     assert historical['accepted_checkpoint_promoted'] is False and historical['new_runtime_executions'] == 0
+    reviewed = transition(root)
+    policy_tests = {}
+    for name, expected in reviewed['policy_tests'].items():
+        result = subprocess.run([sys.executable, '-B', str(root / name)], cwd=root, capture_output=True, text=True)
+        assert result.returncode == 0 and ('Ran ' + str(expected['expected_tests']) + ' tests') in result.stderr and '\nOK\n' in result.stderr, result.stdout + result.stderr
+        policy_tests[name] = expected['expected_tests']
+    owner = reviewed['current_Mayhem']
     selected = json.loads((root / 'repro/status.json').read_bytes())['mayhem']
-    assert selected['candidate_artifact'] == str(CURRENT / 'candidate.so')
-    assert selected['candidate_sha256'] == CURRENT_CANDIDATE
+    assert selected['candidate_artifact'] == owner['candidate_artifact'] and selected['candidate_sha256'] == owner['candidate_sha256'], 'actual selected Mayhem'
+    assert selected['checkpoint_manifest_sha256'] == owner['checkpoint_manifest_sha256'] and selected['source_identity_report_sha256'] == owner['selection_sha256'], 'current owning selection'
+    authenticated(root, owner['bridge'], owner['bridge_sha256'])
+    current = run_json([sys.executable, '-B', str(root / owner['bridge']), '--repo', str(root)], root)
+    assert current['status'] == 'PASS' and current['candidate_sha256'] == selected['candidate_sha256'] and current['current_source_verified'] is True
+    assert current['meaningful_elf_equal'] is True
+    # The previous initializer is retained strictly as historical evidence.
     authenticated(root, CURRENT / 'candidate.so', CURRENT_CANDIDATE)
     authenticated(root, CURRENT / 'manifest.json', CURRENT_SEAL)
-    current = run_json([sys.executable, '-B', str(root / CURRENT / 'verify.py'),
-                        '--current-source', str(root), '--expected-seal', CURRENT_SEAL], root)
-    assert current['passed'] and current['candidate_sha256'] == CURRENT_CANDIDATE
-    assert current['source_files'] == 14 and current['executes_new_runtime'] is False
     return {'status': 'PASS', 'historical_verifier_sha256': HISTORY_VERIFIER,
             'historical_manifest_sha256': HISTORY_SEAL, 'historical_source_files': len(SOURCE14),
             'authenticated_installed_files': installed_count, 'historical': historical,
-            'current_manifest_sha256': CURRENT_SEAL, 'current': current,
-            'sealed_packets_modified': False, 'current_sources_modified': False}
+            'installed_transition_manifest_sha256': TRANSITION_SEAL, 'actual_synthetic_policy_tests': policy_tests,
+            'historical_initializer': {'candidate_sha256': CURRENT_CANDIDATE, 'manifest_sha256': CURRENT_SEAL, 'is_current_selection': False},
+            'current': current, 'sealed_packets_modified': False, 'current_sources_modified': False,
+            'new_compiler_or_VM_executions': 0}
+
 
 
 if __name__ == '__main__':

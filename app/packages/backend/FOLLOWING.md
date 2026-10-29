@@ -66,6 +66,26 @@ confused.
    consecutive pages cannot duplicate or skip a row.
 10. **Search ranking** is exact username, then prefix, then substring, then address
     substring; ties break on username then `userId`.
+11. **Offset upper bound** is `9007199254740991`, the maximum explicitly declared
+    by all four page/search operation schemas. Larger values return the existing
+    `400 INVALID_OFFSET` error rather than silently accepting imprecise numbers.
+12. **Duplicate query keys** fail closed with the compatibility harness's existing
+    `501 DUPLICATE_QUERY_KEYS_UNIMPLEMENTED`, including percent-encoded aliases of
+    the same key. This is a local unsupported boundary, not a claimed upstream
+    status. No array is coerced into a scalar viewer, pagination or search term.
+13. **API-host privacy**: full-profile search results omit `last_active_at` even
+    when null. Its shared schema allows the property for signed-in website views
+    but explicitly excludes it on the developer host. Compact list rows already
+    omit it. Projection preserves stored users and does not invent a viewer.
+
+These boundaries use the declared `https://api.pump.fun/v1` contract (OpenAPI
+`0.294.0`), not a guessed website graph origin. The bindings in
+`contracts/developer-bindings.json` resolve to the captured graph contract factory
+`recovered/modules/972407-a77710a323d3.js`, SHA-256
+`a77710a323d3fa83fc470b2e3837d2da42a97a6726c92ce96dd73e236c0a6365`.
+This is inert source provenance only. The synthetic
+`test/profile-graph-contract-boundaries.test.ts` checks these constraints and valid
+query regressions; it does not add live traffic or compatibility qualifications.
 
 ## Verification
 

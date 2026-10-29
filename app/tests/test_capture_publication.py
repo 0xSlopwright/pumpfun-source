@@ -23,6 +23,9 @@ class Response:
         self.url = url
         self.body = body
 
+    def close(self):
+        pass
+
     def read(self):
         return self.body
 

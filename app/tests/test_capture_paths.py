@@ -18,7 +18,7 @@ class CapturePathTests(unittest.TestCase):
             root = Path(tmp)
             url = 'https://pump.fun/_next/static/chunks/test.js'
             body = b'const captured = true;'
-            response = SimpleNamespace(read=lambda: body, url=url, status=200, headers={})
+            response = SimpleNamespace(read=lambda: body, close=lambda: None, url=url, status=200, headers={})
             with patch.object(capture, 'ROOT', root), patch.object(capture, 'OUT', root / 'evidence/web'), patch.object(capture.urllib.request, 'urlopen', return_value=response):
                 record, retained = capture.capture(url)
             self.assertEqual(retained, body)

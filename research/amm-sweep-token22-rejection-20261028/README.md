@@ -2,8 +2,9 @@
 
 ## Problem
 
-The protocol and creator fee sweeps cannot move Token-2022
-quote fees: both handlers pass the Token program for the
+The protocol and creator fee sweeps, given the Token program,
+cannot move Token-2022 quote fees (every case passes the legacy Token program; passing the Token-2022 program is not executed here):
+the Token program is passed for the
 vault transfer of a Token-2022-owned account and fail
 IncorrectProgramId, at 1% and 50% fees alike, while the
 recipient ATA is created by the program during execution.
@@ -14,8 +15,9 @@ Six fresh-VM triples (original / #424 control / #427
 candidate), 18 signed executions on the repository's own sweep
 harness setup (`scripts/pump_amm_sweep_differential.py` account
 layout, as-is pool with protocol fees 2,488 and creator fees
-123,394). The clock is slot 100, epoch 0. `producer.py`
-reproduces every receipt from the repository files.
+123,394). The clock is slot 100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | Result |
 | --- | --- |
@@ -42,9 +44,10 @@ order.
 - **Both sweeps fail on a Token-2022 quote mint**: the
   protocol sweep and the creator sweep each fail
   IncorrectProgramId at 1% and 50% fees alike.
-- **The failure is the program, not the fee**: the handlers
-  pass the Token program for a transfer of a
-  Token-2022-owned vault account. The recipient ATA is
+- **The failure is the program id**: the Token program is passed
+  for a transfer of a Token-2022-owned vault account and fails
+  IncorrectProgramId. Every failing case has a fee extension; a
+  Token-2022 mint without one is not executed here. The recipient ATA is
   created by the program during execution, so only the mint
   and vault were mutated to Token-2022.
 - **Trade_v2 does not share the failure**: with the matching

@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "@babel/parser";
 import { inventory } from "../scripts/inventory.mjs";
 
 const inventoryScript = fileURLToPath(
@@ -102,33 +103,51 @@ async function runInventory(root, options = {}) {
 }
 
 test("query-bearing script URLs retain factories and full provenance", async (t) => {
-  const root = await makeWorkspace(t, [{
-    contents: bundle([{ id: 77, code: 'function value() { return "retained"; }' }]),
-  }]);
+  const root = await makeWorkspace(t, [
+    {
+      contents: bundle([
+        { id: 77, code: 'function value() { return "retained"; }' },
+      ]),
+    },
+  ]);
   assert.equal(runInventoryCli(root).status, 0);
   const before = await factoryFiles(root);
   for (const suffix of ["?v=2", "#fragment", "?v=2#fragment"]) {
     const manifest = await readJson(root, "evidence/web/manifest.json");
     const url = `https://example.invalid/source-0.js${suffix}`;
     manifest.records[0].url = url;
-    await writeFile(path.join(root, "evidence/web/manifest.json"), JSON.stringify(manifest));
+    await writeFile(
+      path.join(root, "evidence/web/manifest.json"),
+      JSON.stringify(manifest),
+    );
     const result = runInventoryCli(root);
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(await factoryFiles(root), before, `Dropped factories for ${url}`);
+    assert.deepEqual(
+      await factoryFiles(root),
+      before,
+      `Dropped factories for ${url}`,
+    );
     const report = await readJson(root, "recovered/modules.json");
     assert.equal(report.modules[0].origins[0].url, url);
   }
 });
 
 test("a non-script path with a .js query value is not parsed as JavaScript", async (t) => {
-  const root = await makeWorkspace(t, [{ url: "https://example.invalid/page?next=chunk.js", contents: "<!doctype html>" }]);
+  const root = await makeWorkspace(t, [
+    {
+      url: "https://example.invalid/page?next=chunk.js",
+      contents: "<!doctype html>",
+    },
+  ]);
   const result = runInventoryCli(root);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(await factoryFiles(root), []);
 });
 
 test("invalid query-bearing scripts fail without replacing the inventory", async (t) => {
-  const root = await makeWorkspace(t, [{ contents: bundle([{ id: 77, code: "() => 1" }]) }]);
+  const root = await makeWorkspace(t, [
+    { contents: bundle([{ id: 77, code: "() => 1" }]) },
+  ]);
   await runInventory(root);
   const before = await snapshot(root);
   const manifest = await readJson(root, "evidence/web/manifest.json");
@@ -136,7 +155,10 @@ test("invalid query-bearing scripts fail without replacing the inventory", async
   const invalid = "const broken = ;";
   await writeFile(path.join(root, manifest.records[0].path), invalid);
   manifest.records[0].sha256 = digest(invalid);
-  await writeFile(path.join(root, "evidence/web/manifest.json"), JSON.stringify(manifest));
+  await writeFile(
+    path.join(root, "evidence/web/manifest.json"),
+    JSON.stringify(manifest),
+  );
   const result = runInventoryCli(root);
   assert.notEqual(result.status, 0, "Invalid script was silently skipped");
   assert.match(result.stderr, /Inventory extraction failed/);
@@ -214,6 +236,212 @@ test("retains multiple IDs and origins for one shared factory variant", async (t
   assert.equal(report.modules.length, 1);
   assert.deepEqual(report.modules[0].ids, [201, 202]);
   assert.equal(report.modules[0].origins.length, 2);
+});
+
+test("recovers a leading nested registration and retains the outer factories", async (t) => {
+  const nested = 'function nested() { return "GET /nested"; }';
+  const outer = 'function outer() { return "outer"; }';
+  const source = `"😀"; throw Error("must not execute");
+    globalThis.TURBOPACK.push(["synthetic", [201, 202, ${nested}], 203, ${outer}]);`;
+  const root = await makeWorkspace(t, [{ contents: source }]);
+  const report = await runInventory(root);
+  assert.equal(report.modules.length, 2);
+  assert.deepEqual(
+    report.modules.map((module) => module.ids),
+    [[203], [201, 202]],
+  );
+  for (const [index, code] of [outer, nested].entries()) {
+    const module = report.modules[index];
+    const { start, end } = module.origins[0];
+    assert.equal(start, source.indexOf(code));
+    assert.equal(source.slice(start, end), code);
+    assert.equal(module.sha256, digest(code));
+  }
+  assert.equal(
+    (await readJson(root, "contracts/internal-operations.json")).operations[0]
+      .operation,
+    "GET /nested",
+  );
+});
+
+test("recurses only through the first registration slot at each depth", async (t) => {
+  const source = `globalThis.TURBOPACK.push(["synthetic",
+    [[301, () => "deep"], 302, () => "nested"], 303, () => "outer"]);`;
+  const root = await makeWorkspace(t, [{ contents: source }]);
+  const report = await runInventory(root);
+  assert.deepEqual(
+    report.modules.map((module) => module.ids),
+    [[303], [301], [302]],
+  );
+});
+
+test("an earlier nested alias preserves the existing flat path and origin order", async (t) => {
+  const common = 'function shared() { return "same"; }';
+  const root = await makeWorkspace(t, [
+    {
+      name: "earlier.js",
+      contents: `globalThis.TURBOPACK.push(["synthetic", [701, ${common}], 702, () => 0]);`,
+    },
+    { name: "later.js", contents: bundle([{ id: 703, code: common }]) },
+  ]);
+  const report = await runInventory(root);
+  const shared = report.modules.find(
+    (module) => module.sha256 === digest(common),
+  );
+  assert.equal(
+    shared.path,
+    `recovered/modules/703-${digest(common).slice(0, 12)}.js`,
+  );
+  assert.deepEqual(shared.ids, [703, 701]);
+  assert.deepEqual(
+    shared.origins.map((origin) => origin.source),
+    ["evidence/web/objects/later.js", "evidence/web/objects/earlier.js"],
+  );
+});
+
+test("keeps nested aliases, origins and conflicting ID variants distinct", async (t) => {
+  const common = 'function shared() { return "same"; }';
+  const other = 'function changed() { return "different"; }';
+  const root = await makeWorkspace(t, [
+    { name: "flat.js", contents: bundle([{ id: 401, code: common }]) },
+    {
+      name: "nested.js",
+      contents: `globalThis.TURBOPACK.push(["synthetic", [401, 402, ${common}, 401, ${other}], 403, () => 0]);`,
+    },
+  ]);
+  const report = await runInventory(root);
+  assert.equal(report.modules.length, 3);
+  const shared = report.modules.find(
+    (module) => module.sha256 === digest(common),
+  );
+  assert.deepEqual(shared.ids, [401, 402]);
+  assert.equal(shared.origins.length, 2);
+  assert.equal(
+    report.modules.filter((module) => module.ids.includes(401)).length,
+    2,
+  );
+});
+
+test("does not treat runtime metadata or unrelated nested arrays as registrations", async (t) => {
+  const source = `
+    globalThis.TURBOPACK.push(["metadata", [501, () => "not a factory registration"]]);
+    globalThis.TURBOPACK.push(["synthetic", 502, () => {
+      const data = [503, () => "function body data"];
+      return data;
+    }, [504, () => "nonleading data"]]);
+    const data = [505, () => "unregistered data"];
+    other.push(["synthetic", [506, () => "different receiver"], 507, () => 0]);`;
+  const root = await makeWorkspace(t, [{ contents: source }]);
+  const report = await runInventory(root);
+  assert.deepEqual(
+    report.modules.map((module) => module.ids),
+    [[502]],
+  );
+});
+
+test("authenticates the captured nested achievements registration without executing it", async (t) => {
+  const relative = "evidence/web/objects/af9a2670547bb6bb.js";
+  const source = await readFile(
+    new URL(`../${relative}`, import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    digest(source),
+    "7f30748aebd39a40629e117e152c37d598a801d138642116c9b1fccf08c8ee39",
+  );
+  const root = await makeWorkspace(t, [
+    { name: "captured.js", contents: source },
+  ]);
+  const report = await runInventory(root);
+  assert.equal(report.modules.length, 14);
+  const achievements = report.modules.find((module) =>
+    module.ids.includes(456747),
+  );
+  assert.deepEqual(achievements.ids, [456747, 656246]);
+  assert.equal(
+    achievements.sha256,
+    "89c0d9ad83a1fef8e32185695b92752b89680a6a772ef0b9c396d9b2cb1522f8",
+  );
+  assert.deepEqual(
+    { start: achievements.origins[0].start, end: achievements.origins[0].end },
+    { start: 12560, end: 13428 },
+  );
+  assert.match(
+    source.slice(12560, 13428),
+    /GET \/users\/\{address\}\/achievements/,
+  );
+});
+
+test("captured Turbopack runtime registers its leading nested array recursively", async () => {
+  const source = await readFile(
+    new URL("../evidence/web/objects/f25d7686d048ae16.js", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    digest(source),
+    "b5f9b5199b99ab6c141f4540f0b7d0fe803c4ecf6956849ecb6e59d3d439272e",
+  );
+  const nodes = [];
+  function visit(node) {
+    if (!node || typeof node !== "object") return;
+    nodes.push(node);
+    for (const [key, value] of Object.entries(node)) {
+      if (["loc", "extra"].includes(key)) continue;
+      if (Array.isArray(value)) value.forEach(visit);
+      else if (value && typeof value === "object") visit(value);
+    }
+  }
+  visit(parse(source));
+  const registration = nodes.find(
+    (node) => node.type === "FunctionDeclaration" && node.id?.name === "X",
+  );
+  assert.deepEqual([registration.start, registration.end], [7978, 8812]);
+  const recursive = nodes.find(
+    (node) =>
+      node.type === "FunctionExpression" &&
+      node.id?.name === "e" &&
+      node.params.map((param) => param.name).join(",") === "t,r,n,o",
+  );
+  assert.ok(
+    recursive.start > registration.start && recursive.end < registration.end,
+  );
+  const loop = recursive.body.body.find((node) => node.type === "ForStatement");
+  assert.equal(
+    source.slice(loop.init.start, loop.init.end),
+    "Array.isArray(i)&&(e(i,0,n,o),l++)",
+  );
+  assert.equal(
+    source.slice(recursive.body.body[0].start, recursive.body.body[0].end),
+    "let l=r,i=t[l];",
+  );
+  const invocation = nodes.find(
+    (node) => node.type === "CallExpression" && node.callee === recursive,
+  );
+  assert.deepEqual(
+    invocation.arguments.map((node) => source.slice(node.start, node.end)),
+    ["t", "1", "E"],
+  );
+  const metadataBranch = nodes.find(
+    (node) =>
+      node.type === "ConditionalExpression" &&
+      source.slice(node.test.start, node.test.end) === "2===t.length",
+  );
+  assert.equal(
+    source.slice(
+      metadataBranch.consequent.start,
+      metadataBranch.consequent.end,
+    ),
+    "r=t[1]",
+  );
+  const installation = nodes.find(
+    (node) =>
+      node.type === "AssignmentExpression" &&
+      source.slice(node.left.start, node.left.end) === "globalThis.TURBOPACK",
+  );
+  assert.equal(
+    source.slice(installation.right.start, installation.right.end),
+    "{push:X}",
+  );
 });
 
 test("binds each factory SHA-256 to its exact captured source slice", async (t) => {

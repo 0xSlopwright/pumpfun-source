@@ -6,44 +6,7 @@ use anchor_lang::Discriminator;
 
 pub use crate::instructions::swap::buy::BuyEvent;
 
-#[event]
-#[derive(Clone)]
-pub struct SellEvent {
-    pub timestamp: i64,
-    pub base_amount_in: u64,
-    pub min_quote_amount_out: u64,
-    pub user_base_token_reserves: u64,
-    pub user_quote_token_reserves: u64,
-    pub pool_base_token_reserves: u64,
-    pub pool_quote_token_reserves: u64,
-    pub quote_amount_out: u64,
-    pub lp_fee_basis_points: u64,
-    pub lp_fee: u64,
-    pub protocol_fee_basis_points: u64,
-    pub protocol_fee: u64,
-    pub quote_amount_out_without_lp_fee: u64,
-    pub user_quote_amount_out: u64,
-    pub pool: Pubkey,
-    pub user: Pubkey,
-    pub user_base_token_account: Pubkey,
-    pub user_quote_token_account: Pubkey,
-    pub protocol_fee_recipient: Pubkey,
-    pub protocol_fee_recipient_token_account: Pubkey,
-    pub coin_creator: Pubkey,
-    pub coin_creator_fee_basis_points: u64,
-    pub coin_creator_fee: u64,
-    pub cashback_fee_basis_points: u64,
-    pub cashback: u64,
-    pub buyback_fee_basis_points: u64,
-    pub buyback_fee: u64,
-    pub virtual_quote_reserves: i128,
-    pub can_boost: bool,
-    pub base_supply: u64,
-    pub holder_rewards_bps: u64,
-    pub holder_rewards: u64,
-    pub creator_fee_unclaimed: u64,
-    pub quote_transfer_fee: u64,
-}
+pub use crate::instructions::swap::sell::SellEvent;
 
 pub(crate) use crate::instructions::swap::trade_v2::*;
 fn checked64(x: u128) -> Result<u64> { u64::try_from(x).map_err(|_| error!(PumpAmmError::Truncation)) }
@@ -147,7 +110,7 @@ pub fn execute(ctx: Context<TradeV2>, amount: u64, limit: u64, mode: u8) -> Resu
     };
     let buy_result = if mode != 1 {
         Some(calculate_buy_result(a.global_config.buyback_basis_points, a.pool.is_mayhem_mode as u8,
-            &quote_fee_data, base_amount, curve_quote, &result_fees)?)
+            &quote_fee_data, base_amount, curve_quote, result_fees)?)
     } else { None };
     let buyback_fee = if let Some(result) = &buy_result { result.buyback_fee } else {
         let fee = u64::try_from((protocol_fee as u128)*(buyback_bps as u128)/10000)
@@ -269,6 +232,7 @@ fn transfer<'info>(program: &AccountInfo<'info>, mint: &InterfaceAccount<'info, 
     }
 }
 
+#[inline(never)]
 pub(crate) fn prepare(a:&mut TradeV2) -> Result<()> {
     crate::instructions::swap::trade_v2::validate_cashback_coin(a.pool.is_cashback_coin as u8)?;
     crate::instructions::swap::prepare_pool(
@@ -292,10 +256,10 @@ pub(crate) fn buy_transfers<'info>(a: &mut TradeV2<'info>, result: &BuyResult) -
         a.quote_token_program.as_ref(), &a.quote_mint, &a.user_quote_token_account,
         &a.pool_quote_token_account, a.user.as_ref(), result.pool_quote_amount_in, &[],
     )?;
-    crate::utils::token::transfer_checked_to_account_info(
+    if let Err(e) = crate::utils::token::transfer_checked_to_account_info(
         a.quote_token_program.as_ref(), &a.quote_mint, &a.user_quote_token_account,
         a.buyback_fee_recipient.as_ref(), a.user.as_ref(), buyback_fee,
-    )?;
+    ) { return Err(e); }
     if a.user_volume_accumulator.user == Pubkey::default() { a.user_volume_accumulator.user.as_mut().copy_from_slice(a.user.key.as_ref()); }
     Ok(buyback_fee)
 }

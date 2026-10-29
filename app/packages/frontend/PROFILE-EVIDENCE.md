@@ -94,3 +94,85 @@ placeholder preserve the offline/network boundary.
   parity in an equivalent captured state.
 - Username route resolution, which appears in some captured route helpers but is
   not established by the local store contract used here.
+
+## Walletless local profile identities
+
+The local adapter previously rejected every empty `address`, even when a usable
+`userId` was present. This is narrower than the retained identity contract:
+
+- Factory `146695` (`bb995bc856796eb404e21763f5a72275af2b0efa06b46f0d12507e1c6a3d90a1`,
+  range and source recorded above) selects `address?.trim() || userId?.trim()`
+  for its object-form profile-route helper. An empty wallet need not prevent a
+  profile route when an independent user id exists.
+- Factory `896727` declares `address` as a string, not a non-empty string, and
+  declares `userId` separately. Person/group classification is independent.
+- Factory `972407`, SHA-256
+  `a77710a323d3fa83fc470b2e3837d2da42a97a6726c92ce96dd73e236c0a6365`,
+  in the same `2b47dd0b38a1608f.js` object at UTF-16 range `206003..219056`,
+  explicitly describes compact graph-row addresses as canonical SVM, otherwise
+  canonical EVM, otherwise empty for a walletless account. These three factory
+  ranges were independently hash-checked against their retained origins; none
+  was evaluated.
+
+The local profile and feed adapters now retain an empty wallet **without treating
+it as an identity key**. A walletless profile needs an independently usable user
+id under the existing local route-identifier policy; malformed or absent ids
+still fail closed. This is local admission policy, not an added upstream schema
+refinement. Canonical wallet consistency checks use SVM first, then EVM when SVM
+is absent/empty. They do not invent a wallet from a user id.
+
+Feed adaptation retains the resolved author's user id. Profile post ownership
+uses that stable id when available, falling back to a non-empty wallet only for
+wallet-only profiles. Merely allowing empty wallets while grouping by address
+would incorrectly combine posts from unrelated walletless accounts. Empty
+addresses are neither indexed nor resolved, and cross-alias/duplicate identity
+checks remain in place.
+
+The header omits the clipboard control when no wallet is recorded. Header and
+post-card markup explicitly disclose that absence instead of rendering an empty
+wallet; unresolved feed authors remain a separate state. `Unnamed local account`
+is a local fallback label, not a recovered translation. This does not enable
+follow/message/auth actions, ownership or verified status, external media, or
+network requests.
+
+The checked-in seed bytes and their pinned hashes are unchanged. They still
+contain the same five synthetic profiles; this change qualifies the adapter and
+presentation for additional contract-permitted local inputs, not a new live
+profile source. It neither installs the separate follow-list query client nor
+claims a recovered original profile modal.
+
+Validation commands:
+
+```sh
+# From app/:
+node --import ./packages/backend/node_modules/tsx/dist/loader.mjs --test tests/profile_data.test.ts tests/home_feed.test.ts
+# From app/packages/frontend/ (so tsx reads the frontend JSX configuration):
+node --import ../backend/node_modules/tsx/dist/loader.mjs --test tests/profile-walletless-render.node.ts
+```
+
+The explicit `.node.ts` filename keeps this Node suite outside Playwright's default test-discovery pattern.
+The 22 pure profile/feed tests and two actual React server-rendering tests pass.
+Before the change, four added pure test groups failed and both rendering tests
+showed empty wallet presentation. The SSR command's working directory is
+intentional; an earlier root-directory run lacked JSX configuration and is not
+counted as a behavioral baseline. Cases include two distinct walletless users,
+post isolation, id/address aliases, duplicate and unusable ids, SVM/EVM precedence,
+unchanged inputs, preserved wallet copy controls, and unresolved-author separation.
+Server-rendered markup checks are **not** browser, hydration, clipboard, mobile
+layout or original-screenshot qualification. No feature milestone is advanced.
+
+On the application source snapshot at
+`faea9aea0dcc3056bd7c346700c96ce86b737549` plus this change, full `pnpm build`
+(SDK, backend and Next 16.4.1, static page generation 16/16) and all-package
+`pnpm typecheck` pass. The pinned offline/frozen dependency install reused cached
+packages with scripts disabled and the existing minimum-release-age policy.
+Formatting passes. Browser tests were not run for this follow-up.
+
+The complete aggregate test command remains unrun, including its browser
+posttest; captured runtime execution was not authorized or attempted. The local
+`verify-evidence.py` run fails on absent manifest capture inputs, and the
+`progress.py --check` run first fails on missing
+`packages/frontend/visual/portfolio-live-20261028/live-verification.json` in the
+partial checkout. These are missing-input failures, not passing qualification
+gates. No screenshots, captures, receipts, seed changes or ledger increases are
+included in this follow-up.

@@ -1,5 +1,7 @@
 # Shared shell evidence map
 
+The captured shell is now reached by the root layout. See [SHELL-INTEGRATION-EVIDENCE.md](SHELL-INTEGRATION-EVIDENCE.md) and the physical hash/range bindings for the integration, local adaptations, corrected reference renderer and current limits.
+
 This note records the static evidence used for the local shared application shell. It does not establish original source identity or visual parity. Captured bundles were inspected as inert text and were not executed.
 
 ## Observed
@@ -23,8 +25,8 @@ This note records the static evidence used for the local shared application shel
 - The local search submits an encoded `q` parameter to `/explore`, synchronizes the field with browser history and exposes an explicit unavailable state. This preserves useful navigation without claiming reconstruction of the upstream search dialog or backend.
 - The local mobile drawer closes after navigation, on Escape and on backdrop activation. These behaviors are accessibility safeguards; the captured factory proves a dismissible mobile overlay, not each local event choice.
 - The local shell keeps labelled navigation at 768 px and above, and contains keyboard focus while the mobile drawer is open. These are local accessibility decisions; the retained source does not qualify the exact upstream tablet or focus behavior.
-- Simple local SVG icons stand in for the captured icon imports. Their meaning and accessible labels are local implementation details, not recovered original icon source.
-- The `Local reconstruction` badge makes the environment boundary explicit and prevents the shell from presenting scaffolded product data as live.
+- The active shell uses the previously extracted captured SVG icons and logomark unchanged. Portfolio retains a local navigation addition with the captured Positions glyph.
+- Individual maintained page bodies keep their historical/synthetic/unavailable labels. Captured sign-in controls remain disabled.
 
 ## Unknown / not qualified
 

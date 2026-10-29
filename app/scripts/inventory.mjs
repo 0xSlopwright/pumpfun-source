@@ -57,6 +57,33 @@ function factoryFilename(module) {
   return `${id}-${module.sha256.slice(0, 12)}.js`;
 }
 
+function* registrationFactories(array, start = 1) {
+  // The captured runtime's X(t) registers a leading nested array recursively
+  // before the remaining entries. Two-element outer arrays carry metadata.
+  const nested = start === 0;
+  if (
+    array.elements[start]?.type === "ArrayExpression" &&
+    (start === 0 || array.elements.length > 2)
+  ) {
+    yield* registrationFactories(array.elements[start], 0);
+    start++;
+  }
+  let ids = [];
+  for (const item of array.elements.slice(start)) {
+    if (item?.type === "NumericLiteral" || item?.type === "StringLiteral") {
+      ids.push(item.value);
+    } else if (
+      item?.type === "ArrowFunctionExpression" ||
+      item?.type === "FunctionExpression"
+    ) {
+      yield { item, ids, nested };
+      ids = [];
+    } else {
+      ids = [];
+    }
+  }
+}
+
 export async function buildInventory(
   root,
   { formatFactory = prettier.format } = {},
@@ -65,11 +92,13 @@ export async function buildInventory(
     await fs.readFile(path.join(root, "evidence/web/manifest.json"), "utf8"),
   );
   const modules = new Map();
+  const nestedFactories = [];
   const failures = [];
   const routes = [];
   const dependencies = [];
   const records = manifest.records.filter(
-    (record) => record.status === 200 && new URL(record.url).pathname.endsWith(".js"),
+    (record) =>
+      record.status === 200 && new URL(record.url).pathname.endsWith(".js"),
   );
 
   for (const record of records) {
@@ -79,7 +108,7 @@ export async function buildInventory(
       if (createHash("sha256").update(bytes).digest("hex") !== record.sha256) {
         throw new Error("Captured source SHA-256 mismatch");
       }
-      source = bytes.toString("utf8");
+      source = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     } catch (error) {
       throw new Error(
         `Unable to read inventory source ${record.path ?? "<invalid path>"}: ${errorSummary(error)}`,
@@ -123,37 +152,30 @@ export async function buildInventory(
         ) {
           return;
         }
-        let ids = [];
-        for (const item of node.arguments[0].elements.slice(1)) {
-          if (
-            item?.type === "NumericLiteral" ||
-            item?.type === "StringLiteral"
-          ) {
-            ids.push(item.value);
-          } else if (
-            item?.type === "ArrowFunctionExpression" ||
-            item?.type === "FunctionExpression"
-          ) {
-            const raw = source.slice(item.start, item.end);
-            const hash = createHash("sha256").update(raw).digest("hex");
-            const existing = modules.get(hash) ?? {
-              ids: [],
-              sha256: hash,
-              sourceCode: raw,
-              origins: [],
-            };
-            existing.ids = [...new Set([...existing.ids, ...ids])];
-            existing.origins.push({
-              source: record.path,
-              url: record.url,
-              start: item.start,
-              end: item.end,
-            });
-            modules.set(hash, existing);
-            ids = [];
-          } else {
-            ids = [];
+        for (const { item, ids, nested } of registrationFactories(
+          node.arguments[0],
+        )) {
+          const raw = source.slice(item.start, item.end);
+          const hash = createHash("sha256").update(raw).digest("hex");
+          const origin = {
+            source: record.path,
+            url: record.url,
+            start: item.start,
+            end: item.end,
+          };
+          if (nested) {
+            nestedFactories.push({ raw, hash, ids, origin });
+            continue;
           }
+          const existing = modules.get(hash) ?? {
+            ids: [],
+            sha256: hash,
+            sourceCode: raw,
+            origins: [],
+          };
+          existing.ids = [...new Set([...existing.ids, ...ids])];
+          existing.origins.push(origin);
+          modules.set(hash, existing);
         }
       });
     } catch (error) {
@@ -176,6 +198,20 @@ export async function buildInventory(
     throw new Error(
       `Inventory extraction failed for ${failures.length} source(s): ${details}`,
     );
+  }
+
+  // Keep the original flat inventory's IDs, paths and origins in place. New
+  // nested origins extend it deterministically, even when their capture came first.
+  for (const { raw, hash, ids, origin } of nestedFactories) {
+    const existing = modules.get(hash) ?? {
+      ids: [],
+      sha256: hash,
+      sourceCode: raw,
+      origins: [],
+    };
+    existing.ids = [...new Set([...existing.ids, ...ids])];
+    existing.origins.push(origin);
+    modules.set(hash, existing);
   }
 
   const factoryFiles = new Map();

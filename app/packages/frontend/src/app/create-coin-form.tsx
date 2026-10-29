@@ -16,6 +16,12 @@ import {
   validateDraftField,
   validateImage,
 } from "./create-coin-validation";
+import CreateVideoInput, { type VideoInputControl } from "./create-video-input";
+import {
+  discardVideoCover,
+  type VideoPreview,
+  type VideoSelection,
+} from "./create-video-preview";
 
 const EMPTY_DRAFT: DraftValues = {
   name: "",
@@ -87,9 +93,16 @@ export default function CreateCoinForm() {
   const [selectedImage, setSelectedImage] = useState<{
     file: File;
     url: string;
+    videoOwner?: VideoPreview;
   } | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<{
+    file: File;
+    owner: VideoPreview;
+  } | null>(null);
+  const [videoReset, setVideoReset] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoControlRef = useRef<VideoInputControl>(null);
 
   useEffect(() => {
     if (!selectedImage) return;
@@ -135,6 +148,8 @@ export default function CreateCoinForm() {
     setDraft(EMPTY_DRAFT);
     setErrors({});
     setSelectedImage(null);
+    setSelectedVideo(null);
+    setVideoReset((value) => value + 1);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setStatus("Draft cleared.");
   }
@@ -148,15 +163,41 @@ export default function CreateCoinForm() {
       event.target.value = "";
       return;
     }
+    videoControlRef.current?.cancelPending();
     setSelectedImage({ file, url: URL.createObjectURL(file) });
     setErrors((current) => ({ ...current, image: undefined }));
     setStatus("");
   }
 
   function removeImage(error?: string) {
+    videoControlRef.current?.cancelPending();
     setSelectedImage(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setErrors((current) => ({ ...current, image: error }));
+    setStatus("");
+  }
+
+  function chooseVideoCover({ video, cover, owner }: VideoSelection) {
+    const error = validateImage(cover);
+    if (error) {
+      setErrors((current) => ({ ...current, image: error }));
+      return;
+    }
+    setSelectedImage({
+      file: cover,
+      url: URL.createObjectURL(cover),
+      videoOwner: owner,
+    });
+    setSelectedVideo({ file: video, owner });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setErrors((current) => ({ ...current, image: undefined }));
+    setStatus("");
+  }
+
+  function removeVideo(owner: VideoPreview) {
+    setSelectedVideo((current) => (current?.owner === owner ? null : current));
+    // Do not erase a manually chosen replacement image or another video's cover.
+    setSelectedImage((current) => discardVideoCover(current, owner));
     setStatus("");
   }
 
@@ -172,6 +213,14 @@ export default function CreateCoinForm() {
           uploadStatus: "not uploaded",
         }
       : null,
+    ...(selectedVideo && {
+      video: {
+        localFileName: selectedVideo.file.name,
+        mediaType: selectedVideo.file.type || null,
+        bytes: selectedVideo.file.size,
+        uploadStatus: "not uploaded",
+      },
+    }),
     ...(draft.twitter && { twitter: draft.twitter }),
     ...(draft.telegram && { telegram: draft.telegram }),
     ...(draft.website && { website: draft.website }),
@@ -293,6 +342,13 @@ export default function CreateCoinForm() {
           ) : null}
           <FieldError field="image" error={errors.image} />
         </div>
+
+        <CreateVideoInput
+          key={videoReset}
+          controlRef={videoControlRef}
+          onSelect={chooseVideoCover}
+          onRemove={removeVideo}
+        />
 
         <fieldset className="create-fieldset">
           <legend>

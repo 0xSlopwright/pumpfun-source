@@ -139,6 +139,7 @@ describe('native responses conform to the documented contract', () => {
     { path: '/competitions/{id}/entries/{entryId}', method: 'get', url: '/v1/competitions/11111111-1111-4000-8000-000000000002/entries/22222222-2222-4000-8000-000000000001', status: 200 },
     { path: '/competitions/{id}/entries/{entryId}/highlights', method: 'get', url: '/v1/competitions/11111111-1111-4000-8000-000000000002/entries/22222222-2222-4000-8000-000000000001/highlights?limit=5', status: 200 },
     { path: '/competitions/{id}/highlights', method: 'get', url: '/v1/competitions/11111111-1111-4000-8000-000000000002/highlights?limit=10&perMemberLimit=2', status: 200 },
+    { path: '/pnl-leaderboard', method: 'get', url: '/v1/pnl-leaderboard?period=weekly&limit=5&positionsLimit=3', status: 200 },
   ];
 
   for (const c of nativeCases) {

@@ -233,3 +233,137 @@ test("validates profile identifier boundaries", () => {
   assert.equal(isValidProfileIdentifier("user/001"), false);
   assert.equal(isValidProfileIdentifier("a".repeat(129)), false);
 });
+
+test("walletless profiles retain separate identities and post ownership", () => {
+  const group = (id: string) =>
+    user({
+      address: "",
+      canonical_svm_wallet: "",
+      userId: id,
+      kind: "group",
+      username: id,
+    });
+  const users = [
+    group("group-one"),
+    group("group-two"),
+    user(),
+    user({
+      address: "wallet-only",
+      canonical_svm_wallet: "wallet-only",
+      userId: undefined,
+    }),
+  ];
+  const posts = [
+    post({ postId: "group-one-post", authorId: "group-one" }),
+    post({ postId: "group-two-post", authorId: "group-two" }),
+    post({ postId: "wallet-id-post" }),
+    post({ postId: "wallet-address-post", authorId: user().address }),
+    post({ postId: "wallet-only-post", authorId: "wallet-only" }),
+  ];
+  const before = structuredClone({ users, posts });
+  const dataset = validateLocalProfiles(posts, users);
+  for (const id of ["group-one", "group-two"]) {
+    const profile = resolveLocalProfile(dataset, id);
+    assert.equal(profile?.address, "");
+    assert.equal(profile?.userId, id);
+    assert.deepEqual(
+      profile?.posts.map((entry) => entry.id),
+      [`${id}-post`],
+    );
+  }
+  assert.deepEqual(
+    resolveLocalProfile(dataset, "user-one")?.posts.map((entry) => entry.id),
+    ["wallet-address-post", "wallet-id-post"],
+  );
+  assert.equal(resolveLocalProfile(dataset, ""), undefined);
+  assert.deepEqual(
+    resolveLocalProfile(dataset, "wallet-only")?.posts.map((entry) => entry.id),
+    ["wallet-only-post"],
+  );
+  assert.deepEqual({ users, posts }, before);
+});
+
+test("walletless profiles require an independently usable user id", () => {
+  for (const userId of [undefined, "", " ", "group/one", "a".repeat(129)]) {
+    assert.throws(
+      () =>
+        validateLocalProfiles(
+          [],
+          [user({ address: "", canonical_svm_wallet: "", userId })],
+        ),
+      ProfileDataError,
+    );
+  }
+  const walletless = user({
+    address: "",
+    canonical_svm_wallet: "",
+    userId: "walletless",
+    username: null,
+  });
+  const profile = validateLocalProfiles([], [walletless]).profiles[0];
+  assert.equal(profile?.displayName, "Unnamed local account");
+  assert.equal(profile?.kind, "person");
+  assert.throws(
+    () => validateLocalProfiles([], [walletless, { ...walletless }]),
+    /repeats an identity/,
+  );
+  assert.throws(
+    () =>
+      validateLocalProfiles(
+        [],
+        [
+          walletless,
+          user({
+            address: "walletless",
+            canonical_svm_wallet: "walletless",
+            userId: "other",
+          }),
+        ],
+      ),
+    /repeats an identity/,
+  );
+});
+
+test("profile canonical-wallet validation preserves SVM then EVM precedence", () => {
+  const evm = "0x1111111111111111111111111111111111111111";
+  assert.equal(
+    validateLocalProfiles(
+      [],
+      [
+        user({
+          address: evm,
+          canonical_svm_wallet: "",
+          canonical_evm_wallet: evm,
+        }),
+      ],
+    ).profiles[0]?.address,
+    evm,
+  );
+  assert.equal(
+    validateLocalProfiles([], [user({ canonical_evm_wallet: evm })]).profiles[0]
+      ?.address,
+    user().address,
+  );
+  assert.throws(
+    () =>
+      validateLocalProfiles(
+        [],
+        [
+          user({
+            address: "",
+            canonical_svm_wallet: "",
+            canonical_evm_wallet: evm,
+          }),
+        ],
+      ),
+    /inconsistent canonical wallet/,
+  );
+  assert.throws(
+    () =>
+      validateLocalProfiles(
+        [],
+        [user({ canonical_svm_wallet: "", canonical_evm_wallet: evm })],
+      ),
+    /inconsistent canonical wallet/,
+  );
+});

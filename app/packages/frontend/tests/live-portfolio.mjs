@@ -79,7 +79,9 @@ try {
   await mobileResponse;
   await page.getByTestId("portfolio-result").waitFor({ timeout: 30_000 });
   assert.equal(
-    await page.locator(".app-shell").getAttribute("data-mobile-navigation"),
+    await page
+      .locator("[data-app-shell]")
+      .getAttribute("data-mobile-navigation"),
     "closed",
   );
   const mobileDimensions = await page.evaluate(() => ({

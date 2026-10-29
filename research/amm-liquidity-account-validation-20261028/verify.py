@@ -1,4 +1,4 @@
-"""Verify the retained buy-exact transfer-fee receipts (no build claimed).
+"""Verify the retained liquidity account-validation receipts (no build claimed).
 
 Checks, independently of the producer:
 - packet manifest lists exactly the files present, with matching hashes;
@@ -6,9 +6,8 @@ Checks, independently of the producer:
   hash to the recorded values;
 - 11 cases x 3 images = 33 receipts, ordered, with contexts matching the report;
 - every transaction verifies (all signatures valid, 1 signature field);
- - success cases match the exact-limit amounts for their instruction
-  (deposit: base spent, quote spent and LP gained; withdraw: base
-  gained, quote gained and LP burned);
+- the single success case (deposit liq-base, limits u64::MAX) has recorded base spent,
+  quote spent and LP gained equal to the user token-account deltas, identical across images;
 - error cases fail with the expected code and log fragment, and roll
   back every account except the payer's 5000 fee;
 - the recorded error sites match the receipts' logs;
@@ -144,7 +143,7 @@ def main():
             assert len(pairs) == 1, (case, "images must agree on amounts")
     print("PASS: 11 cases, 33 signed receipts, "
           "liquidity account validation pinned, "
-          "wrong accounts rejected on both paths, "
+          "9 wrong-account cases rejected on deposit and 1 on withdraw, "
           "all images agree")
 
 

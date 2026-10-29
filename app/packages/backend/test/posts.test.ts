@@ -14,6 +14,7 @@ import { buildApp } from './with-api-key.js';
 import { assertSchema, type SchemaNode, type SchemaRoot } from '../src/schema-validator.js';
 import { SYNTHETIC_HEADER } from '../src/users-routes.js';
 import { DATA_SOURCE } from '../src/users-store.js';
+import { PostStore, SYNTHETIC_POSTS_SEED, type RawPost } from '../src/posts-store.js';
 
 interface OpenApiDocument {
   paths: Record<string, Record<string, {
@@ -286,6 +287,63 @@ describe('GET /v1/posts/:postId', () => {
       // On repost rows, hasLiked and hasReposted are always false per contract note
       assert.equal(json.post.hasLiked, false);
       assert.equal(json.post.hasReposted, false);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('reposts of unavailable targets', () => {
+  // Contract: `reposted` is "always present on a served repost", unlike `quoted`, which is
+  // "null when the target is hidden or deleted". A repost whose target is unknown, deleted or
+  // hidden therefore cannot be served.
+  const REPOST_OF_DELETED = '00000000-0000-4000-8000-000000000031';
+  const REPOST_OF_HIDDEN = '00000000-0000-4000-8000-000000000032';
+  const REPOST_OF_UNKNOWN = '00000000-0000-4000-8000-000000000033';
+
+  function repostOf(postId: string, target: string, createdAt: string): RawPost {
+    const base = SYNTHETIC_POSTS_SEED.find(p => p.postId === REPOST_1);
+    assert.ok(base);
+    return { ...structuredClone(base), postId, repostedPostId: target, createdAt };
+  }
+
+  function appWithUnavailableTargets() {
+    const seed = [
+      ...structuredClone(SYNTHETIC_POSTS_SEED),
+      repostOf(REPOST_OF_DELETED, DELETED_POST, '2024-01-04T11:00:00.000Z'),
+      repostOf(REPOST_OF_HIDDEN, HIDDEN_POST, '2024-01-04T12:00:00.000Z'),
+      repostOf(REPOST_OF_UNKNOWN, UNKNOWN_POST, '2024-01-04T13:00:00.000Z'),
+    ];
+    return buildApp([], { postStore: new PostStore(seed) });
+  }
+
+  test('GET /v1/posts/:postId returns 404 for a repost whose target is unavailable', async () => {
+    const app = appWithUnavailableTargets();
+    try {
+      for (const id of [REPOST_OF_DELETED, REPOST_OF_HIDDEN, REPOST_OF_UNKNOWN]) {
+        const res = await app.inject(`/v1/posts/${id}`);
+        assert.equal(res.statusCode, 404, `repost ${id}`);
+        assertSchema(res.json(), errorSchema, `404 repost ${id}`, specRoot);
+        assert.equal(res.json().error, 'NOT_FOUND');
+      }
+      const live = await app.inject(`/v1/posts/${REPOST_1}`);
+      assert.equal(live.statusCode, 200);
+      assert.equal(live.json().post.reposted.postId, POST_1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('GET /v1/posts omits reposts whose target is unavailable', async () => {
+    const app = appWithUnavailableTargets();
+    try {
+      const ids = [REPOST_OF_DELETED, REPOST_1, REPOST_OF_HIDDEN, REPOST_OF_UNKNOWN].join(',');
+      const res = await app.inject(`/v1/posts?ids=${ids}`);
+      assert.equal(res.statusCode, 200);
+      const json = res.json();
+      assertSchema(json, documentedSchema('/posts', 'get', 200), 'GET /posts reposts', specRoot);
+      assert.deepEqual(json.posts.map((p: { postId: string }) => p.postId), [REPOST_1]);
+      assert.equal(json.posts[0].reposted.postId, POST_1);
     } finally {
       await app.close();
     }

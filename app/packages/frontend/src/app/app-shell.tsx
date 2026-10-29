@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { SignInControl } from "./auth/sign-in-control";
+import SettingsControl from "../components/settings/settings-control";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   FormEvent,
@@ -403,6 +405,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
         <footer className="sidebar-footer">
+          <SettingsControl />
           <div className="legal-links" aria-label="Reference links">
             {legalNavigation.map((item) => (
               <Link
@@ -439,6 +442,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Suspense fallback={<SearchFallback />}>
             <SearchNavigation />
           </Suspense>
+          <SignInControl />
           <span className="local-status">
             <span aria-hidden="true" />
             Local reconstruction

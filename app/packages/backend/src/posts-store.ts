@@ -116,8 +116,8 @@ export function userToProfile(user: User, isVerified: boolean): UserProfile {
     headerImageUrl: user.header_image_url ?? '',
     followerCount: user.followers,
     followingCount: user.following,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z',
+    createdAt: null,
+    updatedAt: null,
     walletAddress: user.canonical_svm_wallet ?? user.address ?? null,
     socials: user.x_username ? [{ provider: 'twitter', username: user.x_username, linkedAt: null }] : [],
     isVerified,
@@ -142,11 +142,21 @@ export function encodeCursor(item: { createdAt: string | null; postId: string })
   return Buffer.from(payload, 'utf8').toString('base64url');
 }
 
-export function decodeCursor(cursor: string): { createdAt: string; postId: string } | null {
+export function decodeCursor(cursor: unknown): { createdAt: string; postId: string } | null {
   try {
-    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
+    // Buffer's base64 decoder silently ignores junk and accepts alternate
+    // encodings. Require the unchanged encoder's alphabet and trailing bits.
+    if (typeof cursor !== 'string' || !/^[A-Za-z0-9_-]+$/.test(cursor)) return null;
+    const bytes = Buffer.from(cursor, 'base64url');
+    if (bytes.toString('base64url') !== cursor) return null;
+    const raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length === 2 && typeof parsed[0] === 'string' && typeof parsed[1] === 'string') {
+      // Preserve the null-time sentinel and all date representations understood
+      // by the existing comparator. NaN would otherwise silently empty a page.
+      if (parsed[0] !== '' && !Number.isFinite(new Date(parsed[0]).getTime())) return null;
+      if (/[\u0000-\u001f\u007f]/.test(parsed[1])) return null;
+      encodeURIComponent(parsed[1]); // Reject lone surrogates before comparison.
       return { createdAt: parsed[0], postId: parsed[1] };
     }
     return null;
@@ -170,7 +180,9 @@ export class PostStore {
   private userStore: UserStore;
 
   constructor(seed?: RawPost[], userStore?: UserStore) {
-    this.posts = seed ?? (seedData as RawPost[]);
+    // The store documents deterministic read-only data: snapshot the seed so
+    // caller-owned rows (and the shared default seed) cannot corrupt later reads.
+    this.posts = structuredClone(seed ?? (seedData as RawPost[]));
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
@@ -249,7 +261,9 @@ export class PostStore {
       replyCount: raw.replyCount,
       repostCount: raw.repostCount,
       quoteCount: raw.quoteCount,
-      mentions: raw.mentions ?? [],
+      // Clone the mentions array: returning the stored array lets a caller
+      // push into (or rewrite) the seed row's mentions for every later read.
+      mentions: structuredClone(raw.mentions ?? []),
       hasLiked: raw.kind === 'repost' ? false : null,
       hasReposted: raw.kind === 'repost' ? false : null,
       deleted: false,
@@ -260,17 +274,29 @@ export class PostStore {
   }
 
   /**
-   * Get a live post by ID. Returns undefined for unknown, deleted, or hidden posts.
+   * A post row can be served when it is live. A repost also needs a live target, because the
+   * contract's `reposted` embed is "always present on a served repost".
+   */
+  private isServed(raw: RawPost): boolean {
+    if (raw.deleted || raw.hidden) return false;
+    if (raw.kind !== 'repost') return true;
+    const target = raw.repostedPostId ? this.byPostId.get(raw.repostedPostId) : undefined;
+    return target !== undefined && !target.deleted && !target.hidden;
+  }
+
+  /**
+   * Get a servable post by ID. Returns undefined for unknown, deleted, or hidden posts,
+   * and for reposts whose target is unknown, deleted, or hidden.
    */
   getLivePost(postId: string): Post | undefined {
     const raw = this.byPostId.get(postId);
-    if (!raw || raw.deleted || raw.hidden) return undefined;
+    if (!raw || !this.isServed(raw)) return undefined;
     return this.hydrate(raw);
   }
 
   /**
    * Batch-fetch posts by ids in requested order.
-   * Duplicates collapse, and unknown, hidden or deleted ids leave no placeholder.
+   * Duplicates collapse, and ids that cannot be served (see isServed) leave no placeholder.
    */
   batch(ids: string[]): Post[] {
     const seen = new Set<string>();
@@ -281,7 +307,7 @@ export class PostStore {
       seen.add(id);
 
       const raw = this.byPostId.get(id);
-      if (raw && !raw.deleted && !raw.hidden) {
+      if (raw && this.isServed(raw)) {
         result.push(this.hydrate(raw));
       }
     }
@@ -300,7 +326,7 @@ export class PostStore {
     let items = this.posts.filter(p => p.parentPostId === postId && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
 
-    if (opts.cursor) {
+    if (opts.cursor !== undefined) {
       const decoded = decodeCursor(opts.cursor);
       if (!decoded) {
         throw new Error('INVALID_CURSOR');
@@ -336,7 +362,7 @@ export class PostStore {
     let items = this.posts.filter(p => p.quotedPostId === postId && p.kind === 'quote' && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
 
-    if (opts.cursor) {
+    if (opts.cursor !== undefined) {
       const decoded = decodeCursor(opts.cursor);
       if (!decoded) {
         throw new Error('INVALID_CURSOR');
@@ -369,7 +395,7 @@ export class PostStore {
     const post = this.byPostId.get(postId);
     if (!post || post.deleted || post.hidden) return undefined;
 
-    const likerIds = post.likers ?? [];
+    const likerIds = (post.likers ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);
     const limit = Math.max(1, opts.limit ?? 50);
 
@@ -395,7 +421,7 @@ export class PostStore {
     const post = this.byPostId.get(postId);
     if (!post || post.deleted || post.hidden) return undefined;
 
-    const reposterIds = post.reposters ?? [];
+    const reposterIds = (post.reposters ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);
     const limit = Math.max(1, opts.limit ?? 50);
 

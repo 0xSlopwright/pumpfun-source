@@ -10,8 +10,13 @@ referenced_objects={r['path'] for r in records if 'path' in r and r['path'].star
 if actual_objects!=referenced_objects:
  raise ValueError(f"Captured object inventory differs from records: unreferenced={sorted(actual_objects-referenced_objects)}, missing={sorted(referenced_objects-actual_objects)}")
 for r in records:
- if 'path' in r and hashlib.sha256((root/r['path']).read_bytes()).hexdigest()!=r['sha256']:
+ if 'path' not in r: continue
+ body=(root/r['path']).read_bytes()
+ if hashlib.sha256(body).hexdigest()!=r['sha256']:
   raise ValueError(f"Captured object SHA-256 mismatch: {r['path']}")
+ # Older probe records may omit byte counts; validate every count that is present.
+ if 'bytes' in r and (type(r['bytes']) is not int or r['bytes']<0 or len(body)!=r['bytes']):
+  raise ValueError(f"Captured object byte count mismatch: {r['path']}")
 meta=json.loads((root/'evidence/sdk/registry.json').read_text(encoding='utf-8'))
 archive=root/'evidence/sdk/pump-sdk-4.3.1.tgz'
 if 'sha512-'+base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode()!=meta['dist']['integrity']:

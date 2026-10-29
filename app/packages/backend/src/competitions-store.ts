@@ -222,7 +222,9 @@ export class CompetitionStore {
   private userStore: UserStore;
 
   constructor(seed?: RawCompetition[], userStore?: UserStore) {
-    this.competitions = seed ?? (seedData as unknown as RawCompetition[]);
+    // The store documents deterministic read-only data: snapshot the seed so
+    // caller-owned rows (and the shared default seed) cannot corrupt later reads.
+    this.competitions = structuredClone(seed ?? (seedData as unknown as RawCompetition[]));
     this.byId = new Map(this.competitions.map(c => [c.id, c]));
     this.bySlug = new Map(this.competitions.map(c => [c.slug.toLowerCase(), c]));
     this.userStore = userStore ?? defaultStore;
@@ -231,9 +233,13 @@ export class CompetitionStore {
   /**
    * Rank entries in a competition:
    * Non-struck entries are ordered by pnlUsd descending, tie-breaking on registeredAt ascending, then entryId.
-   * Struck entries receive rank 0.
+   * All entries before the first build, and struck entries thereafter, receive rank 0.
    */
   private rankEntries(comp: RawCompetition): RankedEntry[] {
+    // builtAtMs is the maximum refresh time; 0 means no board has been built yet.
+    if (!comp.entries.some(entry => entry.lastRefreshedAtMs > 0)) {
+      return comp.entries.map(entry => ({ ...entry, rank: 0 }));
+    }
     const struck: RankedEntry[] = comp.entries.filter(e => e.struck).map(e => ({ ...e, rank: 0 }));
     const nonStruck = comp.entries.filter(e => !e.struck);
 
@@ -284,7 +290,8 @@ export class CompetitionStore {
     const isFinal = comp.isFinal;
 
     // Per contract: walletAddress is null for squads, walletless member, and rank-0 before build
-    const walletAddress = isPerson ? profile.walletAddress : null;
+    const walletAddress = isPerson && comp.entries.some(row => row.lastRefreshedAtMs > 0)
+      ? profile.walletAddress : null;
 
     // Per contract: positionsCount and topPositions are 0 / [] for squads and on final boards
     let positionsCount = 0;
@@ -292,7 +299,11 @@ export class CompetitionStore {
     if (isPerson && !isFinal) {
       const positions = entry.positions ?? [];
       positionsCount = positions.length;
-      topPositions = positions.slice(0, Math.max(0, positionsLimit));
+      // Clone each position: returning stored rows lets a caller rewrite a
+      // seed row's position for every later read.
+      topPositions = positions
+        .slice(0, Math.max(0, positionsLimit))
+        .map((position) => ({ ...position }));
     }
 
     const memberCount = isPerson ? 1 : (entry.members ? entry.members.length : 0);
@@ -322,22 +333,23 @@ export class CompetitionStore {
 
   /**
    * Convert raw competition into CompetitionView with top and winners populated.
+   * `positionsLimit` slices top and winner rows like leaderboard rows (default 3).
    */
-  public toCompetitionView(comp: RawCompetition): CompetitionView {
+  public toCompetitionView(comp: RawCompetition, positionsLimit = 3): CompetitionView {
     const ranked = this.rankEntries(comp);
     const nonStruckRanked = ranked.filter(e => !e.struck && e.rank >= 1);
 
     // entriesCount: all registered entries, struck included
     const entriesCount = comp.entries.length;
     // participants: non-struck entries
-    const participants = nonStruckRanked.length;
+    const participants = comp.entries.filter(entry => !entry.struck).length;
 
     // top: ranks 1..3 for phase registration or live; [] otherwise
     let top: LeaderboardRow[] = [];
     if (comp.phase === 'registration' || comp.phase === 'live') {
       top = nonStruckRanked
         .slice(0, 3)
-        .map(e => this.buildLeaderboardRow(comp, e, 3));
+        .map(e => this.buildLeaderboardRow(comp, e, positionsLimit));
     }
 
     // winners: ranks 1..N for phase ended; [] otherwise
@@ -349,7 +361,7 @@ export class CompetitionStore {
       winners = nonStruckRanked
         .filter(e => e.rank <= maxRank)
         .map(e => {
-          const row = this.buildLeaderboardRow(comp, e, 3);
+          const row = this.buildLeaderboardRow(comp, e, positionsLimit);
           const tier = comp.prizes.find(p => p.rankFrom <= e.rank && e.rank <= p.rankTo);
           return {
             ...row,
@@ -366,7 +378,9 @@ export class CompetitionStore {
       description: comp.description,
       prizeCopy: comp.prizeCopy,
       imageUrl: comp.imageUrl,
-      prizes: comp.prizes,
+      // Clone the prize tiers: returning the stored array lets a caller
+      // push into (or rewrite) the seed row's prizes for every later read.
+      prizes: structuredClone(comp.prizes),
       registrationOpensAt: comp.registrationOpensAt,
       registrationClosesAt: comp.registrationClosesAt,
       startsAt: comp.startsAt,
@@ -440,11 +454,11 @@ export class CompetitionStore {
     const comp = this.byId.get(idOrSlug) ?? this.bySlug.get(idOrSlug.toLowerCase());
     if (!comp) return null;
 
-    const competition = this.toCompetitionView(comp);
+    const positionsLimit = opts.positionsLimit !== undefined ? opts.positionsLimit : 3;
+    const competition = this.toCompetitionView(comp, positionsLimit);
     const ranked = this.rankEntries(comp);
     const nonStruckRanked = ranked.filter(e => !e.struck && e.rank >= 1);
 
-    const positionsLimit = opts.positionsLimit !== undefined ? opts.positionsLimit : 3;
     const limit = opts.limit !== undefined ? opts.limit : 100;
 
     const entries = nonStruckRanked
@@ -459,7 +473,10 @@ export class CompetitionStore {
     }
 
     const startSec = comp.startsAt ? Math.trunc(new Date(comp.startsAt).getTime() / 1000) : 0;
-    const endSec = comp.endsAt ? Math.trunc(new Date(comp.endsAt).getTime() / 1000) : 0;
+    // Contract: the last build while live (0 before the first build, like builtAtMs), endsAt once final.
+    const endSec = comp.isFinal
+      ? (comp.endsAt ? Math.trunc(new Date(comp.endsAt).getTime() / 1000) : 0)
+      : Math.trunc(builtAtMs / 1000);
 
     const leaderboard: LeaderboardView = {
       builtAtMs,
@@ -495,7 +512,7 @@ export class CompetitionStore {
         const profile = this.hydrateProfile(m.userId);
         members.push({
           userId: m.userId,
-          walletAddress: m.walletAddress ?? profile.walletAddress,
+          walletAddress: m.walletAddress === undefined ? profile.walletAddress : m.walletAddress,
           pnlUsd: m.pnlUsd,
           realizedPnlUsd: m.realizedPnlUsd,
           unrealizedPnlUsd: m.unrealizedPnlUsd,
@@ -556,7 +573,7 @@ export class CompetitionStore {
         const profile = this.hydrateProfile(m.userId);
         return {
           userId: m.userId,
-          walletAddress: m.walletAddress ?? profile.walletAddress,
+          walletAddress: m.walletAddress === undefined ? profile.walletAddress : m.walletAddress,
           pnlUsd: m.pnlUsd,
           realizedPnlUsd: m.realizedPnlUsd,
           unrealizedPnlUsd: m.unrealizedPnlUsd,
@@ -624,7 +641,7 @@ export class CompetitionStore {
               entryId: entry.entryId,
               rank: entry.rank,
               userId: member.userId,
-              walletAddress: member.walletAddress ?? profile.walletAddress,
+              walletAddress: member.walletAddress === undefined ? profile.walletAddress : member.walletAddress,
               pnlUsd: member.pnlUsd,
               realizedPnlUsd: member.realizedPnlUsd,
               unrealizedPnlUsd: member.unrealizedPnlUsd,

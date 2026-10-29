@@ -68,6 +68,50 @@ function post(overrides: Record<string, unknown> = {}) {
   };
 }
 
+test("walletless feed authors preserve stable user ids without a fabricated address", () => {
+  const users = [
+    user({ address: "", userId: "group-one", username: "Group one" }),
+    user({ address: "", userId: "group-two", username: null }),
+  ];
+  const result = validateLocalFeed(
+    [
+      post({ postId: "one", authorId: "group-one" }),
+      post({ postId: "two", authorId: "group-two" }),
+    ],
+    users,
+  );
+  assert.deepEqual(
+    result.posts.map((entry) => entry.author),
+    [
+      { address: "", userId: "group-one", name: "Group one", missing: false },
+      {
+        address: "",
+        userId: "group-two",
+        name: "Unnamed local account",
+        missing: false,
+      },
+    ],
+  );
+  for (const userId of [undefined, "", " "]) {
+    assert.throws(
+      () => validateLocalFeed([], [user({ address: "", userId })]),
+      FeedDataError,
+    );
+  }
+  assert.throws(
+    () => validateLocalFeed([], [users[0], users[0]]),
+    /repeats an identity/,
+  );
+  assert.throws(
+    () =>
+      validateLocalFeed(
+        [],
+        [users[0], user({ address: "group-one", userId: "another" })],
+      ),
+    /repeats an identity/,
+  );
+});
+
 test("authenticates and adapts the exact checked-in synthetic seeds", async () => {
   const { postsBytes, usersBytes, posts, users } = await checkedInSeeds();
   assert.equal(sha256(postsBytes), POSTS_SEED_SHA256);

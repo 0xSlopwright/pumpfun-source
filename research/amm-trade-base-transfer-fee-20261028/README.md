@@ -13,8 +13,9 @@ a synthetic base transfer-fee extension added after the fact
 Ten fresh-VM triples (original / #424 control / #427
 candidate), 30 signed executions on the repository's own trade
 harness (`scripts/pump_amm_trade_v2_differential.py`). The
-clock is slot 100, epoch 0. `producer.py` reproduces every
-receipt from the repository files.
+clock is slot 100, epoch 0. `producer.py` generated these receipts on the author's machine; as committed it expects a
+checkout at `~/workspace/pumpfun-sparse` and the #424/#427 `candidate.so.gz` images gunzipped
+into `~/workspace/slop-verify`, so it does not run from this packet unmodified.
 
 | Case | User base | User quote | Vault base |
 | --- | --- | --- | --- |
@@ -54,8 +55,9 @@ order.
   succeed under a 1% base fee, because both limits are
   quote-side and the base fee never touches quote.
 - **Same mechanism as liquidity**: base fees are withheld by
-  the token program after the program's checks, on trade as
-  on deposit and withdraw.
+  the token program after the program's checks, on trade here,
+  as on deposit and withdraw in the liquidity base transfer-fee
+  packet.
 
 ## Limits
 
