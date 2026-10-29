@@ -117,3 +117,10 @@ through ordered link scripts (`programs/{mayhem,pump-fees}/build_exact.py`, AMM 
   where the original has it.
 - Raw gains before the 16 match are limited to call-only windows. The model ceiling with today's
   sizes and data is 293 (full original order), 272 with L order alone.
+
+### Source trial: upstream generic for 0x2bc0 (`6fc0151b`, rejected)
+Replacing `account_name::with_owned_name(error, &name)` with `error.with_account_name(&name)` gives
+1018/188 against the main HEAD control's 1020/188. It loses 0x2bc0 and 0x6fef8 because the generic
+instance gets inlined into `set_reserved_fee_recipients`. In the original the instance is outlined and
+sits in the U block, so the original call site must look different (for example, a second caller keeps
+it out of line).
