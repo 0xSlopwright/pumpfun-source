@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 import {
   decodeSource,
@@ -29,7 +30,7 @@ for (const path of paths) {
   const bytes = await readFile(new URL(`packages/sdk/${path}`, root));
   assert.deepEqual(
     bytes,
-    execFileSync("tar", ["-xOf", archive.pathname, `package/${path}`]),
+    execFileSync("tar", ["-xOf", fileURLToPath(archive), `package/${path}`]),
   );
   const source = decodeSource(bytes);
   sources.set(path, {
