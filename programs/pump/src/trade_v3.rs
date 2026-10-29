@@ -428,7 +428,7 @@ pub struct PostComplete{pub fees:TradeFees,pub base_out:u64,pub quote_in:u64,pub
 
 
 // layout-pad(62): aligns the next Source site with the original line
-#[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda} #[inline(always)] fn v3_cross_ok(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode==false && *user!=global.whitelist_pda}
+#[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda} fn v3_cross_ok(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode==false && *user!=global.whitelist_pda}
 fn v3_can_cross(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{!v3_fee_exempt(global,curve,user)}
 
 

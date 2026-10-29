@@ -6,6 +6,7 @@ Base: origin/main 630a07412 (1023 normalized / 277 raw). buy_v3 on base: 3680 B 
 | state | bytes | ratio | oracle slots | official |
 |---|---:|---:|---:|---|
 | base 630a07412 | 3680 | 0.87739 | 79 | 1023 / 277 |
+| **t40: t03 with no inline attribute on `v3_cross_ok`** (LLVM inlines it, not MIR) | 3680 | **0.93138** | **38** | 1023 / 277, 0 losses |
 | t03: fee-exempt test as a `v3_cross_ok` helper, `curve.is_mayhem_mode==false && *user!=global.whitelist_pda`, guard `amount>real && can_cross` | 3680 | **0.88414** | **72** | 1023 / 277, 0 losses |
 
 ## Mechanism (tools/rpo.py)
@@ -36,3 +37,20 @@ Oracle findings (llc on the optimized IR, `tools/scan.py` moves one block to eve
 | t15 | `!(mayhem==true || user==wl)` | 3680 | 0.87739 | 79 | 0 |
 | t16 | t13 + `exempt==false` guard | 3688 | 0.8764 | 80 | raw 0xa868 |
 | t17 | `mayhem==false && !(user==wl)` | 3680 | 0.88414 | 72 | 0 |
+| t18 | `let user=a.user.key()` local | 3672 | 0.61261 | 200 | raw 0xa868 (memcmp sunk below amount test) |
+| t19 | `let costs=..; costs?` | 3680 | 0.54218 | 295 | 0 |
+| t20 | match Ok/`return Err(e.into())` | 3680 | 0.88414 | 72 | 0 |
+| t21/t22 | match on v3_buy_costs wrapping the tail | 3688/3680 | 0.458/0.452 | 281/284 | frame +0x18 |
+| t24 | helper takes `is_mayhem:u8`, `==0` | 3680 | 0.85489 | 92 | 0 |
+| t27 | `can_cross==true` guard | 3680 | 0.88414 | 72 | 0 |
+| t28 | nested if with duplicated else | 3736 | 0.68973 | 193 | raw 0xa868 |
+| t29/t30/t32 | key temp kept live through match / call in if-condition | 3720/3696/3712 | <=0.875 | | raw 0xa868 |
+| t33/t35 | early-return / block rhs helper bodies | 3680 | 0.88414 | 72 | 0 |
+| t34 | `if mayhem==true {return false}` | 3680 | 0.87739 | 79 | 0 |
+| t38 | two v3_buy_costs call sites | 3768 | 0.70222 | 187 | 30 calls |
+| t39 | `let costs=..?; let (..)=costs;` | 3680 | 0.88414 | 72 | 0 |
+| **t40** | **no inline attr on v3_cross_ok** | 3680 | **0.93138** | **38** | 0 |
+| t41 | `#[inline]` on v3_cross_ok | 3680 | 0.88414 | 72 | 0 |
+
+## t40: LLVM-level inline of the helper (lever 2 solved)
+Without `#[inline(always)]`, the MIR inliner leaves `v3_cross_ok` as a call, and LLVM inlines it later. Its blocks (`v3_cross_ok.exit.thread`, `.exit`) are spliced after the call block in the callee's own order, and the jump-threaded mayhem path no longer precedes memcmp. The whole front half (prologue to v3_buy_costs) now matches. The remaining 38 slots are the v3_buy_costs Err placement: on the t40 IR, `bb76>bb83` (Err block after the v3_execute_buy Err) gives 12 slots / 0.982.
