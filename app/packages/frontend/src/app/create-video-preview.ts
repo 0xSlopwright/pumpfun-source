@@ -284,11 +284,14 @@ export class VideoDraftSession {
       }
       const previous = this.state.preview;
       this.publish({ preview, selected: 0, pending: false });
-      this.selected({
-        video: file,
-        cover: preview.covers[0].file,
-        owner: preview,
-      });
+      // Observers may clear or dispose the draft synchronously while publishing.
+      if (!this.disposed && this.state.preview === preview) {
+        this.selected({
+          video: file,
+          cover: preview.covers[0].file,
+          owner: preview,
+        });
+      }
       previous?.dispose();
     } catch (error) {
       if (!this.disposed && revision === this.revision)
