@@ -135,11 +135,24 @@ flagged divergent in runtime/report.json.gz.
   behaviour on three images, including one deliberate
   original-vs-rebuilt divergence.
 
-## Reproduction
+## Saved-receipt verification
 
+From the repository root:
+
+```sh
+python3 -B research/amm-multi-hop-four-hop-mode-pools-chains-20261029/verify.py
 ```
-python3 verify.py
-```
+
+The defaults use the retained original image and the compressed candidate images
+from `amm-multi-hop-group-slice-recovery` (#424 control) and
+`amm-transfer-fee-diagnostic-recovery` (#427 candidate). To use images elsewhere,
+pass `--original /path/to/original.so --control /path/to/control.so --candidate
+/path/to/candidate.so`; each option accepts raw or gzip-compressed bytes. All
+three image hashes must still match the report.
+
+This command checks stored receipts, signatures and snapshots; it does not execute
+the transactions again. `producer.py` is the retained historical producer and
+keeps its original workspace paths and harness imports.
 
 Expected output:
 
