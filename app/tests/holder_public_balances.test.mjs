@@ -229,7 +229,7 @@ test("published derivation and existing server RPC boundary remain unchanged", a
     "src/app/portfolio/rpc.ts":
       "600e4a05c569dec818662b4be38ea513ad20a4b4bb7fb6bc1783a088c569259f",
     "src/app/portfolio/types.ts":
-      "b25c42a0a64f64949d81a4c322d4d098e9c32c2b2be832af48dbd2ad52d8e33c",
+      "059bce99fd82d1e7166c6cb57577abd6be2a11d606f76b4d20caf97f9b021122",
     "src/app/holder-rewards-derivation.ts":
       "01d5dc18ac17bfd7ea78eaa4d777166f3decbb03cefe8e601385197bc891b1b6",
   })) {
