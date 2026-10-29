@@ -65,6 +65,7 @@ export default function CreateVideoInput({
       <label htmlFor="create-video">Local video</label>
       <input
         id="create-video"
+        className={styles.input}
         type="file"
         accept="video/mp4,video/webm,.mp4,.webm"
         aria-describedby={`video-hint${state.error ? " video-error" : ""}`}

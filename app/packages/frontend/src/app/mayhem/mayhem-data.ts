@@ -83,9 +83,9 @@ export function parseMayhemResponse(input: unknown): MayhemResponse {
   if (
     !isRecord(input) ||
     input.source !== "synthetic-test" ||
-    !Array.isArray(input.coins)
+    !Array.isArray(input.coins) || input.coins.length > MAYHEM_MAX_LIMIT
   ) {
-    throw new MayhemDataError("Mayhem response envelope is invalid");
+    throw new MayhemDataError("Mayhem response envelope is invalid or exceeds the 60-row page limit");
   }
 
   const mints = new Set<string>();

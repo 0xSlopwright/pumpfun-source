@@ -43,8 +43,8 @@ function choice<T extends string>(
   value: string | undefined,
   values: T[],
 ): T | undefined {
-  const normalized = value?.trim().toUpperCase();
-  if (!normalized) return undefined;
+  if (value === undefined) return undefined;
+  const normalized = value.trim().toUpperCase();
   if (!values.includes(normalized as T)) throw new QueryError();
   return normalized as T;
 }

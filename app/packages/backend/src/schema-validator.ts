@@ -208,9 +208,9 @@ export function validateAgainstSchema(
       issues.push({ path, message: `array longer than maxItems ${schema.maxItems}` });
     }
     if (schema.items) {
-      value.forEach((item, i) => {
-        issues.push(...validateAgainstSchema(item, schema.items as SchemaNode, `${path}[${i}]`, root));
-      });
+      for (let i = 0; i < value.length; i++) {
+        issues.push(...validateAgainstSchema(value[i], schema.items as SchemaNode, `${path}[${i}]`, root));
+      }
     }
   }
 
