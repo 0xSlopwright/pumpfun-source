@@ -49,7 +49,7 @@ export function validateDeclared(document, schema, value) {
       else {
         if (rule.minItems !== undefined && input.length < rule.minItems) fail('below declared item minimum');
         if (rule.maxItems !== undefined && input.length > rule.maxItems) fail('above declared item maximum');
-        input.forEach((item, index) => visit(rule.items, item, `${path}/${index}`, depth + 1));
+        for (const [index, item] of input.entries()) visit(rule.items, item, `${path}/${index}`, depth + 1);
       }
     }
     if (rule.type === 'object') {
