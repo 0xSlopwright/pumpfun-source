@@ -95,9 +95,13 @@ function typeMatches(value: unknown, type: string): boolean {
 
 /** Resolve a local JSON pointer such as "#/components/schemas/User". */
 function resolveRef(ref: string, root?: SchemaRoot): SchemaNode | undefined {
-  if (!ref.startsWith('#/') || !root) return undefined;
+  if (!ref.startsWith('#') || !root) return undefined;
   let node: unknown = root;
-  for (const rawPart of ref.slice(2).split('/')) {
+  let pointer: string;
+  try { pointer = decodeURIComponent(ref.slice(1)); } catch { return undefined; }
+  if (!pointer.startsWith('/')) return undefined;
+  for (const rawPart of pointer.slice(1).split('/')) {
+    if (/~(?![01])/.test(rawPart)) return undefined;
     const part = rawPart.replace(/~1/g, '/').replace(/~0/g, '~');
     if (node === null || typeof node !== 'object' || !Object.hasOwn(node, part)) return undefined;
     node = (node as Record<string, unknown>)[part];
