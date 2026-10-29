@@ -352,6 +352,7 @@ export class CalloutsStore {
       if (row.facts !== null) {
         assertSchema(row.facts, factsSchema, "callout facts", spec);
         publicSpot(row.facts);
+        if (row.facts.createdAt !== null && row.facts.createdAt > Date.parse(this.observedAt)) fail("callout timestamp exceeds observedAt");
         if (row.facts.calloutId !== row.calloutId)
           fail("callout identity mismatch");
         identity(row.facts.userId, "posting wallet");
@@ -422,6 +423,7 @@ export class CalloutsStore {
         spec,
       );
       publicSpot(row.body);
+      if (row.body.createdAt !== null && Date.parse(row.body.createdAt) > Date.parse(this.observedAt)) fail("update timestamp exceeds observedAt");
       identity(row.body.id, "update.id");
       if (updateIds.has(row.body.id)) fail("duplicate update identity");
       updateIds.add(row.body.id);
