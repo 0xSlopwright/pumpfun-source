@@ -458,5 +458,305 @@
     "file": "evidence/failed/stock-commands.json.gz",
     "bytes": 4629,
     "sha256": "6e1a754f5b797b84565b98639dbb4043bf4e0392dd816eccf915b59438ce267e"
+  },
+  "costs/stock01/launch.json": {
+    "file": "evidence/costs/stock01/launch.json.gz",
+    "bytes": 2906,
+    "sha256": "76a3b5eefd8cadf35c55947ce43dad1773231d6cf2b46ca90a55d5e9a1f73f56"
+  },
+  "costs/stock01/result.json": {
+    "file": "evidence/costs/stock01/result.json.gz",
+    "bytes": 440,
+    "sha256": "0d3b0c6a13b8dfcf6ae037c8dbcb3f417903a37e726d5e5ddbd7d3f4e58668f1"
+  },
+  "costs/stock01/stderr.log": {
+    "file": "evidence/costs/stock01/stderr.log.gz",
+    "bytes": 303832,
+    "sha256": "08bb4f37fee1e5201f2bf254ac676990253898ed004c8ea7f7caf60385949529"
+  },
+  "costs/stock01/stdout.log": {
+    "file": "evidence/costs/stock01/stdout.log.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/stock01/target.o": {
+    "file": "evidence/costs/stock01/target.o.gz",
+    "bytes": 162096,
+    "sha256": "76ce9eeb0ad3551ccf1e753f69551936ea6a1db1c42c86d51cea45a2c62ee00b"
+  },
+  "costs/probe01/launch.json": {
+    "file": "evidence/costs/probe01/launch.json.gz",
+    "bytes": 2921,
+    "sha256": "c10e2f0e78cc25a5a0e3f53358635283b0fbdcd0b4cdd33d2153683646905d93"
+  },
+  "costs/probe01/result.json": {
+    "file": "evidence/costs/probe01/result.json.gz",
+    "bytes": 439,
+    "sha256": "3176569d899fcd5c4d7006766d3ff533777d4777e605c98cd7125c7604b1a538"
+  },
+  "costs/probe01/stderr.log": {
+    "file": "evidence/costs/probe01/stderr.log.gz",
+    "bytes": 321282,
+    "sha256": "ee1740f2e4c61361bdc317514189126971cac4b39981d3927968d40bb4f614d4"
+  },
+  "costs/probe01/stdout.log": {
+    "file": "evidence/costs/probe01/stdout.log.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/probe01/target.o": {
+    "file": "evidence/costs/probe01/target.o.gz",
+    "bytes": 162096,
+    "sha256": "76ce9eeb0ad3551ccf1e753f69551936ea6a1db1c42c86d51cea45a2c62ee00b"
+  },
+  "costs/ir01/baseline/input.ll": {
+    "file": "evidence/costs/ir01/baseline/input.ll.gz",
+    "bytes": 192263,
+    "sha256": "a22f10a9dece336b1ba5b06ac90bf3c90384347a64a3dc53723f957bfe35aca7"
+  },
+  "costs/ir01/baseline/launch.json": {
+    "file": "evidence/costs/ir01/baseline/launch.json.gz",
+    "bytes": 3263,
+    "sha256": "6af64f08afccf6e4112151c18ddaeb4fabc980b9df75cf190940d62ea4b554dd"
+  },
+  "costs/ir01/baseline/result.json": {
+    "file": "evidence/costs/ir01/baseline/result.json.gz",
+    "bytes": 446,
+    "sha256": "13d01ebf00ae67160111f57de64d4f0340b72716a2f82f55f1eafd3d1f1eb255"
+  },
+  "costs/ir01/baseline/stderr.log": {
+    "file": "evidence/costs/ir01/baseline/stderr.log.gz",
+    "bytes": 331987,
+    "sha256": "9c6a8eecff69f5617f46064b8a0b34bdd45d094fa6e7e5cf99cd8cfe082c84e7"
+  },
+  "costs/ir01/baseline/stdout.log": {
+    "file": "evidence/costs/ir01/baseline/stdout.log.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/ir01/baseline/target.o": {
+    "file": "evidence/costs/ir01/baseline/target.o.gz",
+    "bytes": 162096,
+    "sha256": "76ce9eeb0ad3551ccf1e753f69551936ea6a1db1c42c86d51cea45a2c62ee00b"
+  },
+  "costs/ir01/frequency/input.ll": {
+    "file": "evidence/costs/ir01/frequency/input.ll.gz",
+    "bytes": 192322,
+    "sha256": "b6fa1d940f3584fc6ca813338bda512b8b29d896aa4a79c461c3913161a403dc"
+  },
+  "costs/ir01/frequency/launch.json": {
+    "file": "evidence/costs/ir01/frequency/launch.json.gz",
+    "bytes": 3265,
+    "sha256": "06db48205463052c62ae26fc7feb87c58c5d3cd5fdc3c028ee8ecfed82025c45"
+  },
+  "costs/ir01/frequency/result.json": {
+    "file": "evidence/costs/ir01/frequency/result.json.gz",
+    "bytes": 447,
+    "sha256": "5e13f8a4f00ff3668a228cf45bb4efe7661b0399657fc1ddf7cd5f4b71abf6d8"
+  },
+  "costs/ir01/frequency/stderr.log": {
+    "file": "evidence/costs/ir01/frequency/stderr.log.gz",
+    "bytes": 329399,
+    "sha256": "ebc40efc718a2b85b93bddd67195f02baf96a442be2dbd6ecd1d809498c9f540"
+  },
+  "costs/ir01/frequency/stdout.log": {
+    "file": "evidence/costs/ir01/frequency/stdout.log.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/ir01/frequency/target.o": {
+    "file": "evidence/costs/ir01/frequency/target.o.gz",
+    "bytes": 162016,
+    "sha256": "10bcaf64c83f03716c13c060b5a1e84c42e33792f8348dfec3627c8879be8213"
+  },
+  "costs/frequency-probe01/launch.json": {
+    "file": "evidence/costs/frequency-probe01/launch.json.gz",
+    "bytes": 3051,
+    "sha256": "4af083fe9fe086b18d8db05eb61437f47cf1f1e56c4988e2899448ad5e872aed"
+  },
+  "costs/frequency-probe01/result.json": {
+    "file": "evidence/costs/frequency-probe01/result.json.gz",
+    "bytes": 456,
+    "sha256": "cf5e4bc274f2746829b2b75742131c826f08d097ec716d0e3451aa5c686719fe"
+  },
+  "costs/frequency-probe01/stderr.log": {
+    "file": "evidence/costs/frequency-probe01/stderr.log.gz",
+    "bytes": 346849,
+    "sha256": "346170378528d2ec499a9c00c6434f59ce3a3fa8b1cab3c75036e65fdcdcffab"
+  },
+  "costs/frequency-probe01/stdout.log": {
+    "file": "evidence/costs/frequency-probe01/stdout.log.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/frequency-probe01/target.o": {
+    "file": "evidence/costs/frequency-probe01/target.o.gz",
+    "bytes": 162016,
+    "sha256": "10bcaf64c83f03716c13c060b5a1e84c42e33792f8348dfec3627c8879be8213"
+  },
+  "costs/derivative/build-launch.json": {
+    "file": "evidence/costs/derivative/build-launch.json.gz",
+    "bytes": 10162,
+    "sha256": "a96f4c527478afb38f9ee4ef63c14aeccd9816937188c249fec8c2c87c076366"
+  },
+  "costs/derivative/build-result.json": {
+    "file": "evidence/costs/derivative/build-result.json.gz",
+    "bytes": 1257,
+    "sha256": "fe0e1760d59e58e8417a6e644332ca9d4cad6fdabca02285948497086449c172"
+  },
+  "costs/derivative/stock-commands.json": {
+    "file": "evidence/costs/derivative/stock-commands.json.gz",
+    "bytes": 4629,
+    "sha256": "6e1a754f5b797b84565b98639dbb4043bf4e0392dd816eccf915b59438ce267e"
+  },
+  "costs/derivative/response-provenance.json": {
+    "file": "evidence/costs/derivative/response-provenance.json.gz",
+    "bytes": 17798,
+    "sha256": "47221286164ae1e0e0afe60e46e89300fbc2a2a7cfd5b4cb12b231acf0987fb3"
+  },
+  "costs/derivative/LLVMCodeGen.rsp": {
+    "file": "evidence/costs/derivative/LLVMCodeGen.rsp.gz",
+    "bytes": 14892,
+    "sha256": "e55868f23b3cfdf4d02e600a849822a63a9e1874700e2a06c6324e83ed4c76c2"
+  },
+  "costs/derivative/counterfactual.patch": {
+    "file": "evidence/costs/derivative/counterfactual.patch.gz",
+    "bytes": 3819,
+    "sha256": "28dabacc483b196099cd473e7e56703db7927d3457eea634fe9d124af1033933"
+  },
+  "costs/derivative/RegAllocGreedy.cpp": {
+    "file": "evidence/costs/derivative/RegAllocGreedy.cpp.gz",
+    "bytes": 108712,
+    "sha256": "fa2192b5ca91259433dc2f2d43b6ecbdcf2a8bb0d8bfc0877d34d29e48a6dde3"
+  },
+  "costs/derivative/stock-build-before.json": {
+    "file": "evidence/costs/derivative/stock-build-before.json.gz",
+    "bytes": 245680,
+    "sha256": "2423ca22c5adb3d2eb2e2d7a1b97a168764a1b752841b5cffd88ea6af84c2186"
+  },
+  "costs/derivative/compile.stdout": {
+    "file": "evidence/costs/derivative/compile.stdout.gz",
+    "bytes": 93117,
+    "sha256": "811755bb0fa7000e1e600ab4c996a35deb2b6113a72a87d137458a98aaba6381"
+  },
+  "costs/derivative/compile.stderr": {
+    "file": "evidence/costs/derivative/compile.stderr.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/derivative/archive.stdout": {
+    "file": "evidence/costs/derivative/archive.stdout.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/derivative/archive.stderr": {
+    "file": "evidence/costs/derivative/archive.stderr.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/derivative/link.stdout": {
+    "file": "evidence/costs/derivative/link.stdout.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/derivative/link.stderr": {
+    "file": "evidence/costs/derivative/link.stderr.gz",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "costs/controllers/capture_bfi.py": {
+    "file": "evidence/costs/controllers/capture_bfi.py.gz",
+    "bytes": 1797,
+    "sha256": "7364f77de0d60b9a1396cdf38bdaede594a58a615cbcb202ad6064c8903b0aa7"
+  },
+  "costs/controllers/cost_patch.py": {
+    "file": "evidence/costs/controllers/cost_patch.py.gz",
+    "bytes": 2515,
+    "sha256": "5320f0f304fdfffee2ecb1319564219c65567f3a5fdccc6a1d8e8ef03a885727"
+  },
+  "costs/controllers/prepare_builder.py": {
+    "file": "evidence/costs/controllers/prepare_builder.py.gz",
+    "bytes": 1602,
+    "sha256": "144e11c4a4f4d764d984ada754b0a1232bc41b3dd64e7571974cadefdc7be9e7"
+  },
+  "costs/controllers/build_cost_probe.py": {
+    "file": "evidence/costs/controllers/build_cost_probe.py.gz",
+    "bytes": 6840,
+    "sha256": "2d4f6ec63c3ae0ef541f89f406bcae8ca71a8b67ab5c88c9238911c704b41e0e"
+  },
+  "costs/controllers/run_probe.py": {
+    "file": "evidence/costs/controllers/run_probe.py.gz",
+    "bytes": 1857,
+    "sha256": "2b41e4806598311d40429b39fa7b6201c27424f0e8e31a0d31f49f65a0d32eb1"
+  },
+  "costs/controllers/ir_frequency_control.py": {
+    "file": "evidence/costs/controllers/ir_frequency_control.py.gz",
+    "bytes": 2611,
+    "sha256": "679fde1839962853e40d6da6edfecd552cc5edddc09024958324ff548b89cfc8"
+  },
+  "costs/controllers/frequency_probe.py": {
+    "file": "evidence/costs/controllers/frequency_probe.py.gz",
+    "bytes": 1857,
+    "sha256": "dcc8a0720c664f0e26a4ac050e0fc6a3ba43fb9ed671066bdc4bcb7866002af1"
+  },
+  "costs/controllers/analyze_costs.py": {
+    "file": "evidence/costs/controllers/analyze_costs.py.gz",
+    "bytes": 4146,
+    "sha256": "25665f102d2cfafdb1db0fdaa2241707021f2549663a5805ce46aeaedd94a498"
+  },
+  "costs/controllers/analyze_frequency.py": {
+    "file": "evidence/costs/controllers/analyze_frequency.py.gz",
+    "bytes": 3107,
+    "sha256": "d1da5627eadaddaefd1f48ae48cded4fe85dd68b29036893589a70c93603e981"
+  },
+  "costs/controllers/package_extension.py": {
+    "file": "evidence/costs/controllers/package_extension.py.gz",
+    "bytes": 2305,
+    "sha256": "e73e5ba140c394a4c534c6340a54a94e0e4af9d9cfaf03204a3f70b76ca0efd5"
+  },
+  "costs/costs.json": {
+    "file": "evidence/costs/costs.json.gz",
+    "bytes": 32259,
+    "sha256": "2d9710b5b363c16a7abdf4b29e08051bb721c339b368b37ce7f55734182cc986"
+  },
+  "costs/frequency-analysis.json": {
+    "file": "evidence/costs/frequency-analysis.json.gz",
+    "bytes": 38410,
+    "sha256": "64fd4e52948e320d9cdb028870b11445238382beae159e9c807a71766a2f7980"
+  },
+  "costs/before-greedy.diff": {
+    "file": "evidence/costs/before-greedy.diff.gz",
+    "bytes": 2405,
+    "sha256": "454750b94cbc4bfafd9cf4942c787a5cc5b7b6ce4a76ad0ef1ac48026c5a4693"
+  },
+  "costs/analyze_frequency_failed01.py": {
+    "file": "evidence/costs/analyze_frequency_failed01.py.gz",
+    "bytes": 2876,
+    "sha256": "799e4e381972df8b0ce98ec865f550d3f7812ee7ef26559e5b5467ff0d430a69"
+  },
+  "costs/frequency-analysis-failed01.err": {
+    "file": "evidence/costs/frequency-analysis-failed01.err.gz",
+    "bytes": 522,
+    "sha256": "3deeb28a9551eca461d39b9113417c70db917a47b596a88cc1f921b21a6f1aa2"
+  },
+  "costs/before-greedy-failed01.diff": {
+    "file": "evidence/costs/before-greedy-failed01.diff.gz",
+    "bytes": 2405,
+    "sha256": "454750b94cbc4bfafd9cf4942c787a5cc5b7b6ce4a76ad0ef1ac48026c5a4693"
+  },
+  "costs/compiler/llvm/lib/Analysis/BranchProbabilityInfo.cpp": {
+    "file": "evidence/costs/compiler/llvm/lib/Analysis/BranchProbabilityInfo.cpp.gz",
+    "bytes": 51926,
+    "sha256": "6f339032a4677911f224b6bf28aff3f23c95809a630e87dbf269bc35d88acc77"
+  },
+  "costs/compiler/llvm/lib/CodeGen/SpillPlacement.cpp": {
+    "file": "evidence/costs/compiler/llvm/lib/CodeGen/SpillPlacement.cpp.gz",
+    "bytes": 13036,
+    "sha256": "7eea925178f745f579af2b7e00505387e079e692ba916e3371a3b957f32753cc"
+  },
+  "costs/compiler/llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h": {
+    "file": "evidence/costs/compiler/llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h.gz",
+    "bytes": 69304,
+    "sha256": "0cf7f4bc9cf9551c974c773981e1a90d7731e8e397087a199f0fac94dceed455"
   }
 }

@@ -11,5 +11,15 @@
   "host_build_commands": 3,
   "target_executions": 0,
   "source_improvement": false,
-  "diagnostic_only": true
+  "diagnostic_only": true,
+  "frequency_followup": {
+    "base_revision": "465715f453c1f52d9d4047fba942858cb78d78bc",
+    "reviewed_upstream": "5afa7b928c50aacd5ef08415766ae6999c61650d",
+    "root_rustc_commands": 0,
+    "llc_commands": 5,
+    "host_build_commands": 3,
+    "target_executions": 0,
+    "synthetic_profile": true,
+    "source_improvement": false
+  }
 }

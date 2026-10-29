@@ -194,7 +194,10 @@ def verify(repo):
     for r in build['stages']:
         need(r['returncode']==0 and all(h==sha(data('derivative/'+r['stage']+'.'+n)) for n,h in r['logs'].items()),'compiler build receipt/logs')
     saved=record('counterfactual-analysis.json');need(saved['aligned_differences']==differences and saved['tail']==tails,'recomputed diagnostic observations')
-    return dict(result='PASS',parent_source_bytes=2136,parent_source_aligned_slots=23,extra_emit_section_content_changes=changed_sections,extracted_constant_objects_bound=constants,greedy_structural_rows=stages,printed_cost_margin_to_r3=margin,default_off_whole_object_equal=True,counterfactual_bytes=2120,counterfactual_aligned_slots=2,remaining_differences=differences,mir_restart_different_raw_bytes=243,additional_root_rustc_commands=1,llc_commands=6,other_llvm_commands=2,host_build_commands=3,target_executions=0,
+    cost_spec=importlib.util.spec_from_file_location('v3_cost_replay',P/'verify_costs.py');cost_module=importlib.util.module_from_spec(cost_spec);cost_spec.loader.exec_module(cost_module)
+    # Pass this verifier's already qualified readers and evidence accessors.
+    context=types.SimpleNamespace(**globals());cost_report=cost_module.verify(context)
+    return dict(result='PASS',parent_source_bytes=2136,parent_source_aligned_slots=23,extra_emit_section_content_changes=changed_sections,extracted_constant_objects_bound=constants,greedy_structural_rows=stages,printed_cost_margin_to_r3=margin,default_off_whole_object_equal=True,counterfactual_bytes=2120,counterfactual_aligned_slots=2,remaining_differences=differences,mir_restart_different_raw_bytes=243,additional_root_rustc_commands=1,llc_commands=11,other_llvm_commands=2,host_build_commands=6,target_executions=0,cost_model=cost_report,
         scope='Diagnostic only. Source candidate remains 2136 bytes/23 slots. No original raw-byte match, complete-window gain, original compiler recipe, linked derivative ELF, allocation image or behavioral qualification.')
 
 if __name__=='__main__':

@@ -76,6 +76,62 @@ source/provenance investigation should explain the region/frequency choice,
 then the remaining load scheduling, without treating the forced allocator as
 reconstruction progress.
 
+## Exact cost model and stock-compiler profile control
+
+A logging-only build now records every static and global block-frequency term
+for all ten evaluated regions. On both inputs below, its complete object equals
+the stock compiler's output. Removing only the added `COST_PROBE` log records
+also reproduces the corresponding stock trace literally.
+
+The original r3/r9 cost difference is **4,831,840,080 integer frequency units**,
+against entry frequency 18,014,398,509,481,984. Summing the observed per-block
+coefficients gives:
+
+```text
+cost(r3) - cost(r9)
+ = F0 - F2 - F5 - F27 + F32 + F34 + F35 + F36
+ = F3 - F31
+ = 6,442,450,944 - 1,610,610,864
+ = 4,831,840,080
+```
+
+Here `Fn` is machine block n's integer frequency. Block 3 is the first inlined
+`protocol_fee_split` panic path; block 31 is the net-error formatter's panic
+path. Both call `unwrap_failed`. The pinned BPI implementation assigns
+nonreturning blocks weight 1 and default blocks weight `0xfffff`, giving the
+first panic edge inferred probability 1/1,048,576. These are heuristic
+frequencies, not measured user traffic or evidence of actual panic rates.
+
+One synthetic profile annotation changes only that first panic branch to
+weights **[1, 16,777,215]**, plus its metadata definition. An unedited textual-IR
+baseline reproduces the complete stock object. The changed input goes through
+the **unmodified stock compiler**, with no forced allocator option. It emits
+the same complete object as the earlier r3 counterfactual: 2,120 bytes, two
+normalized slots remaining.
+
+Before Greedy, every instruction, register, SlotIndex and CFG edge remains
+unchanged. Only that edge's two probability fields and three printed range
+metadata IDs differ. The underlying range metadata in the input is unchanged;
+the verifier permits only these exact text changes. The initial analysis assumed
+the printed metadata IDs would remain fixed and failed. Its script, diff and
+failure are retained; no compiler rerun was required to correct the analysis.
+
+All ten region cost coefficients remain unchanged. The first panic frequency
+falls to 402,653,184, while the net-error formatter panic frequency becomes
+1,610,611,404. The full summed cost difference is **-1,207,958,222**, so r3 wins.
+The simple panic-frequency subtraction is -1,207,958,220; the verifier retains
+the **-2 integer-flow residual** instead of dropping it or presenting a rounded
+identity. This confirms the predicted cost-order reversal through an independent
+input intervention, without choosing a physical region in the allocator.
+
+The profile annotation is synthetic. It does not establish that the original
+program used profile data, that a particular Rust spelling emits this metadata,
+or that a compiler release reproduces the original. A source/provenance candidate
+still needs to explain these frequency inputs and the remaining load order.
+The logging build, five additional `llc` invocations and three host build commands
+are retained under `evidence/costs`; no additional root Rust build or target
+execution occurred.
+
 ## Qualification and rejected approaches
 
 1. A fresh root Rust invocation changes only `--emit=dep-info,link` to
@@ -113,6 +169,7 @@ From the repository root, with the companion source packet present:
 ```sh
 python -I -B research/pump-v3-regalloc-20261029/verify.py --repo-root .
 python -I -B research/pump-v3-regalloc-20261029/tests/test_verify.py
+python -I -B research/pump-v3-regalloc-20261029/tests/test_costs.py
 ```
 
 The verifier first replays the pinned source packet, then verifies saved
@@ -122,6 +179,10 @@ repository files and temporary decompressed copies. Historical private paths in
 receipts/controllers are provenance strings and are not reopened or executed.
 Tests mutate actual reference rows, default-off bytes, trace decisions and
 unmasked instructions to reject false positive conclusions beyond seal checks.
+Fourteen original diagnostic tests and eight cost/profile controls pass, in
+addition to the source packet's sixteen tests. The cost controls reject altered
+integer totals/frequencies, extra semantic IR changes, different profile weights
+and changed machine instructions. The main verifier includes the full cost replay.
 
 `MANIFEST.json` seals all files; `EVIDENCE.json` additionally binds uncompressed
 bytes. Receipts demonstrate stored evidence consistency, not cryptographic
