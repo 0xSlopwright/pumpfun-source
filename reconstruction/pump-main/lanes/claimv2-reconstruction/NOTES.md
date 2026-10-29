@@ -161,3 +161,20 @@ different stack-coloring groups (original: result in the 280 B group at -0x2d0, 
 candidate: result at -0x1b8, Ref at -0x68). (3) emit_cpi seed store order.
 Ledger: U2 `449607fc`, U3 `130220a4`, U4 `173d39a6`, X3 `137aae75`, X4 `2e9c66ca`, F1 `75459852`,
 F2 `774081e6`, Pa `b15e6736`, FP `aca9d7bd`.
+
+### Decode blocks (ratio 0.938 -> 0.969)
+
+| trial | change (on r9FP) | ratio |
+| --- | --- | ---: |
+| r10b | `try_deserialize(&mut x.try_borrow_data()?.as_ref())` | byte-identical |
+| r10d | `{let data=x.try_borrow_data()?;T::try_deserialize(&mut &data[..])?}` for all three decodes | 0.9612 |
+| r10f | `{let mut data:&[u8]=&x.try_borrow_data()?;T::try_deserialize(&mut data)?}` | 0.96587 |
+| **r11d2** | r10d with `.amount` / `.owner` taken inside the block (owner copied before the Ref guard drops, as in the original) | **0.96868** (slice form r11both identical) |
+| r12J1 | `if !data_is_empty(){..}else{0}` | byte-identical |
+| r12SA / r12SC | seed spellings `&[seeds]` / bump array | 0.96868 / 0.9612 |
+
+With the bound guard, the `try_borrow_data` result and the `&[u8]` temporaries land in the original's
+stack-coloring groups (result in the 280 B group at -0x2d0, slice at -0x1b8). Remaining opcode
+differences: `jeq ok,+1; ja err` at the amount decode's `try_borrow_data()?` (one extra instruction
+shifting all later jump offsets) and the order of the transfer signer-seed stores.
+Ledger: r10b `6ee8121e`, r10d `56471f27`, r10f `5d3e8733`, r11d2 `9d79c17e`.
