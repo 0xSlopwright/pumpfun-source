@@ -60,6 +60,11 @@ Approach: semantic reconstruction (callgraph census first, then the IR oracle).
    (bb112) then lands directly after bb23. k01's IR with bb112 moved to the end gives 0.6434 again. No source spelling
    found yet: k01-k08 cover require_neq, `0u64`, fees before the check (k03 gives 0.6424 but runs fees first, unlike the
    original), match-spelled `?`, and calling fees early.
+   - Raw-IR opt oracle (`scripts/rawexp.sh NAME "X>Y"`: reorder rustc's pre-opt IR blocks, opt -O3, llc). A no-op reorder
+     reproduces h01 exactly. Creating bb18 last (moving it to the end of the raw IR) gives 0.6434, so the original's 891 error
+     block was created late in rustc's codegen order. rustc creates switch targets in [0-target, otherwise] order and
+     codegens the 0-target subtree first (k01 shows this: err as 0-target is codegen'd at once, so the scope error-exit join bb112
+     is created right after bb23).
 5. **Block-order ceiling.** `scripts/hc.py` (greedy single-block moves on the slimmed h01 IR, llc oracle, about 0.2 s per eval)
    reaches 0.6441 → 0.6515 → 0.6607 in 3 rounds (moves: buy_quote block after the cross v3_trade_fees check,
    the cross-arm end copy block bb68 earlier). Block order alone does not get past about 0.67. The rest is register allocation
