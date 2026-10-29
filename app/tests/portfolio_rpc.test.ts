@@ -393,3 +393,8 @@ test("rejects per-mint totals above u64 while preserving the exact boundary", as
     }
   }
 });
+
+test('a mint cannot appear under both token-program inventories',async()=>{
+  const {call}=fixtureCall({spl:[tokenAccount({pubkey:SPL_ACCOUNT_ONE,mint:MINT_ONE,amount:'1',decimals:6,programId:SPL_TOKEN_PROGRAM_ID,parser:'spl-token'})],token2022:[tokenAccount({pubkey:TOKEN_2022_ACCOUNT,mint:MINT_ONE,amount:'1',decimals:6,programId:TOKEN_2022_PROGRAM_ID,parser:'spl-token-2022'})]});
+  await assert.rejects(readPortfolioWithRpc(WALLET,call,'rpc.example.com'),(e:unknown)=>e instanceof PortfolioRpcError&&e.code==='RPC_RESPONSE_INVALID');
+});
