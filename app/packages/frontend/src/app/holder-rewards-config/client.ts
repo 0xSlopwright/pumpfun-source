@@ -1,11 +1,19 @@
+import { PublicKey } from "@solana/web3.js";
 import contract from "./contract.json";
 import type { HolderConfiguration } from "./types";
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const integer = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-const key = (value: unknown): value is string =>
-  typeof value === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value);
+function key(value: unknown): value is string {
+  if (typeof value !== "string" || value.length < 32 || value.length > 44)
+    return false;
+  try {
+    return new PublicKey(value).toBase58() === value;
+  } catch {
+    return false;
+  }
+}
 function field(
   value: unknown,
   dataBytes: number,
@@ -43,6 +51,22 @@ export function isHolderConfiguration(
     !record(value.curve)
   )
     return false;
+  try {
+    if (!key(mint) || !key(rewardsPda)) return false;
+    const program = new PublicKey(contract.programId);
+    const derive = (seed: string) =>
+      PublicKey.findProgramAddressSync(
+        [new TextEncoder().encode(seed), new PublicKey(mint).toBytes()],
+        program,
+      )[0].toBase58();
+    if (
+      value.curvePda !== derive("bonding-curve") ||
+      rewardsPda !== derive("holder-rewards")
+    )
+      return false;
+  } catch {
+    return false;
+  }
   const global = value.global,
     curve = value.curve;
   if (global.status === "missing") {
