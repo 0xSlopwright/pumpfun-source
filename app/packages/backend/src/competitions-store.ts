@@ -562,6 +562,13 @@ export class CompetitionStore {
     const target = comp.entries.find(e => e.entryId === entryId);
     if (!target) return null;
 
+    // Before the first board build no entry is ranked, so serve no token reel
+    // even when the supplied read model still contains retained token rows
+    // (matches getCompetitionHighlights, which only reads ranked entries).
+    if (!comp.entries.some(entry => entry.lastRefreshedAtMs > 0)) {
+      return { entryId, tokens: [] };
+    }
+
     const limit = opts.limit !== undefined ? opts.limit : 10;
     const rawTokens = [...(target.highlightTokens ?? [])];
 

@@ -419,6 +419,27 @@ describe('competition before the first board build', () => {
   }
 
   for (const phase of ['registration', 'live'] as const) {
+    test(`${phase} entry highlights stay empty before the first build even with retained token rows`, async () => {
+      const seed = JSON.parse(readFileSync(new URL('../src/competitions-seed.json', import.meta.url), 'utf8')) as RawCompetition[];
+      const source = seed.find(c => c.id === LIVE_ID);
+      assert.ok(source);
+      assert.ok(source.entries.some(entry => (entry.highlightTokens?.length ?? 0) > 0));
+      const competition = {
+        ...source,
+        phase,
+        entries: source.entries.map(entry => ({ ...entry, lastRefreshedAtMs: 0 })),
+      };
+      const app = buildApp([], { competitionStore: new CompetitionStore([competition]) });
+      try {
+        const highlights = await app.inject({ method: 'GET', url: `/v1/competitions/${LIVE_ID}/entries/${LIVE_ENTRY_1}/highlights` });
+        assert.equal(highlights.statusCode, 200);
+        assertSchema(highlights.json(), documentedSchema('/competitions/{id}/entries/{entryId}/highlights', 'get', 200), 'unbuilt entry highlights', specRoot);
+        assert.deepEqual(highlights.json().tokens, []);
+      } finally {
+        await app.close();
+      }
+    });
+
     test(`${phase} entries remain registered but unranked before the first build`, async () => {
       const app = buildApp([], { competitionStore: new CompetitionStore([unbuiltCompetition(phase)]) });
       try {
