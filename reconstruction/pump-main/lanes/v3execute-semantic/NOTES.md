@@ -47,3 +47,16 @@ unchanged on its own; ve without the wrapper scores the same 0.7687). The buy_v2
 - wrapper taking `&SellV3` (0.7262), all-three tuple let `(amount,user_ata,curve_ata)` (0.7524; system_program
   load moves after the merge as in the original, but the amount phi lands in pool_quote's spill slot),
   amount let then options let (0.7461).
+
+## Round 2 (on origin/main 60bdd8a, after PR #1189 merged)
+
+Baseline for round 2: origin/main 60bdd8a build `main60b`, 1020 normalized / 188 raw,
+0x83c00 3,432 B ratio 0.7687.
+
+| Trial | Change | cand bytes | ratio | official | ledger id |
+| --- | --- | ---: | ---: | --- | --- |
+| x1 (round 1, d2cb88d) | `transfer_base` checked add evaluated inside the `transfer_curve_mint_tokens` argument list | 3,464 | 0.8265 | 1019 / 188, no losses | 46763c906fb040a68afcfa5404a412f3 |
+| x2m | x1 + `let (user_quote_in,user_quote,curve_quote)=if is_sol{(add(..)?,None,None)}else{(pool_quote,Some(..),Some(..))};` | 3,440 | 0.8341 | 1020 / 188, no gains/losses vs main60b | c27b6574256b4feb8a24bbac6ceab875 |
+
+The three-value tuple let was a loss on its own (vc, 0.7524) but helps once the base amount
+is computed in argument position: the candidate reaches the original's 3,440 B.
