@@ -686,6 +686,7 @@ export async function readPortfolioWithRpc(
   signal?: AbortSignal,
 ): Promise<PortfolioSuccess> {
   const address = validateWalletAddress(addressInput);
+  signal?.throwIfAborted();
   const [genesisValue, balanceValue, splValue, token2022Value] =
     await Promise.all([
       call("getGenesisHash", [], signal),
@@ -709,6 +710,7 @@ export async function readPortfolioWithRpc(
         signal,
       ),
     ]);
+  signal?.throwIfAborted();
   const genesisHash = text(genesisValue, "genesis hash", 100);
   if (genesisHash !== MAINNET_GENESIS_HASH) {
     throw new PortfolioRpcError(
