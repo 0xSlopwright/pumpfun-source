@@ -124,13 +124,38 @@ def body_lines(dump):
     return [l for l in dump[i:].splitlines() if l.strip() and not l.startswith('#')]
 
 
+def short_sym(sym):
+    """_ZN..E -> last two path components (cheap demangle)"""
+    sym = sym.strip('"')
+    if not sym.startswith('_ZN'): return sym
+    i = 3; parts = []
+    while i < len(sym) and sym[i].isdigit():
+        j = i
+        while sym[j].isdigit(): j += 1
+        n = int(sym[i:j]); parts.append(sym[j:j + n]); i = j + n
+    parts = [x for x in parts if not re.fullmatch(r'h[0-9a-f]{16}', x)]
+    out = '::'.join(parts[-2:])
+    for k, v in (('$LT$', '<'), ('$GT$', '>'), ('$u20$', ' '), ('$u7b$', '{'), ('$u7d$', '}'), ('$C$', ','), ('..', '::')):
+        out = out.replace(k, v)
+    return out
+
+
 def names_and_marks(dump):
-    names = {}; lt = collections.Counter()
-    for l in body_lines(dump):
+    """IR names of alloca-backed objects, LIFETIME_START counts, and labels for ISel temporaries:
+    an unnamed object first used as `MOV_rr %stack.N` right before a call is the hidden return
+    slot of a call returning a 16-byte value ({i64, ptr}); label it ret:<callee>."""
+    names = {}; lt = collections.Counter(); L = body_lines(dump); first = {}
+    for k, l in enumerate(L):
         for m in SREF.finditer(l):
             fi = int(m.group(1))
             if m.group(2): names.setdefault(fi, m.group(2))
+            else: first.setdefault(fi, k)
             if 'LIFETIME_START' in l: lt[fi] += 1
+    for fi, k in first.items():
+        if fi in names: continue
+        for l in L[k:k + 24]:
+            m = re.search(r'JAL @(\S+?),', l) or re.search(r'JAL @(\S+)$', l)
+            if m: names[fi] = 'ret:' + short_sym(m.group(1)); break
     return names, lt
 
 
