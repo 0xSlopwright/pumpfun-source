@@ -1,7 +1,7 @@
 # Lane w3-raw-layout (wave 3): whole-program raw layout
 
-Started from origin/main 665499915 (1022 / 276) and was rebased twice. It is now on b08fd9082
-(1023 normalized / 276 raw; 12 unmatched windows). All changes move code without changing line
+Started from origin/main 665499915 (1022 / 276) and was rebased three times. It is now on 2c8a7900f
+(1023 normalized / 277 raw; 12 unmatched windows). All changes move code without changing line
 numbers. There are zero normalized or raw losses, and all 12 unmatched windows keep their exact
 ratio and size (`tools/unm13.sh`).
 
@@ -12,9 +12,9 @@ therefore measures layout readiness with the model (`tools/m13.py` builds on lay
 
 ## Metrics
 
-| metric | main b08fd90 | this lane |
+| metric | main 2c8a790 | this lane |
 | --- | ---: | ---: |
-| official normalized / raw | 1023 / 276 | 1023 / 276 |
+| official normalized / raw | 1023 / 277 | 1023 / 277 |
 | data-offset-equal windows (every data lddw already at the original's in-section offset) | 683 | **1021** of 1023 |
 | `.rodata` bytes aligned with the original (of 32031) | 31682 | 31993 |
 | `.data.rel.ro` slots differing other than `.text` pointers (of 1294) | 130 | 6 (one U-hash pair) |
@@ -22,7 +22,7 @@ therefore measures layout readiness with the model (`tools/m13.py` builds on lay
 | model raw once the unmatched match in size, full original order, data as built | 683 | **1017** |
 | same, original L order (U and D as built) | 481 | 653 |
 | P13 (our order, data assumed equal) | 416 | 429 |
-| LIS of paired order / L adjacent breaks | 884 / 136 | **969 / 18** |
+| LIS of paired order / L adjacent breaks | 884 / 136 | **970 / 15** |
 
 The two remaining data mismatches are a `.data.rel.ro` entry pair. Its creation order comes from the
 U block's hash order (TryFromIntError Debug against GlobalVolumeAccumulator Debug). The rest is a
@@ -92,7 +92,9 @@ cst4 S/Y swap whose first user is admin_cto's closure (an unmatched window).
 | --- | --- |
 | `067f03ab` DistributeCreatorFeesV2 struct into the v2 file (derive order) | loses 0x2d920/0x2fa60: derive output order changes distribute_tokens codegen |
 | t08 transfer helpers made `pub` | loses 3 windows (linkage) |
-| `80989f5b` buy_v2 / buy_exact_quote_in_v2 as `#[inline(never)]` program fns | P13 428 -> 511 (+83), but buy_v2 0.95334 -> 0.95256 on main and 0.97629 -> 0.96761 on w3-buyhandler's branch; left to the handler lanes |
+| `80989f5b`, t37 buy_v2 / buy_exact_quote_in_v2 as `#[inline(never)]` program fns | P13 +83..+98, but buy_v2 drops: 0.95334 -> 0.95256 (main 9f9d94c) and 0.97682 -> 0.96813 (main 2c8a790, +8 B, also raw loss 0xa868); left to the handler lanes |
+| `f2409d8a` v3 trio in program-fn form | buy_v3 0.87739 -> 0.77928 but exactly 3672 B (the original size); buy_exact_quote_in_v3 0.61352 -> 0.61555; loses 0x859b0 v3_emit_buy (diff in `$OUT/out/t35-v3pf.diff`) |
+| `4af96169` rename pay_out_native to re-roll its instances' hash order | unchanged; not pursued (hash fishing) |
 
 ## What is left for raw
 
@@ -101,5 +103,4 @@ cst4 S/Y swap whose first user is admin_cto's closure (an unmatched window).
   428 -> 511 -> 623 (model, `tools/plan.py`). That is the largest remaining L-order item, and it belongs
   to the handler lanes: their final match has to be the program-fn form.
 - pay_out_native's two instances are in symbol-hash order (856, 1080). The original has 1080, 856.
-- DistributeCreatorFeesV2 vs DistributeCreatorFees derive order. These are two adjacent units, and moving the struct changes codegen.
 - U and D hash order: unreachable from source (crate metadata).
