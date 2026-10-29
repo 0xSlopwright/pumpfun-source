@@ -271,7 +271,7 @@ export class CompetitionStore {
       user,
       username: user?.username ?? null,
       profileImageUrl: user?.profile_image ?? null,
-      walletAddress: user?.canonical_svm_wallet ?? user?.address ?? null,
+      walletAddress: user?.canonical_svm_wallet || user?.address || null,
       isVerified,
       verifiedBadgeVisible: isVerified,
     };
