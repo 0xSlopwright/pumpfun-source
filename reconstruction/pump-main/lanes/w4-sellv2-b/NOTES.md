@@ -44,3 +44,16 @@ Second step: the IR oracle showed the transfer_user_tokens schedule follows from
 `&a.base_token_program` GEP is defined (call block vs entry block; the default pre-RA scheduler is
 list-ilp, so IR order inside the block does not matter). The buy_handler's tuple binding keeps that GEP in
 the entry block; a plain `let base_token_program=&a.base_token_program;` is byte-identical to before.
+
+## Held back: shareholders field after buyback (t11)
+
+Listing `shareholders` after `buyback_fee`/`buyback_fee_basis_points` in the TradeEvent literal (buy_v2's
+order) fixes the buyback `?` polarity and the Rc weak-decrement tail together: sell_v2 13,976 B (= original),
+ratio 0.9965, slots_diff 8 (only the quote_mint snapshot copy left). Official 1023 normalized but raw 276:
+raw loss 0xa868, the 3-insn `<&T as Debug>::fmt` thunk whose relative call spans sell_v2 (the same artifact
+w4-buyhandler hit on reaching size). Not committed because of that loss; the patch is
+`t11_shareholders_after_buyback.patch.py` (applyp.py format). Coordinator decision.
+
+Remaining residual on t11: quote_mint snapshot copy (8 slots). The IR oracle shows it needs no
+lifetime.start(quote_mint30) in that block (the start at function entry, like creator's), or 4 ascending i64
+load/store pairs. Source spellings tried (ledger: quote-mint-snapshot-*, g1-g3) do not get there.
