@@ -52,6 +52,24 @@ Approach: semantic reconstruction (callgraph census first, then the IR oracle).
    `can_cross & (available>first)` guard (x01, which was worse on its own), the target goes to **7776 B, ratio 0.6135, masked 0.8532**.
    With `&&` (h02) it gets worse, so the bitwise guard and the borrow belong together.
 
+4. **891 error-block adjacency (open).** What remains at the top of the function is MachineBlockPlacement of the
+   [post_fee `?` err, 891 err, EXIT] chain. The original places it after the non-whitelist path, and the v3_trade_fees `?`
+   falls through to the whitelist memcmp (`jeq ok,+1; ja err`). llc oracle on the h01 IR: moving bb18 (the 891 err block)
+   anywhere except directly after bb23 (the v3_trade_fees call) gives ratio **0.6434 / masked 0.8917**, and so does
+   moving it before bb23. `require_neq!` (k01) does make the err block come first, but the error-return join
+   (bb112) then lands directly after bb23. k01's IR with bb112 moved to the end gives 0.6434 again. No source spelling
+   found yet: k01-k08 cover require_neq, `0u64`, fees before the check (k03 gives 0.6424 but runs fees first, unlike the
+   original), match-spelled `?`, and calling fees early.
+5. **Block-order ceiling.** `scripts/hc.py` (greedy single-block moves on the slimmed h01 IR, llc oracle, about 0.2 s per eval)
+   reaches 0.6441 → 0.6515 → 0.6607 in 3 rounds (moves: buy_quote block after the cross v3_trade_fees check,
+   the cross-arm end copy block bb68 earlier). Block order alone does not get past about 0.67. The rest is register allocation
+   and frame layout. The alloca order differs: the original's name String is at -0x180 and to_string's buf at -0x160, ours
+   at -0x90 and -0x180. The original's post slices (16 B + 24 B left in memory by SROA) now exist in h01 as
+   `%_534/_535.sroa.*` allocas.
+6. Prologue now matches the original (ctx in r6, min_tokens_out spilled). The remaining prologue diff is the
+   prepare_bonding_curve return-slot lea, which comes after the argument leas in ours and before them in the original. That
+   slot is the demoted `{i64,ptr}` return, not an IR sret.
+
 ## Attempts (ledger keys `0x1489f8-main-6654999-*-v1`)
 
 | trial | mechanism | bytes | ratio | masked | result |
@@ -77,3 +95,10 @@ Approach: semantic reconstruction (callgraph census first, then the IR oracle).
 | **h01** | g01 + `match &post{..}` for base_out | 7776 | 0.6135 | 0.8532 | **kept** |
 | h02 | c11 (&& guard) + `match &post` | 7688 | 0.3038 | 0.6543 | rejected |
 | h03 | g01 + `post.as_ref().map_or(0,..)` | 7776 | = h01 | | identical |
+| k01 | `require_neq!(available,0)` | 7776 | 0.6135 | 0.8532 | err-first but join adjacent |
+| k02 | `require_gt!(available,0u64)` | 7784 | 0.6111 | 0.8528 | rejected |
+| k03 | fees line 890, check stays 891 | 7768 | 0.6424 | 0.8843 | rejected (wrong exec order) |
+| k04 | post_fee via match | 7776 | = h01 | | identical |
+| k06/k07 | fees via match Ok/Err (+/- require_neq) | 7776 | = h01 | | identical |
+| k08 | fees call before the check | 7784 | 0.5467 | 0.8570 | 67 calls |
+| m01/m02 | non-cross `let mut tokens=tokens;let mut net=net;` | 7776 | = h01 | | identical |
