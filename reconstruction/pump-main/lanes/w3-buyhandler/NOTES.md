@@ -14,6 +14,22 @@ Distance = masked instruction diff (call/lddw immediates and branch offsets mask
 | --- | --- | --- | --- |
 | main 66549991 | 15,488 / 0.95334 | 72 | 1022 / 276 |
 | `let whitelisted=a.global.whitelist_pda==a.user.key();` bound before the fee tuple (f24ce58f) | 15,488 / 0.95597 | 67 | 1022 / 276, no gains/losses |
+| + `if _size != 0 { unsafe { core::hint::unreachable_unchecked() } }` in v2 `ensure_rent_exempt` (c948be9c) | 15,512 / 0.97629 | 52 | 1022 / 276, no gains/losses |
+
+The second step also moves the siblings: exact-quote handler 0x13f630 0.97829 -> 0.99351 (20,216 B)
+and sell_v2 0x144508 0.95152 -> 0.96294 (13,968 B). The callee window 0x3b598 stays normalized.
+
+### Why the `_size` hint works
+
+All three original callers of the v2 `ensure_rent_exempt` pass a literal `0` in r2 and reuse that zero
+for a later `None` spill. In one crate the callee never reads `_size`, so LLVM DeadArgElim
+(`RemoveDeadArgumentsFromCallers`, which also applies to non-local exact definitions) rewrites every
+call-site argument to `poison` and the `mov r2,0` disappears. The prior swarm got the original shape
+from a separate path crate, which is out of bounds here (Cargo.lock). The `unreachable_unchecked`
+branch leaves a use of `_size` in IR (an assume-style condition that emits no code), so DAE keeps the
+argument, while the callee's own code still folds `minimum_balance(0)` and stays byte-equal after
+masking. It states a true invariant (every caller passes 0). Reviewer note: it is `unsafe`; it is
+ordinary Rust, but if the coordinator prefers, drop this commit and keep the binding change alone.
 
 The binding was hillclimb's (#1207) improvement, lost when #1310 transplanted the handler. On main
 it fixes the -0x408 vs -0x1d0 snapshot-slot hunk.
