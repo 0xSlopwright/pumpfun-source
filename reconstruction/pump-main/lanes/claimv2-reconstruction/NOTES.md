@@ -191,3 +191,14 @@ the token path now returns early on an empty ATA:
 Result r17Z1: **8,832 B (original size), ratio 0.99626, 15 slots differ**, all in the transfer
 signer-seed stores at 0x2080 (the outer seed slice is stored after the seed lengths instead of before).
 Ledger: r17Z1 `7f9bfaeb`; rejected spellings `c352c1e6`..`a3a8918e`, `4f4663a7`, `662919ca`.
+
+### Normalized match (r18S4)
+
+`let bump=ctx.bumps.user_volume_accumulator;` bound before
+`let signer_seeds:&[&[&[u8]]]=&[&[b"user_volume_accumulator",user.as_ref(),&[bump]]];`
+(instead of `&[ctx.bumps.user_volume_accumulator]` inside the array). The bump byte is loaded before the seed
+array is built, so the outer seed slice is stored first, as in the original. **0x77940 normalized-equal
+(8,832 B, ratio 1.0, 0 slots differ).** After merging origin/main (ef400863f): official 1021 normalized / 188 raw,
+gains 0x77940 (and 0x14f4e0, already on main), no losses; candidate sha256 bba5d390... Raw is not equal.
+Other seed spellings on the Z1 base: `let seeds` + `&[seeds]` 31 slots, inline in the call 39 slots.
+Ledger: r18S4 `73ac75aa`, SA `3e8ede82`, S1 `15b8879a`.
