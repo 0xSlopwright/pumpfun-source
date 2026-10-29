@@ -339,9 +339,9 @@ fn narrow(a:u128)->Result<u64>{u64::try_from(a).map_err(|_|error!(PumpError::Tru
 
 
  let quote=u64::try_from(c.sell_quote(amount)?).map_err(|_|error!(PumpError::Truncation))?;
- let (pf,cf,protocol_fee_bps,creator_fee_bps)=if a.global.whitelist_pda==a.user.key(){(0,0,0,0)}else{crate::legacy_sell::fee_cpi::trade_fees(
+ let (cf,pf,protocol_fee_bps,creator_fee_bps)=if a.global.whitelist_pda==a.user.key(){(0,0,0,0)}else{let (pf,cf,protocol_fee_bps,creator_fee_bps)=crate::legacy_sell::fee_cpi::trade_fees(
   &a.global,&a.bonding_curve,&a.base_mint,&a.fee_config,&a.fee_program,a.program.as_ref(),quote
- )?};
+ )?;(cf,pf,protocol_fee_bps,creator_fee_bps)};
 
 
 
