@@ -820,7 +820,7 @@ function manifestEntry(name, bytes, raw) {
 
 export async function publishGraph(root, outputRelative, options = {}) {
   const output = resolve(root, outputRelative);
-  if (output !== root && !output.startsWith(`${root}${sep}`))
+  if (output === resolve(root) || !output.startsWith(`${resolve(root)}${sep}`))
     throw new Error("output path escapes root");
   const reports = await buildGraph(root, options);
   const temporary = `${output}.tmp-${process.pid}`;
