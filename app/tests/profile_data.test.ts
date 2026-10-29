@@ -367,3 +367,10 @@ test("profile canonical-wallet validation preserves SVM then EVM precedence", ()
     /inconsistent canonical wallet/,
   );
 });
+
+test('one profile may use the same address and userId without becoming a duplicate user',()=>{
+  const address='11111111111111111111111111111111';
+  const data=validateLocalProfiles([post({authorId:address})],[user({userId:address})]);
+  assert.equal(data.profiles.length,1);assert.equal(resolveLocalProfile(data,address)?.posts.length,1);
+  assert.throws(()=>validateLocalProfiles([],[user({userId:address}),user({userId:'other',address,canonical_svm_wallet:address})]),/identity/);
+});

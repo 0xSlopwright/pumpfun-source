@@ -178,10 +178,10 @@ function validateUsers(input: unknown): ValidatedProfileRow[] {
         `Local profile user ${index} requires a usable user id when its wallet is absent`,
       );
     }
-    for (const identity of [
+    for (const identity of new Set([
       ...(address ? [address] : []),
       ...(userId ? [userId] : []),
-    ]) {
+    ])) {
       if (identities.has(identity)) {
         throw new ProfileDataError(
           `Local profile user ${index} repeats an identity`,
