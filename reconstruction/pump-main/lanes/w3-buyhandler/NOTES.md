@@ -35,12 +35,33 @@ ordinary Rust, but if the coordinator prefers, drop this commit and keep the bin
 The binding was hillclimb's (#1207) improvement, lost when #1310 transplanted the handler. On main
 it fixes the -0x408 vs -0x1d0 snapshot-slot hunk.
 
-## Oracle findings
+## Oracle findings (llc on rustc's optimized IR, masked diff vs original)
 
-- Checked-add overflow block placement (orig 0x13cxxx region: add1, add2, ovf2 adjacent, ovf1 far):
-  moving the trade_fees `?` Err block (IR `bb214`) to just after the second checked-add block
-  (`bb218`, or after `bb217`) fixes the whole region (dist 72 -> 47 on main IR, 67 -> 42 on the
-  binding IR). Any later position (after bb222/bb221/bb167/bb166) is worse (99). attempt 609d4963.
-- In rustc's unoptimized IR the block order is bb215 bb214 bb218 bb217 bb222 bb221: rustc creates the
-  `?` switch targets (Continue first, Break second) when it codegens the switch after trade_fees, so
-  with any plain `?`/match on the trade_fees Result the Err block precedes the add chain.
+On the best IR (t8, dist 50), three block moves together give dist 21:
+
+1. **Checked-add overflow placement** (orig: add1, add2, ovf2 adjacent, ovf1 far). Fixed when the
+   trade_fees `?` Err block (`bb214`) sits after the second checked-add block (`bb218`) or after
+   `bb217`, and before the cmp block `bb222`. A permutation sweep of the six blocks (720 orders,
+   `an/perm-results.txt` in the lane cache) shows the rule: add1 must be directly followed by add2
+   in IR (BPF `analyzeBranch` cannot analyze conditional branches, so MachineBlockPlacement
+   pre-merges a block that falls through with its IR-next block), and neither add2 nor ovf1 may be
+   directly followed by cmp. rustc creates the `?` switch targets (Continue, then Break) when it
+   codegens the switch after trade_fees, so with any `?`/`match`/`if let` on the trade_fees
+   Result the Err block lands before add1. An LLVM-inlined helper holding the add chain (t4) gets
+   the layout right, but the helper's `Result` adds tag retests after the closure calls. Not solved
+   at source level.
+2. **Complete `if` branch sense** (orig `jeq r1,0; ja`): the CompleteEvent CPI Err drop chain
+   (`bb24.i..`) must sit between the if-test block and the then-block `bb1.i`.
+3. **Terminal `jne r8,2`**: the TradeEvent CPI Err chain (`bb281..`) must come after the ret block.
+   The caller tail-call form `complete_and_prepare(ctx,timestamp)` (t1) gives the original's
+   structure here: no tag retest on the CompleteEvent CPI Err path, and one shared ev drop chain.
+   It then also needs the prepare test to keep the Ok block (`mov r8,2`) with the Err edge going
+   direct (oracle k1, 61 -> 55). rustc creates the Ok arm first for `?`/`match`. Only `if let Err`
+   creates the Err arm first, and that leaves a `drop_in_place<Result<(),Error>>` call on the Ok
+   path (t6/t11/t14-t16, about 0.81).
+4. **quote_mint snapshot copy** (all three v2 handlers): 4 interleaved ascending i64 load/store
+   pairs in IR reproduce the original (52 -> 44). i256 or `<4 x i64>` copies and alignment changes
+   do not. Spellings tried (`new_from_array(to_bytes())`, `{c.quote_mint}`) are byte-identical.
+
+Remaining after those: zero-mov phi-copy order for the whitelisted fee tuple, two spill-slot swaps
+(-0x750/-0x790 and -0x7d0/-0x7d8), and the CompleteEvent CPI Err tag retest (item 3).
