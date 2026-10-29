@@ -6,8 +6,10 @@
   "parent_packet": "research/pump-v3-costs-source-20261029",
   "source_revision": "e96b518d3b79da45e3789cb9ad11b5aea8530e4c",
   "llvm_revision": "08aedd64bf3abe4f163407b7bcf680403b84b32d",
-  "selected_compiler_commands": 3,
-  "total_local_compiler_commands": 8,
+  "selected_compiler_commands": 4,
+  "total_local_compiler_commands": 10,
+  "passive_label": "09-passive-if-let",
+  "rejected_net_match_label": "10-explicit-net-match",
   "target_executions": 0,
   "labels": {
     "parent": "06-remapped-baseline",

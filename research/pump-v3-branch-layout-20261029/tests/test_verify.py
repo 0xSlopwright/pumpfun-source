@@ -1,7 +1,7 @@
 if not __debug__:
     raise SystemExit('Run without -O: inherited readers contain assertions.')
 from pathlib import Path
-import copy,importlib.util,shutil,struct,subprocess,sys,tempfile,unittest
+import copy,importlib.util,re,shutil,struct,subprocess,sys,tempfile,unittest
 P=Path(__file__).resolve().parents[1];R=P.parents[1]
 spec=importlib.util.spec_from_file_location('v3_branch_verify',P/'verify.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)
 
@@ -14,6 +14,8 @@ class SavedEvidenceTests(unittest.TestCase):
         cls.stock=v.zipped_json(P/'origin/stock-root-root-command.json.gz')
         cls.origin=v.zipped_json(P/'origin/stock-root-launch.json.gz')
         cls.launch=v.zipped_json(P/'build/candidate/launch.json.gz')
+        cls.trace=v.unpack(P/'passive/stderr.log.gz')
+        cls.trace_index=v.trace_index(cls.trace)
 
     def test_complete_saved_replay(self):
         self.assertEqual(v.verify(R)['result'],'PASS')
@@ -74,5 +76,49 @@ class SavedEvidenceTests(unittest.TestCase):
         for path in [P/'verify.py',Path(__file__)]:
             r=subprocess.run([sys.executable,'-I','-B','-O',str(path)],capture_output=True)
             self.assertNotEqual(r.returncode,0);self.assertIn(b'Run without -O',r.stderr)
+
+    def test_prefixed_trace_headers_keep_literal_crlf_intervals(self):
+        raw=b'warning: preamble\r\n; *** IR Dump Before IRPass ***\r\nIR\r\n*** IR Dump After IRPass ***\r\nIR2\r\n# *** IR Dump Before MachinePass ***:\r\n# Machine code for function test\r\n'
+        rows=v.trace_index(raw)
+        self.assertEqual(len(rows),3)
+        self.assertEqual([r['machine'] for r in rows],[False,False,True])
+        self.assertEqual(rows[0]['start'],len(b'warning: preamble\r\n'))
+        for row in rows:
+            part=raw[row['start']:row['end']]
+            self.assertIn(b'\r\n',part);self.assertEqual(row['sha256'],v.sha(part))
+
+    def test_old_incomplete_trace_index_rejected(self):
+        bad=v.zipped_json(P/'passive/failures/parser-failed01-index.json.gz')
+        with self.assertRaisesRegex(ValueError,'literal trace intervals'):
+            v.trace_texts(self.trace,bad)
+
+    def mutated_stage(self,index,transform):
+        row=self.trace_index[index];before=self.trace[row['start']:row['end']]
+        after=transform(before.decode().replace('\r\n','\n')).replace('\n','\r\n').encode()
+        self.assertNotEqual(before,after)
+        changed=self.trace[:row['start']]+after+self.trace[row['end']:]
+        # Recompute interval lengths and hashes so this reaches semantic checks.
+        return v.trace_texts(changed,v.trace_index(changed))
+
+    def test_changed_initial_branch_polarity_past_trace_hashes(self):
+        texts=self.mutated_stage(276,lambda s:s.replace('JNE_ri %15:gpr, 2, %bb.22','JEQ_ri %15:gpr, 2, %bb.22'))
+        with self.assertRaisesRegex(ValueError,'initial JNE plus adjacent JMP'):
+            v.trace_observations(texts)
+
+    def test_premature_fallthrough_removal_past_trace_hashes(self):
+        def change(text):
+            block=v.machine_blocks(text,95)[0]
+            return text.replace(block,block.replace('JMP %bb.21',''))
+        with self.assertRaisesRegex(ValueError,'initial JNE plus adjacent JMP'):
+            v.trace_observations(self.mutated_stage(276,change))
+
+    def test_delayed_reload_past_trace_hashes(self):
+        def change(text):
+            block=next(b for b in v.machine_blocks(text,111) if '%149:gpr = LDD_V1 %stack.19, 0' in b)
+            line=re.search(r'^\d+B[^\n]*%149:gpr = LDD_V1 %stack\.19, 0\n',block,re.M)[0]
+            moved=block.replace(line,'');guard=re.search(r'^[^\n]*JNE_ri[^\n]*\n',moved,re.M)[0]
+            return text.replace(block,moved.replace(guard,guard+line,1))
+        with self.assertRaisesRegex(ValueError,'early net-guard reload'):
+            v.trace_observations(self.mutated_stage(335,change))
 
 if __name__=='__main__':unittest.main(verbosity=2)

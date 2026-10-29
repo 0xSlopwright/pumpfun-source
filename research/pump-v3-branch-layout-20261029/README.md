@@ -29,6 +29,8 @@ line endings and pre-existing source whitespace.
 | Same-recipe parent | 2,144 | 25 | 1,019 / 186 |
 | Statement-form `if let`, two builds | 2,136 | 23 | 1,019 / 186 |
 | Rejected `map`/`transpose` control | 2,136 | 61 | 1,019 / 186 |
+| Passive candidate trace | 2,136 | 23 | identical candidate ELF |
+| Rejected explicit net `match` | 2,136 | 23 | identical candidate ELF |
 
 The slot count is `SequenceMatcher(autojunk=False)` on eight-byte chunks after
 the existing narrow CALL/LDDW normalization. It is an alignment diagnostic,
@@ -55,8 +57,53 @@ constraint: `SelectionDAGBuilder::visitSwitchCase` initially inverts when the
 true successor is next; `SBFInstrInfo::analyzeBranch` cannot analyze conditional
 branches. `MachineBlockPlacement` gates terminator updates and inversion on
 successful analysis. The packet checks the source blobs and saved transitions.
-This is static source/trace correspondence, not a new internal compiler trace
-or proof of a unique historical Rust spelling. No compiler was patched.
+That parent evidence is from a different native cohort. The passive Windows
+candidate capture below independently observes the changed lowering, without
+proving a unique historical Rust spelling. No compiler was patched.
+
+The candidate's passive capture adds only LLVM before/after dumps, a function
+filter, and MIR dump arguments to its normal invocation. Its complete emitted
+symbol ELF equals both normal candidate builds, not merely normalized code or
+an allocation image. The packet contains the complete 7,803,073-byte stderr,
+392 literal snapshot intervals, all 548 MIR files, command/input inventories,
+controller and output. Raw interval hashes retain CRLF; only the analysis view
+normalizes line endings.
+
+In candidate snapshot275, success103 immediately follows block95. The first
+machine snapshot276 has `JNE` to error **plus `JMP` to adjacent success**.
+Control Flow Optimizer (branch folding), snapshots358 to359, first removes that
+unconditional jump. Initial condition inversion and later fallthrough-jump
+removal are separate observations. The target cannot analyze a conditional
+branch, but its `analyzeBranch` implementation can delete an unconditional jump
+to the layout successor. This agrees with the observed removal.
+
+The remaining return-pointer lifetime difference survives. Greedy allocation,
+snapshots334 to335, spills the return pointer to frame19 and reloads it before
+the net-overflow guard in IR block111. Physical rewriting and frame finalization
+resolve that reload to `r6` at SP-400. Printed labels4040B,4248B,4664B,4952B are
+LLVM SlotIndex labels, **not emitted byte offsets**. Branch folding shares the
+return stores while keeping the pre-fee payload load in a separate error tail.
+
+| Relative function byte offsets | Original | Candidate |
+| --- | ---: | ---: |
+| `pre_fee_amount` call | 904 | 912 |
+| Error branch | 928 | 936 |
+| Separate payload load | 1,008 | 1,992 |
+| Shared store-tail entry | 1,712 | 1,728 |
+| All SP-400 loads, destination register | 1,712 r3; 1,984 r3 | 848 r6; 1,720 r6 |
+
+The verifier derives these paths and loads from the actual original and candidate
+ELFs. The trace does not identify all causes of the remaining23 aligned slots.
+A follow-up changes only physical line374's checked-add/`and_then` chain into
+an explicit `Option` match, retaining both checked operations and the line375
+error callback. Its complete ELF equals the candidate: this control supplies
+no improvement and is retained under `rejected/net-match`.
+
+Two analysis failures are retained. The first parser recognized only unprefixed
+headers and incorrectly found48 snapshots; prefixed IR/machine headers bring the
+actual count to392. The first analysis incorrectly expected no `JMP` at276 and
+failed. The corrected verifier checks its presence at276 and removal at359.
+These corrections required no compiler reruns.
 
 The actual controls use the existing Windows v1.44 compiler and qualified Linux
 target libraries, with a reused dependency cache. The archived parent differs
@@ -79,10 +126,12 @@ compiler remap in **parent, candidate and repeat**:
 These are explicit compiler inputs, not post-build edits or comparison masks.
 They fix the bounded filename comparison; they do not establish original whole
 ELF identity. The source-only body improvement was also observed and repeated
-before these path controls. Eight local root compiler invocations were used:
+before these path controls. Ten local root compiler invocations were used:
 baseline, rejected transpose, statement control/repeat, root-path control,
-and final remapped baseline/control/repeat. This packet fully replays the final
-three, the rejected body's diagnostic, and the original audit failure. Other
+final remapped baseline/control/repeat, passive trace, and rejected net match.
+This packet fully replays the final three normal builds, the qualified passive
+capture, rejected net match, rejected transpose body's diagnostic, and the
+original audit failure. Other
 preparation receipts remain local. The independent native packet's two-build
 allowance is untouched.
 
@@ -99,7 +148,9 @@ Both entry points refuse optimized Python before importing retained assertion
 readers. Verification uses only the original ELF and the pinned selected-window
 catalog outside this packet. It checks the seal, exact source delta, literal
 commands/environment, receipt/output/log bindings, repeat equality, census sets,
-all symbol classes, branch bytes and the complete bounded operand audit. It
+all symbol classes, branch bytes, the complete bounded operand audit, trace/MIR
+bindings, observed pass transitions and final tail operands. Fourteen tests also
+exercise header prefixes and semantic trace mutations after recomputing hashes. It
 does not reopen historical private SDK/cache paths, execute a controller,
 compile, or run SBF. Receipts establish stored-evidence consistency, not
 cryptographic attestation of compiler execution.
@@ -108,4 +159,4 @@ No VM/transaction execution, behavioral qualification, complete-window gain,
 canonical selection, allocation-image identity or security claim follows.
 The remaining 23 aligned slots, including return-pointer lifetime and error-tail
 differences, still prevent a complete match. This source candidate is independent
-of the V3 key-copy and open fee-tuple wrapper proposals; no composed build is claimed.
+of the V3 key-copy and fee-tuple wrapper candidates; no composed build is claimed.
