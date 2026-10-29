@@ -780,13 +780,13 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
 
 
         route_event!(a,&event,event_bump);
-        if h.bonding_curve.real_token_reserves==0 { h.bonding_curve.complete=true;
-            let completion=crate::trade_types::CompleteEvent { user:a.user.key(),mint:*mint_key,
+        let completed=h.bonding_curve.real_token_reserves==0; if completed { h.bonding_curve.complete=true;
+            let completion=crate::trade_types::CompleteEvent { user:a.user.key(),mint:h.base_mint.key(),
                 bonding_curve:h.bonding_curve.key(),timestamp,quote_mint:h.bonding_curve.quote_mint };
             route_event!(a,&completion,event_bump);
-
-        if let Some(post)=post_fill.as_ref() {
-            let post_event=crate::trade::post_complete_buy_event(post,a.user.key(),*mint_key,
+        }
+        if completed { if let Some(post)=post_fill.as_ref() {
+            let post_event=crate::trade::post_complete_buy_event(post,a.user.key(),h.base_mint.key(),
                 h.bonding_curve.key(),h.bonding_curve.quote_mint,timestamp,post_buyback)?;
 
 
