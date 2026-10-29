@@ -98,6 +98,8 @@ def load_reuse(records,captured_at=None):
         # A transport failure has no retained body to reuse; leave it queued for retry.
         if set(record)=={'url','error'} and isinstance(record['error'],str): continue
         if url in validated: raise RetainedCaptureError(f'Retained capture {retained_id(url)} duplicate URL')
+        if 'status' in record and (type(record['status']) is not int or not 100 <= record['status'] <= 599):
+            raise RetainedCaptureError(f'Retained capture {retained_id(url)} invalid HTTP status')
         retained_body(record,url)
         if isinstance(captured_at,str):
             record=dict(record);record.setdefault('captured_at',captured_at)

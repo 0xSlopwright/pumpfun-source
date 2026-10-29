@@ -455,5 +455,18 @@ class CaptureResumeTests(unittest.TestCase):
         self.assertEqual(self.reuse, sentinel)
 
 
+    def test_resume_rejects_invalid_http_status_metadata_atomically(self):
+        url='https://pump.fun/synthetic.js';body=b'synthetic'
+        self.write_object('status.js',body)
+        record=self.record(url,'evidence/web/objects/status.js',body)
+        self.reuse.clear();self.reuse['sentinel']={'unchanged':True}
+        for status in [None,True,'200',0,99,600]:
+            with self.subTest(status=status):
+                with self.assertRaises(capture.RetainedCaptureError):capture.load_reuse([{**record,'status':status}])
+                self.assertEqual(self.reuse,{'sentinel':{'unchanged':True}})
+        capture.load_reuse([{**record,'status':404}])
+        self.assertEqual(self.reuse[url]['status'],404)
+
+
 if __name__ == '__main__':
     unittest.main()
