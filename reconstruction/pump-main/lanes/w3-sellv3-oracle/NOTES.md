@@ -52,6 +52,11 @@ top of the entry block in pre-opt IR flips sell to tag-first (s06: 96 -> 18 slot
 post-opt phi swap). `refund_pool_authority` is tag-first only because its `amount` argument is spilled
 after `_0` (removing the spill flips it back). Spilling `amount` or `min_sol_output` in sell does **not**
 flip it. rustc always allocates `_0` below all non-argument locals, so no direct source lever has been found.
+Position scan (`ir-edits/p_r0k.py`, K = number of allocas `_0` is moved up): K<=19 gives ptr-first and K>=20 tag-first.
+The flip happens once `_0` is processed after `%_39`, the 24-byte error `Source{file,line}` temp of an early
+`require!`/`error!` site that is memcpy'd into the AnchorError. The phi order therefore depends on the count
+and kind of early error-site temporaries: a source lever would change how many such temps sit at the bottom
+of the alloca list (the earliest MIR locals).
 
 ### Prologue lea (`-0x358` before the r3/r7 GEPs)
 Unchanged by: GEP order, GEPs before the load, an explicit sret alloca for prepare_bonding_curve,
