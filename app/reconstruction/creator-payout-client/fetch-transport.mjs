@@ -20,8 +20,15 @@ export function createPayoutFetchTransport({ baseUrl, fetch: send }) {
     }
     const request = new Request(url, { method: 'GET', credentials: options.credentials,
       headers: options.headers, signal: options.signal });
+    options.signal?.throwIfAborted();
     const response = await send(request);
-    for (const hook of options.hooks?.afterResponse ?? []) await hook(request, options, response);
-    return response.json();
+    options.signal?.throwIfAborted();
+    for (const hook of options.hooks?.afterResponse ?? []) {
+      await hook(request, options, response);
+      options.signal?.throwIfAborted();
+    }
+    const result = await response.json();
+    options.signal?.throwIfAborted();
+    return result;
   };
 }
