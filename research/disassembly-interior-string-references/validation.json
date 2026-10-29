@@ -20,6 +20,11 @@
       "before": "e5e701b41dd48fc21f15e554e4f982f06f3235508c06f893c058759c9d4a1347",
       "after": "3827e7a23ee20b51f6cd147e3dcf5111b7cfb090c84505ea347825c36deb42d7"
     },
+    "windows_deep_canonical_sha256": {
+      "before": "bc3563761cdbf39e658d72914c0f8a09269357f7f09329934f3d67591c09d1f6",
+      "after": "e5fc5621dc7359bc2384d232d6230f6c362663bce83f9b0c74716401f55799ba"
+    },
+    "windows_deep_sha256_note": "windows_deep_sha256 values are the contributor's file bytes and are not reproducible: the base helper writes each window's extern_calls from list(set(...)), so its order follows Python hash randomization, and checkout line endings also change the bytes. The canonical digests hash json.dumps(windows, sort_keys=True, separators=(',', ':')) after sorting every extern_calls list; maintainer review reproduced them from LF checkouts, with 'before' from research/deep-disassembly-relative-calls/generate.py and 'after' from this generate.py (two runs), plus 29 -> 888 references and both packet verifiers passing.",
     "original_reference_text_and_other_window_fields": "unchanged",
     "other_unchanged_payloads": [
       "README.md",
