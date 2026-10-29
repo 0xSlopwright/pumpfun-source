@@ -119,3 +119,18 @@ has one 176 B object at the bottom that also holds the Rent piece and `ix_data`
 Ledger: r1A `dcaf8227`, r1B `8d461e42`, r1C `1601eefb`, r2D `a6753aa5`, r2E `af427cca`,
 r2G `7a862c65`, r3DG `40b9fd8c`, r3DA `70107109`, r3D2 `fc5f630c`, r4A `709cdfb5`,
 r4R5 `152968e3`, r4Nc `960c06ba`.
+
+### Native branch first (r5SW, ratio 0.601 -> 0.817)
+
+`offmap.py` on D2 showed the original's bottom 176 B of frame is three unmarked objects in this
+order (deepest first): the `Rent::get()?` ControlFlow payload (`_140.sroa.5`, 24 B), the recipient
+owner (32 B), the recipient decode piece (`val6.sroa.2`, 120 B). Frame index order is the reverse
+of alloca creation order, which follows MIR local numbering, so in the original the Rent locals
+are created before the recipient locals: the native branch comes first in the source.
+`let amount=if native{rent; amount; zero check; sub; add; amount}else{305; 310; ..; transfer; amount};`
+(native block on the pad line 304, so no error line moves) puts every frame object at the
+original offset (offmap: 100 of 109 offsets map with delta 0). Same 68+2 calls, 8,856 B,
+ratio **0.81661**. Ledger `1b851d5c`.
+
+Residual: register assignment. The original computes `&a.user` (accounts+0xa8) once right
+after `Clock::get` and spills it to -0x4c0; the candidate rematerializes it at each use.

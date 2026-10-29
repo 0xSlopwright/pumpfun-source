@@ -301,8 +301,8 @@ pub mod cashback {
 
 
 
-
-  let amount=if !native{require!(a.quote_token_program.key()==anchor_spl::token::ID||a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
+  let amount=if native{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());let amount=a.user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;amount}else{
+   require!(a.quote_token_program.key()==anchor_spl::token::ID||a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
 
 
 
@@ -343,7 +343,7 @@ pub mod cashback {
    let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;let user=a.user.key();let signer_seeds:&[&[&[u8]]]=&[&[b"user_volume_accumulator",user.as_ref(),&[ctx.bumps.user_volume_accumulator]]];
    token_interface::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),TransferChecked{from:a.associated_user_volume_accumulator.to_account_info(),mint:a.quote_mint.to_account_info(),to:a.associated_quote_user.to_account_info(),authority:a.user_volume_accumulator.to_account_info()},signer_seeds),amount,mint.decimals)?;
 
-   amount}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());let amount=a.user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;amount};
+   amount};
   crate::token_incentives::volume_accumulator::record_cashback_claim(&mut a.user_volume_accumulator,amount,native)?;
   let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event);emit_cpi!(event);Ok(())
  }
