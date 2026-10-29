@@ -44,6 +44,7 @@ export function localPortfolioPolicyClient({ baseUrl, fetchImplementation }) {
       const replacement = await hook(new Request(url, init), {}, response);
       if (replacement instanceof Response) response = replacement;
     }
+    if (!response.ok) throw Object.assign(new Error(`Local portfolio HTTP ${response.status}`), { response });
     const text = response.status === 204 ? "" : await response.text();
     return text === "" ? "" : JSON.parse(text);
   };
