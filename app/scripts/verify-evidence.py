@@ -31,7 +31,9 @@ expected_sources=set()
 with tarfile.open(archive) as tar:
  for member in tar.getmembers():
   if member.name.startswith('package/src/') and member.isfile():
-   expected_sources.add(member.name.removeprefix('package/src/'))
+   relative=member.name.removeprefix('package/src/')
+   if relative in expected_sources: raise ValueError(f'Duplicate SDK source archive member: {relative}')
+   expected_sources.add(relative)
    if tar.extractfile(member).read()!=(root/'packages/sdk'/member.name.removeprefix('package/')).read_bytes():
     raise ValueError(f'SDK source bytes differ from archive: {member.name}')
 source_root=root/'packages/sdk/src'
