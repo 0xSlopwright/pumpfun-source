@@ -25,7 +25,7 @@ export function localSummaryClient({ baseUrl, fetchImplementation }) {
         if (value === undefined) continue;
         // This local adapter's wire domain is scalar query values. The recovered
         // reader still forwards arbitrary values to a supplied contract client.
-        if (Array.isArray(value))
+        if ((value !== null && !["string", "number", "boolean"].includes(typeof value)) || (typeof value === "number" && !Number.isFinite(value)))
           throw new TypeError("Local summary query must be scalar");
         url.searchParams.set(key, String(value));
       }
