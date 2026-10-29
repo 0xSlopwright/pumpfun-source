@@ -17,7 +17,7 @@ pub use crate::pump_fees::{
 };
 
 fn process_cashback_inner<'info>(
-    remaining_accounts: &'info [AccountInfo<'info>], user: &AccountInfo<'info>, system_program: &AccountInfo<'info>,
+    remaining_accounts: &'info [AccountInfo<'info>], user: &Signer<'info>, system_program: &AccountInfo<'info>,
     bonding_curve: &Account<'info, BondingCurve>, amount: u64, mint: &Pubkey,
 ) -> Result<()> {
     let user_volume_accumulator = remaining_accounts.first().ok_or_else(|| error!(PumpError::MissingCashbackAccounts))?;
@@ -41,7 +41,7 @@ fn process_cashback_inner<'info>(
             anchor_lang::system_program::transfer(
                 CpiContext::new(
                     system_program.clone(),
-                    anchor_lang::system_program::Transfer { from: user.clone(), to: user_volume_accumulator.clone() },
+                    anchor_lang::system_program::Transfer { from: user.to_account_info(), to: user_volume_accumulator.clone() },
                 ),
                 required_lamports,
             )?;
@@ -78,7 +78,7 @@ fn process_cashback_inner<'info>(
 
     } else {
         // An existing accumulator must already be owned by this program and carry its discriminator.
-        require!(user_volume_accumulator.owner == &crate::ID, PumpError::InvalidCashbackAccumulator);
+        if user_volume_accumulator.owner != &crate::ID { return err!(PumpError::InvalidCashbackAccumulator); }
         let data = user_volume_accumulator.try_borrow_data()?;
 // layout-pad(2): aligns the next Source site with the original line
 
@@ -149,10 +149,10 @@ pub fn buyback_fee_recipient<'a,'info>(remaining_accounts:&'a [AccountInfo<'info
 
 // Evaluate the borrowed mint key before coercing the user and system accounts.
 #[inline(always)]
-pub fn process_cashback<'info>(
+pub(crate) fn process_cashback<'info>(
     remaining_accounts: &'info [AccountInfo<'info>],
     mint: &Pubkey,
-    user: &AccountInfo<'info>,
+    user: &Signer<'info>,
     system_program: &AccountInfo<'info>,
     bonding_curve: &Account<'info, BondingCurve>,
     amount: u64,
