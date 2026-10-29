@@ -308,10 +308,10 @@ pub mod cashback {
 
 
    require_keys_eq!(*a.quote_mint.to_account_info().owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
-   if a.associated_user_volume_accumulator.data_is_empty(){0}else{TokenAccount::try_deserialize(&mut &a.associated_user_volume_accumulator.try_borrow_data()?[..])?.amount}}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());a.user_volume_accumulator.get_lamports().saturating_sub(min)};
-  if amount==0{msg!("No cashback to claim");return Ok(());}
-  if native{a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;}
-  else{
+   let amount=if a.associated_user_volume_accumulator.data_is_empty(){0}else{TokenAccount::try_deserialize(&mut &a.associated_user_volume_accumulator.try_borrow_data()?[..])?.amount};if amount==0{msg!("No cashback to claim");return Ok(());}
+
+
+
    
 
 // layout-pad(16): aligns the next Source site with the original line
@@ -343,7 +343,7 @@ pub mod cashback {
    let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;let user=a.user.key();let bump=[ctx.bumps.user_volume_accumulator];let seeds:&[&[u8]]=&[b"user_volume_accumulator",user.as_ref(),&bump];
    token_interface::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),TransferChecked{from:a.associated_user_volume_accumulator.to_account_info(),mint:a.quote_mint.to_account_info(),to:a.associated_quote_user.to_account_info(),authority:a.user_volume_accumulator.to_account_info()},&[seeds]),amount,mint.decimals)?;
 
-  }
+   amount}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());let amount=a.user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;amount};
   crate::token_incentives::volume_accumulator::record_cashback_claim(&mut a.user_volume_accumulator,amount,native)?;
   let event=ClaimCashbackEvent{user:a.user.key(),amount,timestamp,total_claimed:a.user_volume_accumulator.total_cashback_claimed,total_cashback_earned:a.user_volume_accumulator.cashback_earned};emit!(event.clone());emit_cpi!(event);Ok(())
  }
