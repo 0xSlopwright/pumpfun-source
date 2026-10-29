@@ -571,7 +571,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
         let buy_transfer_fee = amount.checked_sub(trade_amount).ok_or_else(|| error!(PumpError::Overflow))?;
 
 
-        let mut post_fill = None;
+        let post_fill;
         let (fees,base_amount,quote_amount,output,adapter_difference) = if buy {
             let selected = crate::legacy_sell::fee_math::get_fees(&a.global,c,&a.fee_config,fee_config_len,cap,trade_amount)?;
             let p_rate = if flag & 1 != 0 { selected.protocol_fee_bps } else { 0 };
@@ -601,8 +601,8 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
                     &h.associated_base_bonding_curve,flag,p_rate,c_rate,trade_amount)? {
                     post_fill=Some(post);
                     (c.real_token_reserves,quote,fees.protocol_fee,fees.creator_fee,post.base_out)
-                }else{(c.real_token_reserves,q,pf,cf,0)}
-            }else{(base,q,pf,cf,0)};
+                }else{post_fill=None;(c.real_token_reserves,q,pf,cf,0)}
+            }else{post_fill=None;(base,q,pf,cf,0)};
 
 
 
@@ -693,7 +693,7 @@ pub fn execute<'info>(ctx: Context<'_,'_,'info,'info,MultiHopCurve<'info>>,
             transfer_input(a,previous,&base_token_program,&h.associated_base_bonding_curve.to_account_info(),h.base_mint.decimals,AsRef::<AccountInfo>::as_ref(&*h.base_mint),amount)?;
             h.bonding_curve.apply_sell(amount,gross_sell)?;
             if last && !native && net != 0 { transfer_quote_out(&quote_token_program,&h.associated_quote_bonding_curve,&a.destination,&h.bonding_curve,h.quote_mint.decimals,AsRef::<AccountInfo>::as_ref(&*h.quote_mint),net,&[seeds])?; }
-            (crate::trade::TradeFees{protocol_fee:pf,creator_fee:cf,protocol_fee_bps:p_rate,creator_fee_bps:c_rate},amount,gross_sell,output,sell_transfer_fee)
+            post_fill=None; (crate::trade::TradeFees{protocol_fee:pf,creator_fee:cf,protocol_fee_bps:p_rate,creator_fee_bps:c_rate},amount,gross_sell,output,sell_transfer_fee)
         };
 
 

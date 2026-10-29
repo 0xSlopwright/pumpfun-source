@@ -116,6 +116,13 @@ w1 1177, br1 1147, br3 1132). Lower is better.
 | te2 te1 + Complete/Post events | 18,488 | 0.1802 | 0.6532 | 0.6909 | 100 | 1152 / 1904 |
 | **mac1 emit expansion as `macro_rules! route_event!`** (in source) | 18,328 | **0.2435** | **0.6913** | **0.7684** | **101** | **991 / 1728** |
 
+| pe1 mac1 + post event: post by value, mint = h.base_mint.key() | 18,376 | 0.1873 | 0.7040 | 0.7788 | 101 | 964 / 1716 |
+| pe2 mac1 + post event: post by value | 18,352 | 0.2112 | 0.7001 | 0.7745 | 101 | 973 / 1687 |
+| pe3 mac1 + post event mint = h.base_mint.key() | 18,352 | 0.1839 | 0.6953 | 0.7727 | 101 | 982 / 1735 |
+| **pf1 mac1 + deferred `let post_fill;`, None on each no-post path** (in source) | 18,272 | 0.2148 | **0.7233** | **0.8071** | 101 | **903 / 1628** |
+| pf2 sell checked_sub moved after payout | LOSS (1019 normalized) | | | | | |
+| pfpe1 / pfpe2 pf1 + pe1 / pe2 | identical to pe1 / pe2 | | | | | |
+
 te2 shows why `exact` alone misleads: it doubles while every structural metric gets worse.
 
 ### mac1 mechanism
@@ -141,8 +148,21 @@ remaining buy-arm placement (mayhem test falling through into the 599 error, mem
 after the buy transfer_input) does not come from IR block order or the weights of those
 branches.
 
+### pf1 mechanism
+The original stores the post-fill flag = 0 at the sell join after the last-hop
+`transfer_quote_out` (orig 0x2450) and on the two buy no-post paths (0x2848, 0x2c30). It does not
+store it as an initial `None` that LLVM sinks to before the payout test. Declaring
+`let post_fill;` and assigning `None` at the end of the sell arm and in both buy no-post branches
+(and `Some(post)` in the complete_fill branch) reproduces that. complete_fill now sits in the
+original call order (only memcmp and the 736 closure stay swapped). The win.py ratio falls
+0.2435 -> 0.2148 because the frame shifts, but every structural metric improves a lot.
+Post-event variants (pe*): the original passes post_complete_buy_event a fresh 64-byte
+PostComplete copy and fresh user/mint/curve/quote_mint key copies. Moving `post` by value is
+locally closer, but it cancels pf1 (identical bytes), so it is not kept.
+
 Ledger ids (round 2): 25aa56c1 (ar1), 84f78eee (ar2), 58559371 (wl1), eadf629d (wl2),
-b510e5e4 (te1), 5f606a0f (te2), ea3a9c59 (mac1).
+b510e5e4 (te1), 5f606a0f (te2), ea3a9c59 (mac1), 50c5e0d3 (pe1), c13f84f0 (pe2),
+100a2ede (pe3), dae56098 (pf1), c09e362e (pf2), 1cb4e2af (pfpe1), d1e9b08f (pfpe2).
 
 ## Tools (in this directory; run with the swarm `$TOOLS/harness` path as first argument)
 
