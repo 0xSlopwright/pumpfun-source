@@ -56,6 +56,11 @@ transaction construction and token creation. The launch action stays disabled
 and explains this boundary. The usable action validates and previews the local
 draft only.
 
+Create preview website and social links now use the captured external-link
+confirmation controller and the shared device privacy preference. See
+[`CREATE-EXTERNAL-LINKS.md`](CREATE-EXTERNAL-LINKS.md) for the scoped integration,
+source bindings and validation.
+
 ## Unknowns and limitations
 
 - The captured factories do not establish original TypeScript names or the

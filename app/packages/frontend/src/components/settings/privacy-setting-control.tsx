@@ -11,7 +11,7 @@ import styles from "./privacy-setting-control.module.css";
 // One runtime preserves the captured device setting's module-lifetime fallback.
 // Browser APIs are touched only after the client boundary, never during SSR.
 let devicePreference: PrivacyPreference | undefined;
-function preference() {
+export function getDevicePrivacyPreference() {
   devicePreference ??= privacyPreferenceRuntime({
     getStorage: () => window.localStorage,
     events: window,
@@ -19,14 +19,14 @@ function preference() {
   }).preference();
   return devicePreference;
 }
-const subscribe = (notify: () => void) => preference().subscribe(notify);
-const snapshot = () => preference().read();
+const subscribe = (notify: () => void) => getDevicePrivacyPreference().subscribe(notify);
+const snapshot = () => getDevicePrivacyPreference().read();
 const serverSnapshot = () => true;
 const subscribeToHydration = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
 
-/** Device preference only; the host app's outbound links are not yet connected. */
+/** Device preference shared with the Create draft outbound-link consumer. */
 export function PrivacySettingControl({ label }: { label: string }) {
   const enabled = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
   const ready = useSyncExternalStore(
@@ -41,7 +41,7 @@ export function PrivacySettingControl({ label }: { label: string }) {
 
   function change() {
     const next = !enabled;
-    preference().write(next);
+    getDevicePrivacyPreference().write(next);
     // The captured writer intentionally swallows storage failures. A separate
     // read-back supports truthful UI feedback without changing that behavior.
     try {
@@ -70,8 +70,8 @@ export function PrivacySettingControl({ label }: { label: string }) {
         {ready ? (enabled ? "On" : "Off") : "Loading…"}
       </button>
       <p id={`${id}-scope`} className={styles.scope}>
-        Stored on this browser, shared across accounts. App links are not yet
-        connected to this choice.
+        Stored on this browser, shared across accounts. Applies to Create draft
+        preview links; other app links are not connected.
       </p>
       <p
         id={`${id}-result`}

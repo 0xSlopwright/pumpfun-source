@@ -362,8 +362,8 @@ function SettingsControlContent({
                       <p className={styles.notice} id={`${id}-description`}>
                         These settings are mapped from captured client code.
                         Account values are unavailable, not off. The
-                        external-link choice is stored on this browser; app
-                        links are not yet connected to it. No browser permission
+                        external-link choice is stored on this browser and applies
+                        to Create draft preview links only. No browser permission
                         is requested.
                       </p>
                     }

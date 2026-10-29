@@ -95,7 +95,7 @@ try {
   await expect(control(page)).toBeEnabled();
   await expect(control(page)).toHaveAttribute("aria-checked", "true");
   await expect(
-    page.getByText("App links are not yet connected to this choice.", {
+    page.getByText("Applies to Create draft preview links; other app links are not connected.", {
       exact: false,
     }),
   ).toBeVisible();
@@ -212,7 +212,7 @@ try {
     pageErrors: errors,
     externalRequests: external,
     capturedCodeExecuted: false,
-    outboundConsumersConnected: false,
+    outboundConsumersExercised: false,
     serverCompatibilityClaimed: false,
   };
   await writeFile(output, JSON.stringify(receipt, null, 2) + "\n");

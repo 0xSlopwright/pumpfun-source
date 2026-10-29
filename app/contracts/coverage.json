@@ -55,6 +55,17 @@
         "tests/original_positions_by_mint.test.mjs"
       ],
       "limits": "Static client workflow and synthetic loopback HTTP only; no native API, price/PnL, indexer, wallet auth, full React hook or UI qualification."
+    },
+    "createDraftExternalLinks": {
+      "status": "captured-confirmation-controller-integrated-with-create-preview",
+      "qualified": false,
+      "uiIntegrated": true,
+      "evidence": [
+        "reconstruction/privacy-external-links/contract.json",
+        "packages/frontend/CREATE-EXTERNAL-LINKS.md",
+        "packages/frontend/tests/create-external-links.spec.ts"
+      ],
+      "limits": "Ordinary clicks on validated local Create preview links only; explicit local settings-hub enablement. No global outbound policy, upstream flag, visual parity or native API compatibility claim."
     }
   },
   "sdk": {

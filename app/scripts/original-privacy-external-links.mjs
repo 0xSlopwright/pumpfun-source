@@ -429,7 +429,7 @@ export async function verifyAppBrowserReceipt(root = defaultRoot) {
     receipt.pageErrors?.length === 0 &&
     receipt.externalRequests?.length === 0 &&
     receipt.capturedCodeExecuted === false &&
-    receipt.outboundConsumersConnected === false &&
+    receipt.outboundConsumersExercised === false &&
     receipt.serverCompatibilityClaimed === false, "app receipt result/scope");
   return receipt;
 }
