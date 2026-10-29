@@ -98,7 +98,8 @@ export class PortfolioBalancesStore {
           !(
             entry.balance[field] === null ||
             (typeof entry.balance[field] === "number" &&
-              Number.isFinite(entry.balance[field]))
+              Number.isFinite(entry.balance[field]) &&
+              (entry.balance[field] as number) >= 0)
           )
         )
           invalid(`balance.${field}`);

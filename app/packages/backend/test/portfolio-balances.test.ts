@@ -333,3 +333,11 @@ test("bounded startup import rejects corruption, oversized/nonregular and invali
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('materialized public balance facts reject negatives without collapsing null and zero', () => {
+  for (const field of ['totalValueUsd', 'solPriceUsd', 'nativeBalanceSol'] as const) {
+    const data = dataset(); data.wallets[0].balance![field] = -0.01;
+    assert.throws(() => new PortfolioBalancesStore(data), /balance/);
+  }
+  assert.doesNotThrow(() => new PortfolioBalancesStore(dataset()));
+});
