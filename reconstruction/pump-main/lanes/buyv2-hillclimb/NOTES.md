@@ -53,3 +53,36 @@ Unstripped sha256: 9316184ec66730c5b450fc95349b3ca49664d1135a3e3ed6a2155aa750608
   file whose build reproduces 0.97341. Composed build `sib-render`: eq 0.97341 / 20,176 B,
   bh 0.94776 / 15,464 B, official 1019/188, no gains, no losses,
   sha256 0aa51f4ef6081904323e2c5e6466da079c03a6b6a7a109d80243484f8fcf1e69.
+
+## Step 4: climb plateau and the crate-boundary finding
+
+Generations 3-5 (single-gene flips over 30+ genes incl. admit-block structure, wrappers,
+operand order, field-order moves) and a 2-gene interaction sweep over every near-neutral
+move found no further improvement: both handlers sit on a local optimum of the in-crate
+idiom space. (Generations 1-2 had a worker-directory race; their per-variant rows are
+superseded by attempt 7ea0c32af0b74e94af9acce2aecf6289. Every kept result was rebuilt alone.)
+
+Why the prior swarm's frozen-best tree measured buy_handler 0.962 while its buy_v2.rs on
+main gives 0.944: that tree linked `buy_v2::native_payments::ensure_rent_exempt` from a
+separate path crate (`pump-native-payments`). Diagnostic `diag-crate` (current best +
+that crate, attempts 85862372255942819ec173655f6cfa6b / b3a404842b854e6a86772955c76c3c4c):
+
+| target | in-crate (this PR) | separate crate (diagnostic only) |
+| --- | --- | --- |
+| 0x13b9b8 | 0.94776 / 15,464 B | 0.96599 / 15,488 B |
+| 0x13f630 | 0.97341 / 20,176 B | 0.98742 / 20,200 B |
+| 0x144508 sell_v2 | 0.66202 | 0.67015 |
+| official | 1019 / 188 | 1019 / 188, no losses |
+
+Mechanism: in the original, every call `ensure_rent_exempt(0, ..)` materialises `r2 = 0`
+for the unused `_size` argument and reuses that zero for a later `None` spill
+(`mov64 r2, 0; stxdw [r10-0x780], r2`). Inside one crate LLVM sees `_size` is dead and
+passes poison, which removes that register/spill and perturbs allocation for the rest of
+both handlers. Adding a path crate changes Cargo.toml/Cargo.lock, which the swarm rules
+forbid, so it is not part of this PR; it is the strongest next lever if the coordinator
+allows a workspace crate. Keeping `_size` live via `minimum_balance(min(_size,0))` folds
+before DeadArgElim and is byte-identical (no effect).
+
+Remaining in-crate residuals for buy_handler: the `fmt::Error`/post-fee Result slot class
+at -0x28 vs original -0x100; the whitelist `user.key()` temporary colored at -0x1e8 vs
+-0x420; the second checked-add overflow block placed late; quote_mint 32-byte copy order.
