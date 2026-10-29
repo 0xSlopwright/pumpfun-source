@@ -302,13 +302,13 @@ pub mod cashback {
 
 
 
-  if !native{require!(a.quote_token_program.key()==anchor_spl::token::ID||a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
+  let amount=if !native{require!(a.quote_token_program.key()==anchor_spl::token::ID||a.quote_token_program.key()==anchor_spl::token_2022::ID,PumpError::InvalidQuoteTokenProgram);
 
 
 
 
-   require_keys_eq!(*a.quote_mint.owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);}
-  let amount=if native{a.user_volume_accumulator.to_account_info().lamports().saturating_sub(Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len()))}else{let data=a.associated_user_volume_accumulator.try_borrow_data()?;if data.is_empty(){0}else{TokenAccount::try_deserialize(&mut &data[..])?.amount}};
+   require_keys_eq!(*a.quote_mint.to_account_info().owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
+   if a.associated_user_volume_accumulator.data_is_empty(){0}else{TokenAccount::try_deserialize(&mut &a.associated_user_volume_accumulator.try_borrow_data()?[..])?.amount}}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());a.user_volume_accumulator.get_lamports().saturating_sub(min)};
   if amount==0{msg!("No cashback to claim");return Ok(());}
   if native{a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;}
   else{
@@ -330,7 +330,7 @@ pub mod cashback {
 
 
 
-   require_keys_eq!(*a.associated_quote_user.owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
+   require_keys_eq!(*a.associated_quote_user.to_account_info().owner,a.quote_token_program.key(),PumpError::AccountTypeNotSupported);
 // layout-pad(8): aligns the next Source site with the original line
 
 

@@ -26,3 +26,45 @@ hand (main had split the `Clock::get()` timestamp out).
 
 Official: normalized 1019, raw 188, gains [], losses []. unstripped sha256
 a64a2f8ad78f5d3e2aa71c577f2b57c6b46a1f7b54fde1340b58ba3ea47bb61b. Ledger a45227c77891401a8631b2571d4cc63b.
+
+## Trial b04: buy_v3 guard with scoped user key (adopted)
+
+`let mut excess=0; let amount={let user_key=a.user.key(); if mayhem {if partial_fill{amount.min(real)}else{amount}} else if user_key!=a.global.whitelist_pda && amount>real {excess=amount-real;real} else {same clip}};`
+
+The e38 `event-fees-volume-guard` shape (b01, ratio 0.706) bound the key at function scope, so
+it got its own 32-byte stack slot and shifted every frame offset by 0x20. The original stores
+the key in the -0xa8 temporary area that later calls reuse, i.e. the key is short-lived. Scoping
+it inside the block expression lets stack coloring reuse the slot: frame offsets now match.
+
+| window | t01 | b04 |
+|---|---|---|
+| 0x147ba0 buy | 3712 B, 0.645 | 3728 B, 0.849 |
+
+Official 1019/188, no gains or losses. unstripped sha256 8336a2200d8502bf8dded3bd2286032a9255112ec466c7b3fd30ae08c3a0e009.
+Rejected this round (ledger): single if/else-if chain (b02, b05), mutable-amount chain (b03),
+precomputed `whitelisted` bool in either operand order (b07-b09), sell tail-expression
+`emit_sell_cpi(..)` (t02: structurally closer but r8/r9 swap, 0.860), user/source quote Option
+locals (s03-s05).
+
+Remaining buy_v3 residuals: the original loads `a.global` before the key copy and shares one
+partial-fill min clip between the mayhem path and the not-crossing path; the epilogue store/exit
+is placed once at the end (ours duplicates it in the middle).
+
+## Trial b23: whitelist reference bound before the key (adopted)
+
+Inside the scoped block: `let whitelist=&a.global.whitelist_pda; let user_key=a.user.key();`
+then compare `user_key!=*whitelist`. The original loads `a.global` in the entry block before
+the 32-byte key copy and keeps it in r2 for the bcmp; binding the reference first reproduces
+that (`let global=&a.global` alone does not: identical ELF to b04).
+
+0x147ba0: 3728 B, ratio 0.849 -> 0.874 (rename-aware differing instructions 71 -> 59).
+Official 1019/188, no gains or losses. unstripped sha256 edf9e4342ca16c6808ec90997deb50e2cd1fa17e94766d50beb365ec62d3e5d3.
+
+Tried and identical/rejected: cmp::min / explicit-if / && clip spellings (b16-b20), crossing
+condition order (b21), negated mayhem branch or match (b25, b27: same ELF), flat OR guard (b26),
+excess-first then threaded clip (b13-b15), mutable assignment chains (b10-b12).
+
+Remaining buy_v3 residuals are block placement: the non-mayhem whitelist block sits after the
+NotEnoughTokensToBuy error block in the original (ours: right after the mayhem test, with the
+clip head tail-duplicated), and the shared `?` error-return block (store r6/r7 to sret; exit)
+is last in the original but mid-function in ours.

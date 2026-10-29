@@ -291,7 +291,7 @@ pub(crate) fn add3(a:u64,b:u64,c:u64)->Result<u64>{a.checked_add(b).and_then(|x|
 
 
 #[inline(never)]
-fn sub3(a:u64,b:u64,c:u64)->Result<u64>{a.checked_sub(b).and_then(|x|x.checked_sub(c)).ok_or_else(||error!(PumpError::Overflow))}
+pub(crate) fn sub3(a:u64,b:u64,c:u64)->Result<u64>{a.checked_sub(b).and_then(|x|x.checked_sub(c)).ok_or_else(||error!(PumpError::Overflow))}
 // layout-pad(14): aligns the next Source site with the original line
 
 
@@ -371,9 +371,9 @@ fn v3_buy_costs(buyback_bps:u64,is_mayhem:u8,quote_fee:&Option<native_transfer_f
         .ok_or_else(||error!(PumpError::Overflow))?;
     let first=add3(quote,protocol_fee,creator_fee)?;
     let second=if let Some(p)=post{add3(p.quote_in,p.fees.protocol_fee,p.fees.creator_fee)?}else{0};
-    let net=first.checked_add(second).and_then(|sum|sum.checked_sub(total_buyback))
-        .ok_or_else(||error!(PumpError::Overflow))?;
-    let pool_quote=crate::transfer_fee_recovered::pre_fee_amount(quote_fee,net)?; let quote_transfer_fee=pool_quote.checked_sub(net).ok_or_else(gross_up_quote_error)?; Ok((pool_quote,total_buyback,quote_transfer_fee))
+    let (pool_quote,net)=first.checked_add(second).and_then(|sum|sum.checked_sub(total_buyback))
+        .ok_or_else(||error!(PumpError::Overflow)).and_then(|net|crate::transfer_fee_recovered::pre_fee_amount(quote_fee,net).map(|g|(g,net)))?;
+    let quote_transfer_fee=pool_quote.checked_sub(net).ok_or_else(gross_up_quote_error)?; Ok((pool_quote,total_buyback,quote_transfer_fee))
 }
 /// Gross-up of the pool-side quote by the quote mint's transfer fee; the fee is re-derived from the gross.
 #[inline(always)]
@@ -691,7 +691,7 @@ fn v3_execute_buy<'info>(a:&mut SellV3<'info>,curve_bump:u8,is_sol:bool,amount:u
     let transfer_base=amount.checked_add(match post{Some(p)=>p.base_out,None=>0}).ok_or_else(||error!(PumpError::Overflow))?;
     
 
-    crate::buy_v2::token_transfers::transfer_curve_tokens(&a.base_token_program,&a.associated_base_bonding_curve,&a.associated_base_user,&a.bonding_curve,a.base_mint.decimals,a.base_mint.as_ref().as_ref(),transfer_base,&[&[b"bonding-curve",a.base_mint.key().as_ref(),&[curve_bump]]])?;
+    transfer_curve_mint_tokens(&a.base_token_program,&a.associated_base_bonding_curve,&a.associated_base_user,&a.bonding_curve,&a.base_mint,transfer_base,&[&[b"bonding-curve",a.base_mint.key().as_ref(),&[curve_bump]]])?;
     if a.user.key()==a.global.whitelist_pda{
         a.associated_base_bonding_curve.reload()?;
         a.associated_base_user.reload()?;
@@ -719,7 +719,7 @@ fn v3_execute_buy<'info>(a:&mut SellV3<'info>,curve_bump:u8,is_sol:bool,amount:u
 
 
     let total=buyback.checked_add(post_buyback).ok_or_else(||error!(PumpError::Overflow))?;
-    user_quote_payments::transfer_from_user(is_sol,a.system_program.as_ref(),&a.user,&a.bonding_curve,if is_sol{add(pool_quote,total_buyback)?}else{pool_quote},&a.quote_token_program,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),if is_sol{None}else{Some(a.associated_quote_user.as_ref())},if is_sol{None}else{Some(a.associated_quote_bonding_curve.as_ref())})?;
+    let (user_quote,curve_quote)=if is_sol{(None,None)}else{(Some(a.associated_quote_user.as_ref()),Some(a.associated_quote_bonding_curve.as_ref()))}; user_quote_payments::transfer_from_user(is_sol,a.system_program.as_ref(),&a.user,&a.bonding_curve,if is_sol{add(pool_quote,total_buyback)?}else{pool_quote},&a.quote_token_program,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),user_quote,curve_quote)?;
     if is_sol{quote_payments::transfer_native(&a.bonding_curve,a.buyback_fee_recipient.to_account_info(),total)?;}
     else{crate::collect_v2::transfer_user_quote_tokens(&a.quote_token_program,&a.associated_quote_user,&a.buyback_fee_recipient,a.user.as_ref(),a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),total)?;}
     let total_net=crate::transfer_fee_recovered::post_fee_amount(quote_fee,total)?;
@@ -1300,4 +1300,8 @@ fn init_volume_user(uva:&mut crate::UserVolumeAccumulator,user:&Signer){if uva.u
 fn emit_sell_cpi(ctx:&Context<SellV3>,event:&crate::TradeEvent)->Result<()>{
     emit_cpi!((*event));
     Ok(())
+}
+#[inline(always)]
+fn transfer_curve_mint_tokens<'info>(token_program:&Interface<'info,TokenInterface>,source:&InterfaceAccount<'info,TokenAccount>,destination:&InterfaceAccount<'info,TokenAccount>,authority:&Account<'info,BondingCurve>,mint:&InterfaceAccount<'info,Mint>,amount:u64,signer_seeds:&[&[&[u8]];1])->Result<()>{
+    crate::buy_v2::token_transfers::transfer_curve_tokens(token_program,source,destination,authority,mint.decimals,mint.as_ref(),amount,signer_seeds)
 }
