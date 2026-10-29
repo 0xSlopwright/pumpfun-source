@@ -35,7 +35,7 @@ fn process_cashback_inner<'info>(
         let rent = Rent::get()?;
         let space = 137;
         let lamports = rent.minimum_balance(space);
-        let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &[bump]]; let signer_seeds = &[&seeds[..]];
+        let bump_seed = [bump]; let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &bump_seed]; let signer_seeds = &[&seeds[..]];
         let required_lamports = lamports.saturating_sub(user_volume_accumulator.lamports());
         if required_lamports > 0 {
             anchor_lang::system_program::transfer(
