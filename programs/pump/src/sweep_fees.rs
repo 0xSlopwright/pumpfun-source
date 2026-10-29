@@ -141,12 +141,12 @@ pub fn execute(ctx:Context<SweepFees>,creator:bool)->Result<()>{
 
 
 
- let amount;
- if creator{let expected=Pubkey::find_program_address(&[b"creator-vault",a.bonding_curve.creator.as_ref()],&crate::ID).0;require_keys_eq!(a.recipient.key(),expected,anchor_lang::error::ErrorCode::ConstraintSeeds);
-  amount=a.bonding_curve.creator_fee;a.bonding_curve.creator_fee=0;
- }else{crate::legacy_sell::fee_recipient::validate_fee_recipient(&a.recipient,&a.global,&a.bonding_curve)?;
-  amount=a.bonding_curve.protocol_fees;a.bonding_curve.protocol_fees=0;
- }
+
+ match creator as u8{1=>{let expected=Pubkey::find_program_address(&[b"creator-vault",a.bonding_curve.creator.as_ref()],&crate::ID).0;require_keys_eq!(a.recipient.key(),expected,anchor_lang::error::ErrorCode::ConstraintSeeds);
+ }_=>{crate::legacy_sell::fee_recipient::validate_fee_recipient(&a.recipient,&a.global,&a.bonding_curve)?;
+ }}
+ let amount=if creator{let v=a.bonding_curve.creator_fee;a.bonding_curve.creator_fee=0;v}else{let v=a.bonding_curve.protocol_fees;a.bonding_curve.protocol_fees=0;v};
+
  if amount==0{msg!("Nothing to sweep for fee bucket {}",creator as u8);return Ok(());}
  let native=a.bonding_curve.quote_mint==Pubkey::default();
  if creator&&native{
