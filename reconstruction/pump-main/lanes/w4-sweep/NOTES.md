@@ -2,16 +2,16 @@
 
 Base: origin/main 630a074 (1023 normalized / 277 raw). Target: 7,832 B, 39 direct calls.
 
-| metric | base (main, a23) | a37 (w3 near-match) | p1 (this PR) |
-|---|---|---|---|
-| ratio (target_metric) | 0.49139 | 0.78830 | **0.82199** |
-| structural ratio (regs + stack masked, llc oracle) | 0.8805 | 0.8926 | **0.9403** |
-| cand bytes (orig 7832) | 7824 | 7528 | 7768 |
-| direct calls (orig 39) | 39 | 40 | **39** |
-| stack operands at original offset | ~50 | 370 | **398 / 403** |
-| official normalized / raw | 1023 / 277 | 1023 / 276 | 1023 / 276 |
-| gains / losses | - | raw 0xa868 | raw 0xa868 (call-span drift, see below) |
-| unstripped sha256 | 5d661a63.. | d010211c.. | cc82d04c55efda15d3f5df34b54307cd49183e408d34466597d8246b06a8ed69 |
+| metric | base (main, a23) | a37 (w3 near-match) | p1 | s6 (PR head) |
+|---|---|---|---|---|
+| ratio (target_metric) | 0.49139 | 0.78830 | **0.82199** | **0.88669** |
+| structural ratio (regs + stack masked, llc oracle) | 0.8805 | 0.8926 | **0.9403** | 0.9459 |
+| cand bytes (orig 7832) | 7824 | 7528 | 7768 | 7880 |
+| direct calls (orig 39) | 39 | 40 | **39** | **39** |
+| stack operands at original offset | ~50 | 370 | **398 / 403** | 398 / 403 |
+| official normalized / raw | 1023 / 277 | 1023 / 276 | 1023 / 276 | 1023 / 276 |
+| gains / losses | - | raw 0xa868 | raw 0xa868 (call-span drift, see below) | raw 0xa868 (call-span) |
+| unstripped sha256 | 5d661a63.. | d010211c.. | cc82d04c55efda15d3f5df34b54307cd49183e408d34466597d8246b06a8ed69 | b944e16bdfb2f1b523b56b94c877134b0984a0d5dc6e51f06ee03ae711782033 |
 
 ## Mechanism
 
@@ -33,6 +33,21 @@ entry (< ColdCallSiteRelFreq 2%), so it stayed out of line.
   bonding-curve `to_account_info()` temporary is dropped before the first admit's error branch,
   as in the original (+0xe88..+0xf20). With `admit2?; Ok(())` the drop is duplicated per edge
   (0.747).
+
+## s6: rent top-up back in an LLVM-inlined helper
+
+`(true,true)=>ensure_rent_exempt(..)?` with `#[inline(always)] fn ensure_rent_exempt` whose body is
+`let minimum=Rent::get().map(|rent|rent.minimum_balance(0))?; if lamports<minimum {transfer(..)} else {Ok(())}`.
+As a helper the merged Result (From error / transfer / Ok) is not MIR-jump-threaded, so the
+original's single `jeq r1,2` test after From and transfer comes back; `map` keeps the frame
+(no uncolored ControlFlow slice) -> 0.8867.
+
+IR-oracle finding (e2 = same helper with `let rent=Rent::get()?`): the original's frame and the
+payload copy before the Rent::get branch (+0x1290..+0x12b8, From reading -0xd0) are exactly the
+`?` ControlFlow payload slice *with* lifetime markers (oracle 0.8808, 410 stack operands at the
+original offset). In source builds MemCpyOpt's stack-move merges `val`/`residual` into that slice
+and drops its lifetime markers, so it is an uncolored 24 B slot at the frame top (+24 on 288
+operands, 0.5497).
 
 ## Raw membership 0xa868
 
