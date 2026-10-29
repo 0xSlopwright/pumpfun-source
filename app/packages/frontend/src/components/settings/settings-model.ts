@@ -193,7 +193,7 @@ export function settingsHref(
   if (
     !pathname.startsWith("/") ||
     pathname.startsWith("//") ||
-    /[?#\\]/.test(pathname)
+    /[\u0000-\u001f\u007f?#\\]/.test(pathname)
   ) {
     throw new Error("Expected a same-origin pathname");
   }
