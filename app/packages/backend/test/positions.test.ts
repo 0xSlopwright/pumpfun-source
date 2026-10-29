@@ -920,3 +920,17 @@ for (const nested of [false, true])
     );
     assert.throws(() => new PositionsStore(data), /non-spot enrichment/);
   });
+
+test('direct portfolio query flags are booleans rather than truthy values',()=>{
+  const store=new PositionsStore(dataset());
+  for(const field of ['totalsOnly','filterSpam','spamOnly'])for(const value of ['false',0,null])assert.throws(()=>store.portfolio('person-a',{[field]:value} as any),/Invalid portfolio/);
+  assert.doesNotThrow(()=>store.portfolio('person-a',{totalsOnly:false,filterSpam:false,spamOnly:false}));
+});
+
+test('position state timestamps cannot exceed their observation checkpoint',()=>{
+  for(const field of ['updatedAt','openedAt'] as const){
+    const data=dataset();(data.subjects[0].positions[0].facts as any)[field]='2026-10-29T00:00:00Z';
+    assert.throws(()=>new PositionsStore(data),/observedAt/);
+  }
+  assert.doesNotThrow(()=>new PositionsStore(dataset()));
+});

@@ -189,6 +189,7 @@ export class PostStore {
     // The store documents deterministic read-only data: snapshot the seed so
     // caller-owned rows (and the shared default seed) cannot corrupt later reads.
     this.posts = structuredClone(seed ?? (seedData as RawPost[]));
+    if (new Set(this.posts.map(p => p.postId)).size !== this.posts.length) throw new TypeError('Duplicate post identity');
     this.byPostId = new Map(this.posts.map(p => [p.postId, p]));
     this.userStore = userStore ?? defaultStore;
   }
@@ -327,7 +328,7 @@ export class PostStore {
    */
   getReplies(postId: string, opts: { cursor?: string; limit?: number }): { replies: Post[]; nextCursor: string | null } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     let items = this.posts.filter(p => p.parentPostId === postId && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
@@ -363,7 +364,7 @@ export class PostStore {
    */
   getQuotes(postId: string, opts: { cursor?: string; limit?: number }): { quotes: Post[]; nextCursor: string | null } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     let items = this.posts.filter(p => p.quotedPostId === postId && p.kind === 'quote' && !p.deleted && !p.hidden);
     items.sort(comparePostsNewestFirst);
@@ -399,7 +400,7 @@ export class PostStore {
    */
   getLikers(postId: string, opts: { offset?: number; limit?: number }): { likers: UserProfile[]; hasMore: boolean } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     const likerIds = (post.likers ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);
@@ -425,7 +426,7 @@ export class PostStore {
    */
   getReposters(postId: string, opts: { offset?: number; limit?: number }): { reposters: UserProfile[]; hasMore: boolean } | undefined {
     const post = this.byPostId.get(postId);
-    if (!post || post.deleted || post.hidden) return undefined;
+    if (!post || !this.isServed(post)) return undefined;
 
     const reposterIds = (post.reposters ?? []).filter(id => this.userStore.getById(id) !== undefined);
     const offset = Math.max(0, opts.offset ?? 0);

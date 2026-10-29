@@ -509,3 +509,15 @@ test('startup refuses sparse arrays instead of indexing missing aliases', () => 
   }
   assert.doesNotThrow(() => new UserTradesStore(dataset()));
 });
+
+test('trade-kind query arrays cannot contain absent elements',()=>{
+  const store=new UserTradesStore(dataset());const types=new Array(1);
+  assert.throws(()=>store.page('person-a',{types}),TradesQueryError);
+  assert.doesNotThrow(()=>store.page('person-a',{types:['trades','transfers']}));
+});
+
+test('materialized trade executions cannot be newer than their observation checkpoint',()=>{
+  const data=dataset();data.rows[0].facts.timestamp='2026-01-02T00:00:00Z';
+  assert.throws(()=>new UserTradesStore(data),/observedAt/);
+  const unknown=dataset();unknown.rows[0].facts.timestamp=null;assert.doesNotThrow(()=>new UserTradesStore(unknown));
+});

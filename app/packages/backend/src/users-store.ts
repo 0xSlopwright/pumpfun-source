@@ -122,7 +122,14 @@ export class UserStore {
 
   constructor(seed?: User[], verifiedIds?: string[] | Set<string>) {
     this.users = structuredClone(seed ?? users);
-    this.byAddress = new Map(this.users.map(u => [u.address, u]));
+    const identities = new Set<string>();
+    for (const user of this.users) {
+      for (const id of new Set([user.address, user.userId].filter((id): id is string => typeof id === 'string' && id !== ''))) {
+        if (identities.has(id)) throw new TypeError('Duplicate or ambiguous user identity');
+        identities.add(id);
+      }
+    }
+    this.byAddress = new Map(this.users.filter(u => u.address !== '').map(u => [u.address, u]));
     this.byUserId = new Map(
       this.users.filter(u => u.userId !== undefined).map(u => [u.userId!, u])
     );
