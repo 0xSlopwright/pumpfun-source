@@ -117,8 +117,11 @@ follow/authenticated actions disabled. Unknown, username-only, and malformed
 identifiers return the application's 404 boundary.
 
 This is not live profile compatibility or proof of wallet ownership. No native
-profile API, follow graph, authenticated viewer state, remote image, or social
-mutation is used. See
+profile API, authenticated viewer state, remote image, or social mutation is
+used. A separate read-only local follow graph now lists the hash-bound synthetic
+relationships with links to the related profiles. Its edge counts are independent
+of the aggregate example counters above it; unavailable graph data does not
+hide the profile or posts. See
 [`packages/frontend/PROFILE-EVIDENCE.md`](packages/frontend/PROFILE-EVIDENCE.md)
 for source provenance and the local-data contract.
 

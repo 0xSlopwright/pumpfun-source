@@ -614,14 +614,16 @@
           "status": "accepted",
           "evidence": [
             "packages/frontend/src/app/profile/[id]/page.tsx",
-            "packages/frontend/src/components/profile/ProfileHeader.tsx"
+            "packages/frontend/src/components/profile/ProfileHeader.tsx",
+            "packages/frontend/src/components/profile/ProfileFollowGraph.tsx"
           ]
         },
         "adapters": {
           "status": "accepted",
           "evidence": [
             "packages/frontend/src/components/profile/profile-data.ts",
-            "packages/frontend/src/components/profile/profile-snapshot.ts"
+            "packages/frontend/src/components/profile/profile-snapshot.ts",
+            "packages/frontend/src/components/profile/profile-follow-graph.ts"
           ]
         }
       },
@@ -636,14 +638,16 @@
           "status": "accepted",
           "evidence": [
             "packages/frontend/tests/profile.spec.ts",
-            "tests/profile_data.test.ts"
+            "tests/profile_data.test.ts",
+            "packages/frontend/tests/profile-follow-list.spec.ts"
           ]
         },
         "failure": {
           "status": "accepted",
           "evidence": [
             "packages/frontend/tests/profile.spec.ts",
-            "tests/profile_data.test.ts"
+            "tests/profile_data.test.ts",
+            "tests/profile_follow_graph.test.ts"
           ]
         },
         "consistency": {
@@ -653,7 +657,7 @@
           ]
         }
       },
-      "note": "Evidence-mapped, hash-bound synthetic profiles resolve by exact user id or wallet and render filtered authored posts with responsive browser coverage. Native profile compatibility, follow graph, authenticated behavior and original visual parity remain unqualified."
+      "note": "Evidence-mapped, hash-bound synthetic profiles resolve by exact user id or wallet and render filtered authored posts and separate local follow-graph lists with profile navigation. Native profile/graph compatibility, authenticated behavior and original visual parity remain unqualified; no milestone status changes for this addition."
     },
     {
       "id": "auth",

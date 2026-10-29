@@ -75,6 +75,21 @@
         "packages/frontend/tests/create-external-links.spec.ts"
       ],
       "limits": "Ordinary clicks on validated local Create preview links only; explicit local settings-hub enablement. No global outbound policy, upstream flag, visual parity or native API compatibility claim."
+    },
+    "offlineProfileFollowGraph": {
+      "status": "hash-bound-synthetic-profile-follow-lists",
+      "qualified": false,
+      "uiIntegrated": true,
+      "evidence": [
+        "packages/frontend/PROFILE-EVIDENCE.md#local-follow-graph-lists-2026-10-29",
+        "contracts/ORIGINAL-FOLLOW-LIST.md",
+        "packages/backend/FOLLOWING.md",
+        "packages/frontend/src/components/profile/profile-follow-graph.ts",
+        "packages/frontend/src/components/profile/ProfileFollowGraph.tsx",
+        "tests/profile_follow_graph.test.ts",
+        "packages/frontend/tests/profile-follow-list.spec.ts"
+      ],
+      "limits": "Local synthetic directed-edge reads and exact profile navigation only. Stored profile counters remain independent. No website/developer transport, credential, authenticated viewer, follow write, live graph, original layout or full compatibility qualification."
     }
   },
   "sdk": {
