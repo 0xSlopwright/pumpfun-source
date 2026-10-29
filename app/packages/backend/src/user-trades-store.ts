@@ -269,6 +269,7 @@ export class UserTradesStore {
         (row.timestamp !== null && !instant(row.timestamp))
       )
         invalid("trade identity/timestamp");
+      if (row.timestamp !== null && Date.parse(row.timestamp) > Date.parse(this.observedAt)) invalid("trade timestamp exceeds observedAt");
       if (!Number.isSafeInteger(row.chainId) || (row.chainId ?? 0) <= 0)
         invalid("unsupported trade chain");
       const wallet = this.wallets.get(
