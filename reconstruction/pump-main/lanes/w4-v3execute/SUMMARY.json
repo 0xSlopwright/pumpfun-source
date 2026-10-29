@@ -1,0 +1,11 @@
+{
+  "lane": "w4-v3execute",
+  "target": "0x83c00 trade::v3_execute_buy",
+  "base": "origin/main 630a074 (1023/277), 3448 B, ratio 0.97278, calls 22/22",
+  "best": {"trial": "final1", "cand_bytes": 3440, "ratio": 1.0, "normalized_equal": true, "slots_diff": 0, "calls": "22/22", "official": "1024/276", "gains": ["0x83c00"], "losses": [], "raw_losses": ["0xa868"], "unstripped_sha256": "3db4b4a59be200e00040b1d20b6f7b03874667541d3f30327730b68d50e8dc5b", "candidate_sha256": "a82bd684cb3a1fe1b987b2bb1595e90d19af6736d45d5f43ac1ec826081859a8"},
+  "mechanism": "block { let amount = if is_sol {add()?} else {pool_quote}; let (user,curve) = if is_sol {(None,None)} else {(Some,Some)}; transfer_from_user(..)?; }: MIR JumpThreading threads the 2nd is_sol switch, so the transfer block is created late and its Ok block follows it; the block scope gives add-err and transfer-err a drop node of their own, so their stores sink into one block",
+  "raw_loss_note": "0xa868 is a folded <&T as Debug>::fmt thunk whose base raw match was call-span drift (the +8 B surplus cancelled the -8 B net error of other unmatched windows in the span); this cannot be fixed from this function",
+  "attempts": 10,
+  "rejected": ["one if with tuple select (any spelling): IR oracle shows the add ? blocks always land between the call block and its Ok block", "v2 statement lets without a block: shared drop node with later errors, no sink", "options let before amount let: no adjacency", "unbalanced line count: 9 normalized losses"],
+  "next_ideas": ["Raw for 0xa868 comes back once sweep::execute (-8) and the other span windows reach their original sizes"]
+}

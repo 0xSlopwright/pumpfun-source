@@ -1,0 +1,5 @@
+OLD_TOTAL='    let total=buyback.checked_add(post_buyback).ok_or_else(||error!(PumpError::Overflow))?;\n'
+SOL='(add(pool_quote,total_buyback)?,None,None)'
+NONSOL='let curve_quote=Some(a.associated_quote_bonding_curve.as_ref());(pool_quote,Some(a.associated_quote_user.as_ref()),curve_quote)'
+CALL='user_quote_payments::transfer_from_user(is_sol,a.system_program.as_ref(),&a.user,&a.bonding_curve,user_quote_in,quote_token_program,a.quote_mint.decimals,a.quote_mint.as_ref().as_ref(),user_quote,curve_quote)'
+OLD_MATCH='    match if is_sol{'+SOL+'}else{'+NONSOL+'}{(user_quote_in,user_quote,curve_quote)=>'+CALL+'?}\n'
