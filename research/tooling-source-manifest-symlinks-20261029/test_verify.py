@@ -8,6 +8,9 @@ import tempfile
 import unittest
 
 import proof
+import sys
+sys.path.insert(0, str(proof.REPO / 'scripts'))
+import pump_build_verified
 
 P = Path(__file__).resolve().parent
 
@@ -56,6 +59,18 @@ class SourceManifestSymlinkTests(unittest.TestCase):
             self.assertIn('assets/table.bin', old)
             with self.assertRaisesRegex(ValueError, 'symlinked compiler input'):
                 proof.strict_manifest(self.archived, crate, crate, root, [assets])
+
+    def test_outside_path_is_rejected_without_hanging(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'root'
+            outside = Path(temporary) / 'outside'
+            root.mkdir()
+            outside.mkdir()
+            with self.assertRaisesRegex(ValueError, 'outside repository'):
+                proof._plain(outside, root)
+
+    def test_build_verifier_uses_production_guard(self):
+        self.assertIs(pump_build_verified.source_manifest, proof.production_strict)
 
     def test_no_symlink_in_real_programs_pump(self):
         for path in (proof.REPO / 'programs/pump').rglob('*'):

@@ -25,6 +25,9 @@ REPO = next(
     parent for parent in P.parents
     if (parent / 'evidence/original/pump/deployed.so').is_file()
 )
+sys.path.insert(0, str(REPO / 'scripts'))
+from source_manifest_guard import _plain, strict_manifest as production_strict  # noqa: E402
+
 SOURCE = 'scripts/build_source_manifest.py'
 LF_SHA256 = '05eb3446b95c0b7b80517fe05a98a9841fa53053fe39ca56fe2659daf6b58df0'
 sha = lambda data: hashlib.sha256(data).hexdigest()
@@ -43,39 +46,12 @@ def _reviewed(root=REPO):
     return module
 
 
-def _plain(path, root):
-    """Reject a symlink at `path` or in its ancestry below `root`."""
-    path = Path(path)
-    root = Path(root).resolve()
-    current = path
-    while True:
-        if current.is_symlink():
-            raise ValueError('symlinked compiler input: ' + str(path))
-        if current == root:
-            break
-        current = current.parent
-    resolved = path.resolve()
-    if not resolved.is_relative_to(root):
-        raise ValueError('compiler input resolves outside repository: ' + str(path))
-    return resolved
-
-
 def strict_manifest(module, crate, workspace, repository, extra_inputs=(), cwd=None):
-    """The archived inventory, with every reported path checked for symlinks."""
+    """Check the reviewed helper against the production admission guard."""
     manifest = module.source_manifest(crate, workspace, repository, extra_inputs, cwd=cwd)
-    root = Path(repository).resolve()
-    for name in manifest:
-        _plain(root / name, root)
-    # Extra-input directories are walked by the archived helper; check the
-    # supplied roots and every file they add before trusting the key set.
-    for extra in extra_inputs:
-        extra = Path(extra).resolve()
-        _plain(extra, root)
-        if extra.is_dir():
-            for path in extra.rglob('*'):
-                if path.is_file():
-                    _plain(path, root)
-    return manifest
+    production = production_strict(crate, workspace, repository, extra_inputs, cwd=cwd)
+    assert manifest == production
+    return production
 
 
 def check(root=REPO):
