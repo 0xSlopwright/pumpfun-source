@@ -35,6 +35,7 @@ export function createCompetitionFetchTransport({ baseUrl, fetch: send }) {
     } else throw new TypeError("Unsupported competition read operation");
     const url = new URL(base);
     url.pathname = `${base.pathname.replace(/\/$/, "")}${suffix}`;
+    options.signal?.throwIfAborted();
     const response = await send(
       new Request(url, {
         method: "GET",
@@ -43,6 +44,7 @@ export function createCompetitionFetchTransport({ baseUrl, fetch: send }) {
         headers: { "x-pump-source": "WEB", "x-pump-platform": "web" },
       }),
     );
+    options.signal?.throwIfAborted();
     if (!response.ok) {
       const error = new Error(
         `Local competition read failed (${response.status})`,
@@ -51,6 +53,8 @@ export function createCompetitionFetchTransport({ baseUrl, fetch: send }) {
       error.status = response.status;
       throw error;
     }
-    return response.json();
+    const result = await response.json();
+    options.signal?.throwIfAborted();
+    return result;
   };
 }
