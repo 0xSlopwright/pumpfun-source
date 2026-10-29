@@ -348,3 +348,10 @@ pub mod cashback {
   let total_claimed=user_volume_accumulator.total_cashback_claimed;let total_cashback_earned=user_volume_accumulator.cashback_earned;let event=ClaimCashbackEvent{user:user.key(),amount,timestamp,total_claimed,total_cashback_earned};emit!(event);emit_cpi!(event);Ok(())
  }
 }
+#[event_cpi]
+#[derive(Accounts)]
+pub struct CloseUserVolume<'info>{
+ #[account(mut)] pub user:Signer<'info>,
+ #[account(mut,close=user,seeds=[b"user_volume_accumulator",user.key().as_ref()],bump)]
+ pub user_volume_accumulator:Account<'info,crate::UserVolumeAccumulator>,
+}
