@@ -6,7 +6,8 @@ Base: origin/main 630a07412 (1023 normalized / 277 raw). buy_v3 on base: 3680 B 
 | state | bytes | ratio | oracle slots | official |
 |---|---:|---:|---:|---|
 | base 630a07412 | 3680 | 0.87739 | 79 | 1023 / 277 |
-| **t40: t03 with no inline attribute on `v3_cross_ok`** (LLVM inlines it, not MIR) | 3680 | **0.93138** | **38** | 1023 / 277, 0 losses |
+| **t44 (committed): `let can_cross=v3_can_cross(..)` reusing the existing non-inline helper (one-line diff, byte-identical to t40)** | 3680 | **0.93138** | **38** | 1023 / 277, 0 losses, sha ff15a582 |
+| t40: t03 with no inline attribute on `v3_cross_ok`** (LLVM inlines it, not MIR) | 3680 | **0.93138** | **38** | 1023 / 277, 0 losses |
 | t03: fee-exempt test as a `v3_cross_ok` helper, `curve.is_mayhem_mode==false && *user!=global.whitelist_pda`, guard `amount>real && can_cross` | 3680 | **0.88414** | **72** | 1023 / 277, 0 losses |
 
 ## Mechanism (tools/rpo.py)
@@ -54,3 +55,8 @@ Oracle findings (llc on the optimized IR, `tools/scan.py` moves one block to eve
 
 ## t40: LLVM-level inline of the helper (lever 2 solved)
 Without `#[inline(always)]`, the MIR inliner leaves `v3_cross_ok` as a call, and LLVM inlines it later. Its blocks (`v3_cross_ok.exit.thread`, `.exit`) are spliced after the call block in the callee's own order, and the jump-threaded mayhem path no longer precedes memcmp. The whole front half (prologue to v3_buy_costs) now matches. The remaining 38 slots are the v3_buy_costs Err placement: on the t40 IR, `bb76>bb83` (Err block after the v3_execute_buy Err) gives 12 slots / 0.982.
+| t42 | t40 with `!mayhem && user!=wl` | 3680 | 0.93138 | 38 | 0 |
+| t43 | t40 with `!(mayhem || user==wl)` | 3680 | 0.93138 | 38 | 0 |
+| **t44** | existing `v3_can_cross` (non-inline, `!v3_fee_exempt`) | 3680 | **0.93138** | 38 | 0 (byte-identical to t40) |
+
+Once the helper is inlined by LLVM, the spelling no longer matters (t42/t43/t44 are identical), so the `==false` helper is dropped. The committed change is a single line: `buy` uses `v3_can_cross` the same way `buy_exact_quote` does.
