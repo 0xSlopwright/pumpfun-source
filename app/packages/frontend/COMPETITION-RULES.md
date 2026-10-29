@@ -74,13 +74,52 @@ the supplied tier array is empty. It does not infer prize entitlement from rank.
   sizes, 200-character tier amount). No credential is read by this component.
 - A native `<dialog>` portals outside shell inert containers, opens only after
   mount, and refuses to stack over another open native dialog. It uses native
-  modal focus/cancel behavior, stops Escape propagation without preventing the
+  modal cancel behavior, stops Escape propagation without preventing the
   default cancel, restores a connected launcher on close, and closes on unmount.
   There is no global keyboard listener, body overflow write or shell mutation.
   The launcher is keyed by competition ID so another selected competition does
   not inherit an open rules dialog. These are local lifecycle choices.
 
-## Validation and limits
+## Keyboard boundary correction
+
+At base `74909503c7816218022f07c8b81c704774087b0c`, actual Chromium
+interaction at 390px and 1280px reproduces the existing browser test failure:
+Shift+Tab from Close leaves the document (`activeElement` becomes `BODY` and
+`document.hasFocus()` is false), instead of reaching the terms link. Native
+`showModal()` inertness alone does not provide the captured focus wrapping.
+
+The static import chain is `590407`'s `tn` → `439587`'s responsive Root/Popup
+exports → `524684` DrawerRoot / `464240` DrawerPopup → `901348` focus manager.
+The popup supplies modal mode; the manager's before/after inside focus guards
+explicitly focus the final/first focusable element in modal mode. These are
+inert source observations, not execution of captured application code.
+
+Additional exact factory pins (UTF-16 half-open ranges; see `recovered/modules.json`):
+
+| Factory | Captured object       | Range           | Factory SHA-256                                                    |
+| ------- | --------------------- | --------------- | ------------------------------------------------------------------ |
+| 439587  | `0f4bad575370faed.js` | `[78265,94686)` | `556a5e98fc389f458883751f5ed829f9493c87444c6f5053b676b34a39f05fa9` |
+| 524684  | `0f4bad575370faed.js` | `[9719,19488)`  | `4a95dd69ab776beb22fce660c865256c7cc7ddc091c08d949c92213f537a1f1d` |
+| 464240  | `0f4bad575370faed.js` | `[2271,6416)`   | `a83bb0ea2d95ee3b4259094bdefcf151958c12acdce846a11ffe569763aaa21b` |
+| 901348  | `eee6e838a0365a32.js` | `[3815,14014)`  | `ecc78509ecfcc1739241a3ee5f4a4127dbd58e1ee0bcefc1cd699f3c0281e247` |
+
+The reconstruction now handles Tab only at the first/last visible tabbable
+control. Interior tab order and native Escape remain unchanged. The existing
+390/1280 browser cases additionally exercise repeated forward and reverse
+cycles, Close/Escape focus restoration, unchanged URL and request counts; the
+separate scroll/unmount regression remains in the same suite. This is a local
+keyboard-flow correction, not original framework identity or whole-page visual
+qualification. Before/after recordings use synthetic, read-only responses.
+
+Observed for this correction: the three Chromium rules cases pass at the
+requested desktop/mobile widths, including the scroll/unmount case. The full
+app build, typecheck, 698-object evidence check, 12 model/adapter tests, four
+locale tests and exact 32-label regeneration check pass. The captured focus
+chain's five factory slice hashes were independently checked against their
+immutable objects. This does not assert that the entire app browser suite or
+all other app surfaces pass.
+
+## Original checkpoint validation and limits
 
 From `app/` on Node 24:
 

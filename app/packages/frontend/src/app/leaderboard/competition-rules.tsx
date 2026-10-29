@@ -75,6 +75,25 @@ export function CompetitionRules({
             onKeyDown={(event) => {
               // This modal owns Escape; preserve native cancel/close, not shell shortcuts.
               if (event.key === "Escape") event.stopPropagation();
+              if (event.key !== "Tab") return;
+              const controls = Array.from(
+                event.currentTarget.querySelectorAll<HTMLElement>(
+                  'button:not([disabled]), a[href], [tabindex="0"]',
+                ),
+              ).filter(
+                (control) =>
+                  control.tabIndex >= 0 && control.getClientRects().length > 0,
+              );
+              const first = controls[0];
+              const last = controls.at(-1);
+              // Native modal inertness does not stop Tab from reaching browser chrome.
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+              }
             }}
             onClose={() => {
               setOpen(false);
