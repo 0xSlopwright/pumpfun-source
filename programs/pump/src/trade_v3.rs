@@ -428,7 +428,7 @@ pub struct PostComplete{pub fees:TradeFees,pub base_out:u64,pub quote_in:u64,pub
 
 
 // layout-pad(62): aligns the next Source site with the original line
-#[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda}
+#[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda} #[inline(always)] fn v3_cross_ok(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode==false && *user!=global.whitelist_pda}
 fn v3_can_cross(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{!v3_fee_exempt(global,curve,user)}
 
 
@@ -772,7 +772,7 @@ pub fn buy(mut ctx:Context<SellV3>,amount:u64,max_sol_cost:u64,partial_fill:bool
     crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.user)?;
     validate_trade(a.bonding_curve.complete as u8,a.bonding_curve.is_cashback_coin as u64,0)?;
     let real=a.bonding_curve.real_token_reserves;
-    let exempt=v3_fee_exempt(&a.global,&a.bonding_curve,&a.user.key());let (amount,excess)=if amount>real && !exempt{(real,amount-real)}else{(if partial_fill{amount.min(real)}else{amount},0)};
+    let can_cross=v3_cross_ok(&a.global,&a.bonding_curve,&a.user.key());let (amount,excess)=if amount>real && can_cross{(real,amount-real)}else{(if partial_fill{amount.min(real)}else{amount},0)};
 
 // layout-pad(24): aligns the next Source site with the original line
 
