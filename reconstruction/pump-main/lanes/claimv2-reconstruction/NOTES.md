@@ -43,6 +43,9 @@ Physical order of the original:
 | t6-GE | G + `a.user.add_lamports(amount)?` | 8,904 | 0.36389 | **68+2, all 70 calls equal to the original in order** | 1019/188 |
 | **t7-H** | GE + `emit!(event)` (no clone; original builds the event once) | **8,808** | 0.36968 | 68+2, all 70 equal | 1019/188 |
 | t8-I1/I2 | H + early `let user=&a.user;` | byte-identical to H | | | |
+| t9-S1 | seeds inline in the call with `a.user.key()` | 8,800 | 0.35487 | 70 equal | 1019/188 |
+| t9-S2 | `let user`; seeds inline in the call | 8,808 | 0.35938 | 70 equal | 1019/188 |
+| **t9-S3** | `let user`; `let signer_seeds:&[&[&[u8]]]=&[&[..,user.as_ref(),&[bump]]]` | 8,808 | **0.37716** | 70 equal | 1019/188 |
 
 ### Residual after H (frame layout)
 
@@ -73,4 +76,6 @@ Ledger: t1 `b9763c4eb3c9476bb82b7ee32b35a9c3`, A `cad6be18425a4cacb69d0e69ce3259
 B `779096c7f3b0432e929e016dd92e723f`, C `51d54a58e53f4f4c83b2246fba46ff50`,
 E `db86f2033bf14ee591c00a43d8142935`, F `131cbbe400594e6095f65d97d77cbfdc`,
 G `16727f0ccb3d42f5b338762bfcc1cdad`, GF `ee182e841db741a0ada558adbe3168df`,
-GE `1f28944501184011b2aaa4871182a842`, H `c04c00cdc28642d69b27648eed1d6479`, I `f25b14f092604998af3217262beb56be`.
+GE `1f28944501184011b2aaa4871182a842`, H `c04c00cdc28642d69b27648eed1d6479`, I `f25b14f092604998af3217262beb56be`, S1 `06216a76436f4ff591721bc57a1f02f2`, S2 `975fd093210e4909877edfb9a5ae634a`, S3 `09c26efb4c444d56a6d491a1f7c68db1`.
+
+Frame note: the original's top-of-frame 1/32/16 B objects are the `emit_cpi!` event-authority seed temporaries (bump array, inner `[&[u8];2]`, outer slice); the user Pubkey of the transfer seeds is merged by stack coloring into that 32 B slot in the original, while in the candidate the emit_cpi 32 B slot is absorbed by a larger slot and `user` keeps its own slot.

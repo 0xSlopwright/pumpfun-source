@@ -340,8 +340,8 @@ pub mod cashback {
 
 
    let recipient=TokenAccount::try_deserialize(&mut &a.associated_quote_user.try_borrow_data()?[..])?;require_keys_eq!(recipient.owner,a.user.key(),PumpError::InvalidCashbackRecipient);
-   let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;let user=a.user.key();let bump=[ctx.bumps.user_volume_accumulator];let seeds:&[&[u8]]=&[b"user_volume_accumulator",user.as_ref(),&bump];
-   token_interface::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),TransferChecked{from:a.associated_user_volume_accumulator.to_account_info(),mint:a.quote_mint.to_account_info(),to:a.associated_quote_user.to_account_info(),authority:a.user_volume_accumulator.to_account_info()},&[seeds]),amount,mint.decimals)?;
+   let mint=Mint::try_deserialize(&mut &a.quote_mint.try_borrow_data()?[..])?;let user=a.user.key();let signer_seeds:&[&[&[u8]]]=&[&[b"user_volume_accumulator",user.as_ref(),&[ctx.bumps.user_volume_accumulator]]];
+   token_interface::transfer_checked(CpiContext::new_with_signer(a.quote_token_program.to_account_info(),TransferChecked{from:a.associated_user_volume_accumulator.to_account_info(),mint:a.quote_mint.to_account_info(),to:a.associated_quote_user.to_account_info(),authority:a.user_volume_accumulator.to_account_info()},signer_seeds),amount,mint.decimals)?;
 
    amount}else{let min=Rent::get()?.minimum_balance(a.user_volume_accumulator.to_account_info().data_len());let amount=a.user_volume_accumulator.get_lamports().saturating_sub(min);if amount==0{msg!("No cashback to claim");return Ok(());}a.user_volume_accumulator.sub_lamports(amount)?;a.user.add_lamports(amount)?;amount};
   crate::token_incentives::volume_accumulator::record_cashback_claim(&mut a.user_volume_accumulator,amount,native)?;
