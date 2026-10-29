@@ -70,8 +70,9 @@ fresh Token-2022 ATA unless a case says otherwise. 20 cases,
 
 ## Result
 
-All 20 cases pass on all three images with byte-identical
-observed surfaces (steps, errors, event counts, snapshots).
+All 20 cases pass on all three images with identical observed
+surfaces (steps, errors, event counts, and account snapshots with
+fee-payer lamports excluded, as verify.py compares them).
 Measured values:
 
 - Seed recovery (family A): sweep -> collect strands 1,234
@@ -87,7 +88,7 @@ Measured values:
   right after it recovers the full 2,456. A zero-authority
   mint fails custom error 29 with full rollback -- this is the
   boundary of 3rd #5's "stranded" claim: with the authority
-  unset, no signer can recover. Harvest on a zero-authority
+  unset, no signer tried here could recover. Harvest on a zero-authority
   mint still succeeds (2,456 into the mint's withheld_amount,
   accounts -> 0) but the following withdraw-from-mint fails
   custom error 29, so the mint balance stays stranded too.
@@ -110,8 +111,9 @@ Measured values:
   following withdraw recovers the dest's 1,222. A wrong-mint
   source (base-mint Token-2022 account, withheld 999) is
   likewise skipped with no error: only the vault ATA's 1,234
-  moves and the wrong-mint account keeps its 999. Sources are
-  filtered, not validated.
+  moves and the wrong-mint account keeps its 999. In the two
+  cases measured, mismatched sources were skipped rather than
+  rejected.
 - Destination mint binding (family F): the destination's mint
   IS enforced -- a wrong-mint Token-2022 destination fails
   custom error 3 with full rollback, and a Token-program-owned
@@ -125,12 +127,14 @@ Measured values:
   Withdraw -> withdraw recovers the user's 293,125. Protocol
   sweep -> withdraw recovers 25 from the protocol ATA even
   though the protocol net itself is not collectible (3rd #4):
-  the 25 was never collectible through pump-amm, but it is
-  recoverable through withdraw-withheld.
+  per 3rd #4 (not re-run here) the 25 is not collectible
+  through pump-amm, but it is recoverable through
+  withdraw-withheld.
 - Sweep lamports follow the gross: the seed sweep credits
   +123,394 lamports to the recipient ATA (vault -123,394);
   the bucket sweep +128,869; the protocol sweep +2,488.
-  Collect and withdraw move no lamports at all.
+  The collect and withdraw steps measured here moved no
+  lamports.
 
 All 20 cases, 186 receipts, 19 parts: the original, control,
 and candidate images agree on every step -- deltas, withheld
@@ -157,10 +161,12 @@ decoded events, error codes, and rollback.
   is claimed: this packet pins executed behaviour on three
   images only.
 
-## Reproduction
+## Verify and provenance
+
+Run from the repository root:
 
 ```
-python3 verify.py
+python3 research/amm-withdraw-withheld-recovery-chains-20261029/verify.py
 ```
 
 Expected output:
@@ -168,3 +174,14 @@ Expected output:
 ```
 PASS: 20 cases, 186 receipts, 19 parts, 3 images agree (signatures, deltas, withheld, events, error codes, rollback)
 ```
+
+verify.py re-checks the retained receipts only; it does not re-execute
+any transaction. It hashes the three program images from the
+repository: `evidence/original/pump_amm/deployed.so` (original),
+`research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz`
+(#424 control) and
+`research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz`
+(#427 candidate), the last two decompressed before hashing.
+`producer.py` records how the receipts were produced but is not
+runnable as committed: it expects a private `~/workspace` layout
+(`pumpfun-sparse`, `slop-verify`) that is not part of this repository.
