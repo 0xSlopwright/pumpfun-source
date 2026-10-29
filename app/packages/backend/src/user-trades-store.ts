@@ -92,7 +92,7 @@ function plain(value: unknown, depth = 0): void {
   )
     return;
   if (Array.isArray(value)) {
-    value.forEach((item) => plain(item, depth + 1));
+    for (const item of value) plain(item, depth + 1);
     return;
   }
   if (
