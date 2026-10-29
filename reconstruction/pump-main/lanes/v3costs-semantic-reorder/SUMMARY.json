@@ -1,0 +1,20 @@
+{
+  "lane": "v3costs-semantic-reorder",
+  "target": "0x80df8 trade::v3_buy_costs (2120 B)",
+  "baseline": {"bytes": 2056, "ratio": 0.788, "minus_lines": 56, "calls": 17},
+  "best": {"trial": "net-andthen-prefee-map", "bytes": 2136, "ratio": 0.920, "minus_lines": 19, "calls": 17, "normalized": 1019, "raw": 188, "gains": [], "losses": []},
+  "equal_size_diagnostic": {"trial": "net-prefee-gross-chain", "bytes": 2120, "ratio": 0.912, "minus_lines": 22},
+  "established_mechanisms": [
+    "sequential protocol_fee_split calls reproduce the original mayhem block and post None flag",
+    "if-let second add3 removes a jump",
+    "pre_fee and gross-up ? written in the body (not the gross_up_quote helper)",
+    "line-375 net error and pre_fee error merged in one Result<u64> phi (word1-first load order in the 375 block)"
+  ],
+  "rejected": ["two-checks-375", "gross-if-return", "ok-fee-inline", "front-mapor", "front-iflet", "front-closure", "second-andthen-net", "net-closure", "first-andthen-net", "net-andthen-prefee", "add3-chain-all", "add3-second-chain", "napm-second-match", "napm-second-none-first", "napm-postbb-none-first", "hybrid-mainfront-iflet", "front-guard", "front-postfirst", "front-eq1", "napm-filter", "napm-ifsub"],
+  "residual": "Greedy RA region split of the sret pointer: candidate holds it in r6 from the net check on (spill moves after and64, duplicate ldxdw r2/ja block); the original reloads it into r3 at each tail. Block-frequency costs of the two choices are a near tie; main's tuple front (hybrid-mainfront) flips it to the original's choice but changes the front code.",
+  "next_ideas": [
+    "Front-part spellings that keep the original front asm but change register use or vreg order (e.g. different post_buyback/flag carriers)",
+    "Late-region constructs that add or remove a cold-path leak on the 375 or Ok paths without changing emitted code",
+    "Compose with the 0x83c00/0x147ba0 caller lanes and re-measure, since caller edits can change attributes"
+  ]
+}
