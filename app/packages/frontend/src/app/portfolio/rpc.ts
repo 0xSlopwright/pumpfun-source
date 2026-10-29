@@ -372,6 +372,9 @@ async function postPinnedJson(
           chunks.push(chunk);
         });
         response.on("end", () => {
+          let decodedBody: string;
+          try { decodedBody = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)); }
+          catch { reject(new PortfolioRpcError("RPC_RESPONSE_INVALID", "The RPC returned malformed UTF-8.", true)); return; }
           const headers: Record<string, string> = {};
           for (const [name, value] of Object.entries(response.headers)) {
             if (typeof value === "string") headers[name] = value;
@@ -379,7 +382,7 @@ async function postPinnedJson(
           resolve({
             status: response.statusCode ?? 0,
             headers,
-            body: Buffer.concat(chunks).toString("utf8"),
+            body: decodedBody,
           });
         });
       },
