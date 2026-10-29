@@ -878,9 +878,9 @@ pub fn buy_exact_quote(ctx:Context<SellV3>,spendable_quote_in:u64,min_tokens_out
 
 
 
-    let (is_sol,quote_fee);require_gt!(min_tokens_out,0,PumpError::BuyZeroAmount);
+    require_gt!(min_tokens_out,0,PumpError::BuyZeroAmount);
     require_gt!(spendable_quote_in,0,PumpError::BuyNotEnoughSolToCoverFees);
-    (is_sol,quote_fee)=check_quote(a)?;
+    let (is_sol,quote_fee);(is_sol,quote_fee)=check_quote(a)?;
     let available=crate::transfer_fee_recovered::post_fee_amount(&quote_fee,spendable_quote_in)?;
 
 

@@ -17,6 +17,13 @@ Tools: `scripts/` (copied from w3-buyexactquote-v3, paths pointed at this lane: 
 | v02 | v01 + post_fee via match with the Err arm first | 7776 | = t01 | | identical |
 | **x01** | `let (is_sol,quote_fee);` declared before the 881 check, `(is_sol,quote_fee)=check_quote(a)?;`, `require_neq!(available,0)` | 7768 | 0.6519 | 0.8906 | kept (raw drift 0xa868) |
 | x02 | x01 declaration with require_gt | 7776 | 0.6220 | 0.8522 | rejected |
+| x03 | declaration after the 882 check | 7768 | 0.6603 | 0.8928 | = x04 |
+| **x04** | `let (is_sol,quote_fee);(is_sol,quote_fee)=check_quote(a)?;` + `require_neq!(available,0)` | 7768 | 0.6603 | 0.8928 | kept (raw drift 0xa868) |
+| x05 | `let quote_fee;` early, `let is_sol;` on the check line | 7768 | = x01 | | identical |
+| z01 | `if !(tokens<=real)` cross split | 7776 | 0.5111 | 0.8522 | rejected |
+| z02/z03 | `(tokens>real)!=false` / `(tokens<=real)==false` | 7768 | = x01 | | identical |
+| z05/z07 | `if can_cross==false{}else{..}` / `if !can_cross{}else{..}` | 7768 | = x01 | | identical |
+| z06 | cross tail tuple built before `if can_cross` | 7792 | 0.6055 | 0.8892 | rejected |
 
 t01: the LLVM-inlined body changes the frame layout: the name String now sits at -0x180 as in the original.
 Remaining: a global register rotation (orig ctx r6 / 5th arg r9 / return tag r8; ours r9 / r8 / r6), and the
@@ -29,8 +36,15 @@ created *directly after* bb23 (the `v3_trade_fees` call block) in rustc's block-
 891 err block (created as the `otherwise` target together with bb23). With require_neq it is bb112, the scope-exit
 block (`lifetime.end(quote_fee)`), which the err block creates when it is codegen'd (rustc codegens the 0-target err first; RPO
 visits successors with `next_back`). Moving either away from bb23 gives 0.6667 / masked 0.8959 (oracle).
-In source: declaring `quote_fee` before the 881 check makes the first error (L881) the first reference to
-quote_fee's scope-exit block, so it already exists when the 891 err is codegen'd. Official x01: 7768 B, 0.6519 / masked 0.8906.
+In source (corrected after reading the x01 raw IR): when `quote_fee` is declared without an initializer before its
+`check_quote` assignment, its `lifetime.end` moves to an outer exit block (bb113 in x01). The exit block created right
+after the v3_trade_fees block is then empty, and opt folds it away. Declaring it at the top (x01) also starts the lifetime
+before the 881/882 error temporaries and moves the name String to -0x90. Declaring it on the check_quote line (x04) keeps
+-0x180. Official x04: 7768 B, 0.6603 / masked 0.8928.
+
+Open oracle moves on the x01 raw IR (not yet mapped to source): create bb68 (the cross-arm tail tuple block) early, anywhere
+from the cross/non-cross split on, giving 0.6568 / 0.8955; place the cross-arm v3_trade_fees block bb148 after its buy_costs
+successor bb151, giving 0.6593 / 0.9023; both together give 0.6684 / 0.9081.
 
 Caveat: raw loss `0xa868`. That is a 24-byte `<&T as Debug>::fmt` thunk at 0xa7b0 whose call crosses buy_exact_quote; its
 raw match depended on the total byte span matching the original by coincidence. Any change in the target's size breaks it (u02, x01).
