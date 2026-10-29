@@ -57,3 +57,22 @@ function. All builds are 1022/276 with no losses.
 
 Ledger ids: 31f15d57 (oracle), 72d8b363/5379420d/1d6998a9 (peA-C), 0187e3b7 (peD-F), 82c63b5f
 (peH1-3), cd810fed (peJ), c5a80b37 (peK), cd7d5a67 (peL1/L2), plus L4/L6.
+
+## Block order after peL1 (IR oracle, `nsweep.py`: 5852 single block moves in the tail)
+
+peL1's only structural regression is block order. The post_complete_buy_event call block (bb337)
+is followed directly by its Ok continuation (bb339, the PostComplete emission). Any IR order
+that separates the two restores the original layout of the HopOutput/buy blocks. Placing the
+`?` Err block bb338 right after bb337, or bb337 after bb339, gives opregs 0.682 -> 0.736,
+exactish 0.326 -> 0.415, segdist 1049/1659 -> **844/1479** with 101 aligned calls. That is the
+best structure and frame of any configuration so far (orc/best1, orc/best2). peA's nested form
+had the join bb158 between them, but that form keeps the GVN fold.
+
+Source spellings tried for that order, none effective: an explicit match on the post Result
+(Err arm first, M1 = M2), an if-let-Err plus let-else (M3: drops a call), then-first integer
+compares (N1-N3), post tested first (P1, P2 = L1 bytes).
+
+## Rejected (all 1022/276, no losses)
+peD-F (user spelling), peH1-3 (closure/helper), peJ/J2 (store placement), peK/K2 (unnested),
+L2 (on pf1), L4 (tuple if-let = L1), L6 (post by value), M1-M3, N1-N3, O1-O3 (non-SSA temp),
+P1-P2.
