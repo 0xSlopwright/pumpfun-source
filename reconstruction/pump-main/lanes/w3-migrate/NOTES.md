@@ -45,10 +45,33 @@ Base: origin/main 665499915 (1022 normalized / 276 raw).
 | base | 8,400 | 0.6116 | - | 1022/276 | |
 | v3 ctx param | 8,384 | 0.516 | - | 1021/276 | loses 0x49888 (mint promoted) |
 | v4 ctx + &Box mint | 8,360 | 0.563 | - | - | mint info loaded twice |
-| **v7 ctx + &Box mint + nn mint_info** | **8,368** | **0.9108** | **137** | **1022/276, no losses** | current branch |
+| v7 ctx + &Box mint + nn mint_info at branch start | 8,368 | 0.9108 | 137 | 1022/276, no losses | |
+| **v9 v7 + mint_info bound at first use (meta)** | **8,368** | **1.0** | **0** | **1023/276, gain 0x4c158, no losses** | **normalized match**, sha 840458fb |
 
-## Remaining residual (v7)
+## v7 residual (solved by v9)
 
 The nn `mint_info` load sits at the start of the nn branch (before the meta vec allocation), so it gets a
 long live range (r8). The original loads it at the meta position. The full-match pre-IR form has it there,
 as a single MIR load merged by MIR GVN (an immutable `&InterfaceAccount` deref).
+
+## Final (v9): normalized match
+
+The llc oracle on v7 IR showed that moving the `mint_info` load to its first use (the mint meta, after the
+vec allocation's bump-pointer store) gives a full match. Source that does this: declare
+`let mint_info:&AccountInfo<'info>;` and initialise it inside the mint meta,
+`AccountMeta::new_readonly({mint_info=mint.as_ref().as_ref();mint_info.key()},false)`, then use
+`mint_info.clone()` in the infos. Official: 1023 normalized / 276 raw, gains [0x4c158], no losses,
+unstripped sha256 840458fb7fe9be24fe4906557fe72eb82ae5d5e673934a5f47f676ae8a2881f0.
+
+Ledger ids: 2aa5dbc9 (llc reload oracle), 842073a1 (v9 match), plus the rows keyed
+`0x4c158-main-665499915-*` (swap scan, branch weights, clang oracle, closure, ctx-param, boxmint variants,
+mint attribute oracle).
+
+Rejected this lane: adjacent-swap hill climb (local optimum 469 slots); branch weights; nn closure (0.373);
+ctx with `&InterfaceAccount` mint (mint promoted, caller 0x49888 lost); `&Box` mint with two derefs (0.563);
+reborrow `let mint:&InterfaceAccount=mint` at fn or branch top (ReferencePropagation turns it back into raw
+derefs, identical to v4); nn helper `cta(ctx,..)` (scoped noalias merges the a loads, 0.586).
+
+Open naturalness question: a non-promotable, non-noalias `&InterfaceAccount` mint would give the same IR
+(pre-IR oracle full match) with plain `mint.key()`/`mint.to_account_info()`, but no ordinary spelling that blocks
+ArgPromotion for mint was found.

@@ -417,7 +417,7 @@ fn create_token_account_v2<'info>(ctx:&Context<'_,'_,'_,'info,MigrateV2<'info>>,
  if native{
   cta_signed(a,&a.bonding_curve,account,wallet,mint,token_program,&[&[b"pool-authority",a.base_mint.key().as_ref(),&[bump]]])?;
  }else{
-  let mint_info:&AccountInfo<'info>=mint.as_ref().as_ref();anchor_lang::solana_program::program::invoke(&Instruction{program_id:anchor_spl::associated_token::ID,accounts:vec![AccountMeta::new(a.user.key(),true),AccountMeta::new(account.key(),false),AccountMeta::new_readonly(wallet.key(),false),AccountMeta::new_readonly(mint_info.key(),false),AccountMeta::new_readonly(a.system_program.key(),false),AccountMeta::new_readonly(tp.key(),false)],data:anchor_lang::prelude::borsh::to_vec(&1u8).unwrap()},&[a.user.to_account_info(),account.clone(),wallet.clone(),mint_info.clone(),a.system_program.to_account_info(),token_program])?;
+  let mint_info:&AccountInfo<'info>;anchor_lang::solana_program::program::invoke(&Instruction{program_id:anchor_spl::associated_token::ID,accounts:vec![AccountMeta::new(a.user.key(),true),AccountMeta::new(account.key(),false),AccountMeta::new_readonly(wallet.key(),false),AccountMeta::new_readonly({mint_info=mint.as_ref().as_ref();mint_info.key()},false),AccountMeta::new_readonly(a.system_program.key(),false),AccountMeta::new_readonly(tp.key(),false)],data:anchor_lang::prelude::borsh::to_vec(&1u8).unwrap()},&[a.user.to_account_info(),account.clone(),wallet.clone(),mint_info.clone(),a.system_program.to_account_info(),token_program])?;
  }
  Ok(())
 }
