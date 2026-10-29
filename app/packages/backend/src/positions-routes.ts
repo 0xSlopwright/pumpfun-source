@@ -88,7 +88,11 @@ export function registerPositionsRoutes(
     try {
       const qs = query(request.url, ["mints", "updatesLimit"]);
       if (!qs.has("mints")) throw new QueryError();
-      const mints = qs.get("mints")!.split(",");
+      // A mint never carries whitespace, so a padded wire value (`mints=a, b`)
+      // selects the same row and keeps the perp prefix test below working.
+      const mints = qs.get("mints")!
+        .split(",")
+        .map((mint) => mint.trim());
       if (mints.length > 200) throw new QueryError();
       if (mints.some((mint) => mint.startsWith("hlcore:")))
         return reply
