@@ -3,7 +3,7 @@
   "authority": "bounded static captured client; not native API or full portfolio qualification",
   "anchors": {
     "manifestSha256": "9e0fc00719eb8c919dd4205d3c118eb48c4927e056c77e8343e26d6f7189bbb5",
-    "inventorySha256": "b3dca88778ef47f4d4d1054114a97d2930cb3dc691d0a3647c4d7085363e5439"
+    "inventorySha256": "1d268ae7f2eb0f61eaaffd222269bf29d9ce06e9946372861721b2f159d868e2"
   },
   "operation": {
     "key": "GET /user-positions/{userId}",
