@@ -88,7 +88,8 @@
     "callouts": {
       "operations": [
         "GET /callout/{calloutId}",
-        "GET /callout/list/{userId}"
+        "GET /callout/list/{userId}",
+        "GET /callout/user/{userId}/mint/{coinMint}"
       ],
       "status": "opt-in-public-spot-slice",
       "defaultEnabled": false,
@@ -98,9 +99,11 @@
         "packages/backend/test/callouts.test.ts",
         "packages/backend/test/callouts-evidence.test.ts",
         "packages/backend/CALLOUT-LIST.md",
-        "packages/backend/test/callout-list.test.ts"
+        "packages/backend/test/callout-list.test.ts",
+        "packages/backend/CALLOUT-USER-MINT.md",
+        "packages/backend/test/callout-user-mint.test.ts"
       ],
-      "limits": "Server-owned public spot materialization only; single-author all-history list has local sorting/defaults/cursors, not upstream ranking or pagination. No member expansion, window computation, PnL calculation, production absence/auth or complete operation compatibility claim."
+      "limits": "Server-owned public spot materialization only; single-author all-history list has local sorting/defaults/cursors, not upstream ranking or pagination. No member expansion, window computation, PnL calculation, production absence/auth or complete operation compatibility claim. User/mint lookup supports only an unambiguous legacy local row with quotesLimit absent/0; chain and reply-quote carousel behavior remain unavailable."
     },
     "calloutDiscussions": {
       "operations": [

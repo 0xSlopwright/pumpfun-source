@@ -20,6 +20,10 @@ import { assertSchema, type SchemaNode } from "./schema-validator.js";
 export type Callout = NonNullable<
   operations["get_callout_by_calloutId"]["responses"][200]["content"]["application/json"]["callout"]
 >;
+export type UserMintCalloutResponse =
+  operations["get_callout_user_by_userId_mint_by_coinMint"]["responses"][200]["content"]["application/json"];
+/** Missing local facts/policy, not a reconstructed production error. */
+export class CalloutLookupError extends Error {}
 export type QuotedCallout = components["schemas"]["Shared_85bd3a13acc3"];
 export type CalloutListResponse =
   operations["get_callout_list_by_userId"]["responses"][200]["content"]["application/json"];
@@ -460,6 +464,34 @@ export class CalloutsStore {
     };
     // Caller mutation cannot alter subsequent reads, including nested author/update/quote objects.
     return structuredClone({ callout: result });
+  }
+  /** An unambiguous live slot in the supplied local materialization only. */
+  getByUserMint(userId: string, coinMint: string): UserMintCalloutResponse {
+    if (!this.authors.has(userId))
+      throw new CalloutLookupError("CALLOUT_LOOKUP_UNKNOWN");
+    const live = [...this.callouts.values()].filter(
+      (row) => row.authorId === userId && !row.hidden && !row.deleted,
+    );
+    // An unmapped row could occupy this mint; its missing identity is not absence.
+    if (live.some((row) => row.facts === null))
+      throw new CalloutLookupError("CALLOUT_LOOKUP_UNMAPPED");
+    const matches = live.filter((row) => row.facts!.coinMint === coinMint);
+    if (matches.length > 1)
+      throw new CalloutLookupError("CALLOUT_LOOKUP_AMBIGUOUS");
+    if (!matches.length) return { callout: null, quotes: [] };
+    if (matches[0].facts!.chain != null)
+      throw new CalloutLookupError("CALLOUT_LOOKUP_CHAIN_UNAVAILABLE");
+    const {
+      userName,
+      profileImage,
+      isVerified,
+      verifiedBadgeVisible,
+      accountKind,
+      xUsername,
+      xFollowerCount,
+      ...callout
+    } = this.get(matches[0].calloutId).callout!;
+    return { callout, quotes: [] };
   }
   /** Single-author full-history slice of this local public materialization only. */
   list(userId: string, query = new URLSearchParams()): CalloutListResponse {
