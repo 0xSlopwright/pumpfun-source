@@ -393,3 +393,11 @@ test("rejects per-mint totals above u64 while preserving the exact boundary", as
     }
   }
 });
+
+test('portfolio reads honor cancellation before dispatch and after asynchronous results',async()=>{
+  const before=new AbortController();before.abort();const first=fixtureCall();
+  await assert.rejects(readPortfolioWithRpc(WALLET,first.call,'rpc.example.com',before.signal));assert.deepEqual(first.methods,[]);
+  const during=new AbortController();const second=fixtureCall();
+  const call:RpcCall=async(method,params,signal)=>{const value=await second.call(method,params,signal);during.abort();return value;};
+  await assert.rejects(readPortfolioWithRpc(WALLET,call,'rpc.example.com',during.signal));
+});
