@@ -19,7 +19,7 @@ function portfolio(address = USER) {
     commitment: "confirmed",
     observedAt: "2026-10-29T05:00:00.000Z",
     endpointHost: "public-rpc.example",
-    sol: { lamports: "0", amount: "0", contextSlot: 300 },
+    sol: { lamports: "0", amount: "0.000000000", contextSlot: 300 },
     splToken: group("spl-token", "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
     token2022: group(
       "token-2022",
