@@ -1,0 +1,50 @@
+{
+ "lane": "createv2-reconstruction",
+ "targets": [
+  "0x1e7c0"
+ ],
+ "best": {
+  "trial": "r3-fee-order",
+  "bytes": 15632,
+  "orig_bytes": 15576,
+  "ratio": 0.7506,
+  "calls": 125,
+  "official": {
+   "normalized": 1019,
+   "raw": 188,
+   "losses": []
+  }
+ },
+ "baseline_main": {
+  "bytes": 14848,
+  "ratio": 0.2467,
+  "calls": 126
+ },
+ "accepted_steps": [
+  "x27 create_v2 restore + pub(crate) global_quote",
+  "control_account mint by value",
+  "vqr before bonding_curve borrow",
+  "fee>0 tested first"
+ ],
+ "rejected": [
+  "Nested(u8) depth payload / Option<u64> reserves (all forms)",
+  "no (m,r) tuple copy",
+  "separate depth return",
+  "depth at store site / after vqr / map_or",
+  "by-value inline quote_reserves helper",
+  "nine key-access variants in validate_quote_mint (r1)",
+  "require! vs require_eq! (call count drops to 124)",
+  "inline mayhem whitelist check",
+  "invoke account-info lets",
+  "nested-pair return"
+ ],
+ "residuals": [
+  "16 B unused frame object at -0x4d8 shifts all result slots",
+  "depth select by disc>=3 and in-place quote_mint memcmp not reproduced without LLVM merging sol/ivqr loads",
+  "spill/regalloc differences spread across the function"
+ ],
+ "next_ideas": [
+  "find a natural validate return/struct layout that leaves a 48-byte SROA slice (16 B field + Pubkey); check with llc MIR stack dump before full builds",
+  "holder-reward / require_keys_neq temporaries between _84 and creator1 as the source of the 16 B object"
+ ]
+}

@@ -769,7 +769,7 @@ pub fn execute<'info>(ctx:Context<'_,'_,'_,'info,CreateV2<'info>>,name:String,sy
 
 
 
- let fee=if matches!(source,QuoteSource::Controlled|QuoteSource::Nested) && creator_fee_bps.0>0 {
+ let fee=if creator_fee_bps.0>0 && matches!(source,QuoteSource::Controlled|QuoteSource::Nested) {
 
   require!(a.global.creator_fee_configurable,PumpError::CreatorFeeNotConfigurable);
 
@@ -782,8 +782,8 @@ pub fn execute<'info>(ctx:Context<'_,'_,'_,'info,CreateV2<'info>>,name:String,sy
  };
  let global:&Global=&ctx.accounts.global;
  let depth=if let Some((_,depth))=reserves {depth} else {0};
- let bonding_curve:&mut trade_types::BondingCurve=&mut ctx.accounts.bonding_curve;
  let virtual_quote_reserves={let (m,r)=(quote_mint,reserves);if m==Pubkey::default() {global.initial_virtual_sol_reserves} else {r.map_or(global.initial_virtual_quote_reserves,|(r,_)|r)}};
+ let bonding_curve:&mut trade_types::BondingCurve=&mut ctx.accounts.bonding_curve;
  bonding_curve.initial_virtual_quote_reserves=virtual_quote_reserves;
  bonding_curve.virtual_token_reserves=global.initial_virtual_token_reserves;
  bonding_curve.virtual_quote_reserves=virtual_quote_reserves;
