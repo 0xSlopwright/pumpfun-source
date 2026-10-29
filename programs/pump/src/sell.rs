@@ -78,14 +78,14 @@ fn process_cashback_inner<'info>(
 
     } else {
         // An existing accumulator must already be owned by this program and carry its discriminator.
-        require!(user_volume_accumulator.owner == &crate::ID, PumpError::InvalidCashbackAccumulator);
+        if user_volume_accumulator.owner != &crate::ID { return err!(PumpError::InvalidCashbackAccumulator); }
         let data = user_volume_accumulator.try_borrow_data()?;
 // layout-pad(2): aligns the next Source site with the original line
 
         if data.len() < 8 || &data[..8] != crate::UserVolumeAccumulator::DISCRIMINATOR { return err!(PumpError::InvalidCashbackAccumulator); }
     }
     crate::trade::quote_payments::transfer_native(bonding_curve, user_volume_accumulator, amount)?;
-    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from_unchecked(user_volume_accumulator)?;
+    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from(user_volume_accumulator)?;
     if user_volume_accumulator.user == Pubkey::default() {
         user_volume_accumulator.user = user_key;
     }
