@@ -429,7 +429,7 @@ fn v3_trade_fees(a:&SellV3,amount:u64)->Result<TradeFees>{
 
 // layout-pad(62): aligns the next Source site with the original line
 #[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda}
-
+fn v3_can_cross(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{!v3_fee_exempt(global,curve,user)}
 
 
 
@@ -912,7 +912,7 @@ pub fn buy_exact_quote(mut ctx:Context<SellV3>,spendable_quote_in:u64,min_tokens
         (tokens,net,protocol_fee,creator_fee,protocol_fee_bps,creator_fee_bps)
     };
     let (amount,quote,fees,post,costs)=if tokens>curve.real_token_reserves{
-        let can_cross=!v3_fee_exempt(&a.global,curve,&a.user.key());
+        let can_cross=v3_can_cross(&a.global,curve,&a.user.key());
 
 
 
@@ -933,10 +933,10 @@ pub fn buy_exact_quote(mut ctx:Context<SellV3>,spendable_quote_in:u64,min_tokens
 
 
         require_gte!(spendable_quote_in,add(costs.0,costs.1)?,PumpError::TooMuchSolRequired);
-        let first=add3(quote,curve_fees.protocol_fee,curve_fees.creator_fee)?;
-        let (post,costs)=if can_cross && available>first{
+        let first=add3(quote,curve_fees.protocol_fee,curve_fees.creator_fee)?;let rest=available.saturating_sub(first);
+        let (post,costs)=if can_cross & (available>first){
             let (pool_base,pool_quote)=v3_pool_before(curve.real_quote_reserves,a.global.pool_migration_fee,a.associated_base_bonding_curve.amount,is_sol,amount,quote)?;
-            match estimate_post_complete(&curve.creator,pool_base,pool_quote,fees.protocol_fee_bps,fees.creator_fee_bps,available.saturating_sub(first),false)?{
+            match estimate_post_complete(&curve.creator,pool_base,pool_quote,fees.protocol_fee_bps,fees.creator_fee_bps,rest,false)?{
                 Some(mut post)=>fit_post_complete(a.global.buyback_basis_points,curve.is_mayhem_mode,&quote_fee,quote,curve_fees.protocol_fee,curve_fees.creator_fee,&mut post,spendable_quote_in)?,
                 None=>(None,costs),
             }
@@ -967,7 +967,7 @@ pub fn buy_exact_quote(mut ctx:Context<SellV3>,spendable_quote_in:u64,min_tokens
 
 
 
-            let base_out=amount.checked_add(match post{Some(p)=>p.base_out,None=>0}).ok_or_else(||error!(PumpError::Overflow))?;
+            let base_out=amount.checked_add(match &post{Some(p)=>p.base_out,None=>0}).ok_or_else(||error!(PumpError::Overflow))?;
             require_gte!(base_out,min_tokens_out,PumpError::BuySlippageBelowMinTokensOut);
         }
         (amount,quote,curve_fees,post,costs)
