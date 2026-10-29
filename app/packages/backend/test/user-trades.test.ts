@@ -497,3 +497,15 @@ test("startup loader fails closed on corrupt/oversize/nonregular/non-UTF8 source
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('startup refuses sparse arrays instead of indexing missing aliases', () => {
+  for (const mutate of [
+    (data: UserTradesDataset) => { data.users[0].aliases = new Array(1); },
+    (data: UserTradesDataset) => { data.users[0].aliases = ['alias-a', 'second-alias']; delete data.users[0].aliases[0]; },
+    (data: UserTradesDataset) => { data.users[0].aliases = ['alias-a', 'second-alias']; delete data.users[0].aliases[1]; },
+  ]) {
+    const data = dataset(); mutate(data);
+    assert.throws(() => new UserTradesStore(data), /plain JSON|materialization|contract/);
+  }
+  assert.doesNotThrow(() => new UserTradesStore(dataset()));
+});
