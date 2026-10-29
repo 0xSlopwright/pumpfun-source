@@ -56,7 +56,9 @@ export class AuthDialogController {
 
   private publish(state: AuthDialogState) {
     this.state = Object.freeze(state);
-    for (const listener of this.listeners) listener();
+    for (const listener of [...this.listeners]) {
+      if (this.listeners.has(listener)) listener();
+    }
   }
 
   private cancelAttempt() {
