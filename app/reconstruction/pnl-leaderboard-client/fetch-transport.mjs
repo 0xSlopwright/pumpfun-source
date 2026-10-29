@@ -22,10 +22,15 @@ export function createPnlFetchTransport({ baseUrl, fetch: send }) {
       method: 'GET', credentials: options.credentials,
       headers: options.headers, signal: options.signal,
     });
+    options.signal?.throwIfAborted();
     const response = await send(request);
+    options.signal?.throwIfAborted();
     for (const hook of options.hooks?.afterResponse ?? []) {
       await hook(request, options, response);
+      options.signal?.throwIfAborted();
     }
-    return response.json();
+    const result = await response.json();
+    options.signal?.throwIfAborted();
+    return result;
   };
 }
