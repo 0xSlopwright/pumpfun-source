@@ -784,13 +784,13 @@ pub fn execute<'info>(ctx:Context<'_,'_,'_,'info,CreateV2<'info>>,name:String,sy
  let depth=if let Some((_,depth))=reserves {depth} else {0};
  let virtual_quote_reserves={let (m,r)=(quote_mint,reserves);if m==Pubkey::default() {global.initial_virtual_sol_reserves} else {r.map_or(global.initial_virtual_quote_reserves,|(r,_)|r)}};
  let bonding_curve:&mut trade_types::BondingCurve=&mut ctx.accounts.bonding_curve;
+ bonding_curve.creator=creator;
  bonding_curve.initial_virtual_quote_reserves=virtual_quote_reserves;
  bonding_curve.virtual_token_reserves=global.initial_virtual_token_reserves;
  bonding_curve.virtual_quote_reserves=virtual_quote_reserves;
  bonding_curve.real_token_reserves=global.initial_real_token_reserves;
  bonding_curve.real_quote_reserves=0;
  bonding_curve.token_total_supply=global.token_total_supply;
- bonding_curve.creator=creator;
  bonding_curve.is_mayhem_mode=is_mayhem_mode;
  bonding_curve.is_cashback_coin=false;
  bonding_curve.quote_mint=quote_mint;

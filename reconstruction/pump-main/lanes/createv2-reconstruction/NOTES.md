@@ -11,6 +11,7 @@ Target: `0x1e7c0` `pump_recovered::create_v2::execute` (original 15,576 B, 125 d
 | h5 | `control_account(account, mint: Pubkey)` by value | 15,648 | 0.7470 | 125 | 1019/188, no gains/losses | bfe64755e47649d4b0a12fa803ac98f0 |
 | r2-vqr-before-curve | virtual reserves computed before the bonding_curve borrow | 15,624 | 0.7497 | 125 | 1019/188 | ledger r2 |
 | r3-fee-order | `creator_fee_bps.0>0 &&` tested before the quote source | 15,632 | 0.7506 | 125 | 1019/188 | ledger r3 |
+| round 2: r8-C1-creator-first | `bonding_curve.creator` stored first in the field sequence | 15,632 | 0.75114 | 125 | 1019/188, no gains/losses | ledger r8-C1 |
 
 ## Mechanism (x27port)
 
@@ -50,3 +51,26 @@ matched) reproduces that copy exactly.
   Pubkey) whose 16-byte part goes unused after codegen.
 - Return-type shapes tried for that (round r4: separate depth, Nested(u8) payload, nested pair)
   rejected: ~0.45-0.48.
+
+## Round 2 (2026-10-29)
+
+Tools: `tools/irframe.sh` in the lane OUT dir captures the IR, runs v1.44 `llc -O3 -stop-after=prologepilog`
+and prints execute's frame objects (about 2.5 min per run).
+
+Frame findings:
+- In the original, the validate result's Pubkey is split by SROA at +8. The first qword is kept in a
+  register and stored to quote_mint directly (`mov r2,0; stxdw [r10-0x188],r2` on the Sol path), and the
+  other 24 B live in a slice at [-0x4c0,-0x4a8). Under x27 (`Option<(u64,u8)>`) the whole 32 B Pubkey is
+  one slice. The split needs the Err payload (16 B at Ok+8) to overlap the Pubkey's first qword, so the
+  Pubkey must sit at Ok+16. `Option<u64>` reserves (R1 or S1) give that layout, and
+  the orig `jlt src,3` depth select plus the `and src,2` fee test also point to R1 (`Nested(u8)`).
+- R1 with in-place quote_mint compare (vc/r5) puts the 32 Result<()> sret slots (unnamed 16 B objects) at
+  exactly the original offsets. Still left: the early 32 B object (orig: whole quote_mint, memcmp'd in place)
+  ends up as the 24 B `val8.sroa.2`, and the late object is a touched 32 B quote_mint, where the original
+  has 24 B that are never touched. This shifts 0x198..0x4b8 by 8. It also merges the sol and ivqr loads
+  into an address select, which moves the 46-insn curve-store block (ratio about 0.51).
+- vqr spelling (unwrap_or / if-let / match) under R1nc is byte-identical. The x27 representation is just
+  as insensitive: binding to q, explicit match, and q.0 field use are all byte-identical to the best.
+- In the original, the creator memcpy into the curve stores in reverse qword order through `r4 = curve+8`,
+  and r4 is computed before the memcmp. Storing creator before the memcmp (D1/D2) reproduces the reverse
+  order but lowers the ratio, about 0.746.
