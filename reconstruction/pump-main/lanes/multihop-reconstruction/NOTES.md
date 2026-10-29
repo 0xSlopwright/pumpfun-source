@@ -97,6 +97,53 @@ closures in original physical order are 571, 673, 692, 589, 744, 624, 736.
 - admit_vaults: orig copies the curve key once and reuses it (see ck1), but binding it moves the
   native `require_ata` block; the right spelling is still open.
 
+## Round 2 (rebased on main b8d494168)
+
+New metric `seg.py`: align the orig/candidate call sequences by callee name, then sum the
+(opcode, regs) and (masked-jump, full-operand) edit distances of the instruction segments
+between consecutive aligned calls. It is local, so it does not flip with global difflib
+alignment, and it falls monotonically along the round-1 chain (t1 1447, v546b 1334, v546btB 1224,
+w1 1177, br1 1147, br3 1132). Lower is better.
+
+| build | bytes | exact | opregs | op | aligned calls | segdist opregs / exact |
+|---|---:|---:|---:|---:|---:|---:|
+| r0 = br3 rebased | 18,376 | 0.0915 | 0.6574 | 0.7370 | 100 | 1132 / 1886 |
+| ar1 named ArmResult destructured | identical swap_hop | | | | | |
+| ar2 ArmResult kept whole, field access | 18,384 | 0.1455 | 0.6494 | 0.7259 | 100 | 1140 / 1888 |
+| wl1 two requires on line 599 | 18,624 | 0.0909 | 0.6534 | 0.7343 | 100 (110 calls) | 1186 / 1934 |
+| wl2 if/else-if return err 599 | 18,560 | 0.0911 | 0.6519 | 0.7320 | 100 (110 calls) | |
+| te1 trade_event mint = &h.base_mint.key() | 18,464 | 0.0904 | 0.6550 | 0.6918 | 100 | 1151 / 1893 |
+| te2 te1 + Complete/Post events | 18,488 | 0.1802 | 0.6532 | 0.6909 | 100 | 1152 / 1904 |
+| **mac1 emit expansion as `macro_rules! route_event!`** (in source) | 18,328 | **0.2435** | **0.6913** | **0.7684** | **101** | **991 / 1728** |
+
+te2 shows why `exact` alone misleads: it doubles while every structural metric gets worse.
+
+### mac1 mechanism
+Ours had `#[inline(always)] fn route_event<E>(..) -> Result<()>` holding the literal
+emit!/emit_cpi! expansion, called as `route_event(..)?`. After inlining, the Ok and Err paths
+of `invoke_signed(..).map_err(Error::from)?` both ran the `authority_info` drop and met in one
+block that re-tested the Result (`jne r1, 2`) before the caller's `?`. The original tests the
+invoke result once, right after the call (orig 0x3d70), with separate drop sequences per path,
+the way it comes out when the `?` returns from swap_hop itself. A `macro_rules! route_event!`
+with the same statements does that. The post_complete_buy_event call moves to the original
+position, and the stack frame offsets go from +248/+264 to mostly +8/+24 against the original.
+
+### IR oracle (tools in this directory)
+`capir.py` builds a scratch crate copy with `--emit=link,llvm-ir -Zfewer-names` (code unchanged,
+same sha), `extract.py` cuts swap_hop out of the module (other functions become declarations,
+aliases dropped), and `llc -O3 -mtriple=sbf -mattr=+store-imm,+jmp-ext` on that reproduces the
+build's swap_hop exactly in about 0.5 s. `reorder.py` moves IR blocks (`X>Y`), inverts branches
+(`inv:B`) or sets weights (`prof:B:t,f`), then scores with `qcmp.py`/`seg.py`.
+Result: about 1,000 of the 2,640 single block moves in the buy arm (764..953 after 557..1010; sweep stopped early), plus
+inversions and weights on the whitelist/mayhem/reserve branches (841, 857, 821, 813). None of
+them improves the call-order alignment (best opregs +0.003, calls never above 100). The
+remaining buy-arm placement (mayhem test falling through into the 599 error, memcmp block
+after the buy transfer_input) does not come from IR block order or the weights of those
+branches.
+
+Ledger ids (round 2): 25aa56c1 (ar1), 84f78eee (ar2), 58559371 (wl1), eadf629d (wl2),
+b510e5e4 (te1), 5f606a0f (te2), ea3a9c59 (mac1).
+
 ## Tools (in this directory; run with the swarm `$TOOLS/harness` path as first argument)
 
 `calls.py` (call list with callee Source lines), `origlines.py`, `cmp.py` (aligned orig/ours call
