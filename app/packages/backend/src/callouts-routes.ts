@@ -1,15 +1,71 @@
 import type { FastifyInstance } from "fastify";
 import { CalloutListError } from "./callout-list-query.js";
-import type { CalloutsStore } from "./callouts-store.js";
+import { CalloutLookupError, type CalloutsStore } from "./callouts-store.js";
 
 export const CALLOUTS_NATIVE_ROUTES = new Set([
   "GET /callout/{calloutId}",
   "GET /callout/list/{userId}",
+  "GET /callout/user/{userId}/mint/{coinMint}",
 ]);
 export function registerCalloutRoutes(
   app: FastifyInstance,
   store: CalloutsStore,
 ): void {
+  app.get("/v1/callout/user/:userId/mint/:coinMint", async (request, reply) => {
+    const start = request.url.indexOf("?");
+    const query = new URLSearchParams(
+      start < 0 ? "" : request.url.slice(start + 1),
+    );
+    for (const key of query.keys()) {
+      if (query.getAll(key).length !== 1)
+        return reply
+          .code(400)
+          .send({
+            error: "BAD_REQUEST",
+            reason: "CALLOUT_LOOKUP_QUERY_INVALID",
+          });
+      if (key !== "quotesLimit" && key !== "chain")
+        return reply
+          .code(501)
+          .send({
+            error: "COMPATIBILITY_NOT_IMPLEMENTED",
+            reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED",
+          });
+    }
+    const limit = query.get("quotesLimit") ?? "0";
+    if (!/^(0|[1-9]\d*)$/.test(limit) || Number(limit) > 20)
+      return reply
+        .code(400)
+        .send({ error: "BAD_REQUEST", reason: "CALLOUT_LOOKUP_QUERY_INVALID" });
+    // The materialization has no cross-chain resolver or complete reply-quote carousel.
+    if (query.has("chain") || Number(limit) !== 0)
+      return reply
+        .code(501)
+        .send({
+          error: "COMPATIBILITY_NOT_IMPLEMENTED",
+          reason: "CALLOUT_LOOKUP_QUERY_UNSUPPORTED",
+        });
+    const { userId, coinMint } = request.params as {
+      userId: string;
+      coinMint: string;
+    };
+    try {
+      const response = store.getByUserMint(userId, coinMint);
+      return reply
+        .header("X-Reconstruction-Data-Source", store.dataSource)
+        .header("X-Reconstruction-Observed-At", store.observedAt)
+        .header("X-Reconstruction-Compatibility", "unqualified")
+        .send(response);
+    } catch (error) {
+      if (!(error instanceof CalloutLookupError)) throw error;
+      return reply
+        .code(501)
+        .send({
+          error: "COMPATIBILITY_NOT_IMPLEMENTED",
+          reason: error.message,
+        });
+    }
+  });
   app.get("/v1/callout/list/:userId", async (request, reply) => {
     const { userId } = request.params as { userId: string };
     try {

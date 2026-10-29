@@ -127,3 +127,43 @@ test("callout-list binding, client policy and response knowledge are source-boun
     /page on nextPageToken, not on array length/,
   );
 });
+
+test("user/mint binding preserves the smaller legacy DTO and explicit carousel opt-in", () => {
+  const spec = JSON.parse(
+    readFileSync(new URL("contracts/developer.openapi.json", root), "utf8"),
+  );
+  const route = spec.paths["/callout/user/{userId}/mint/{coinMint}"].get;
+  assert.equal(route["x-api-scope"], "content.read");
+  const contract = readFileSync(new URL(records[0].file, root), "utf8");
+  assert.equal(
+    contract.slice(76866, 76942),
+    '"GET /callout/user/{userId}/mint/{coinMint}":(0,s.publicRead)("content.read"',
+  );
+  const client = readFileSync(new URL(records[1].file, root), "utf8");
+  assert.equal(
+    client.slice(5127, 5171),
+    '"GET /callout/user/{userId}/mint/{coinMint}"',
+  );
+  const response = route.responses[200].content["application/json"].schema;
+  assert.deepEqual(response.required, ["callout", "quotes"]);
+  assert.match(
+    response.properties.quotes.description,
+    /always empty without quotesLimit or without a callout/,
+  );
+  const single =
+    spec.paths["/callout/{calloutId}"].get.responses[200].content[
+      "application/json"
+    ].schema.properties.callout;
+  const omitted = Object.keys(single.properties)
+    .filter((key) => !(key in response.properties.callout.properties))
+    .sort();
+  assert.deepEqual(omitted, [
+    "accountKind",
+    "isVerified",
+    "profileImage",
+    "userName",
+    "verifiedBadgeVisible",
+    "xFollowerCount",
+    "xUsername",
+  ]);
+});
