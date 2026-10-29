@@ -769,17 +769,17 @@ pub fn execute<'info>(ctx:Context<'_,'_,'_,'info,CreateV2<'info>>,name:String,sy
 
 
 
- let fee=if creator_fee_bps.0>0 && matches!(source,QuoteSource::Controlled|QuoteSource::Nested(_)) {
+ let mut fee=0;if matches!(source,QuoteSource::Controlled|QuoteSource::Nested(_)) && creator_fee_bps.0>0 {
 
   require!(a.global.creator_fee_configurable,PumpError::CreatorFeeNotConfigurable);
 
 
 
   require!(creator_fee_bps.0<=a.global.max_configurable_creator_fee_bps,PumpError::CreatorFeeBpsOutOfRange);
-  creator_fee_bps.0
- } else {
-  0
- };
+  fee=creator_fee_bps.0;
+ }
+
+
 
  let depth=if let QuoteSource::Nested(depth)=source {depth} else {0};
  ctx.accounts.init_curve(creator,quote_mint,reserves,depth,fee,is_mayhem_mode,is_holder_reward.0);

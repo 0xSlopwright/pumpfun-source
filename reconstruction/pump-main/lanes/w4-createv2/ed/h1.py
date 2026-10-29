@@ -1,2 +1,2 @@
-import runpy
-EDITS=runpy.run_path('ed/r1nc.py')['EDITS']+[(" let virtual_quote_reserves=if quote_mint==Pubkey::default() {global.initial_virtual_sol_reserves} else {reserves.unwrap_or(global.initial_virtual_quote_reserves)};\n"," let quote_reserves=reserves.unwrap_or(global.initial_virtual_quote_reserves);let virtual_quote_reserves=if quote_mint==Pubkey::default() {global.initial_virtual_sol_reserves} else {quote_reserves};\n")]
+EDITS=[(" let (quote_mint,reserves,source)=validate_quote_mint(&ctx,ctx.remaining_accounts)?;\n\n"," let (quote_mint,reserves,source)=validate_quote_mint(&ctx,ctx.remaining_accounts)?;\n let depth=if let QuoteSource::Nested(depth)=source {depth} else {0};\n"),
+(" let depth=if let QuoteSource::Nested(depth)=source {depth} else {0};\n ctx.accounts.init_curve(","\n ctx.accounts.init_curve(")]

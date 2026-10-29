@@ -13,6 +13,13 @@ Base: origin/main 630a074 (1023 normalized / 277 raw); target 0.75114, 15,632 B,
 | t3 = s1 + curve init moved into `fn init_curve(...)` taking `quote_mint: Pubkey` by value | 15,600 | 0.80355 | 125 | 1023/276 | frame layout = original; raw loses 0xa868 (layout) |
 | v9 = t3 with the helper taking the accounts struct (global/bonding_curve bound inside) | 15,592 | 0.80484 | 125 | 1023/276 | |
 | **w1 = v9 + `let sol=Pubkey::default();` before the ivqr let (`impl CreateV2 { fn init_curve(&mut self, ..) }`)** | **15,544** | **0.81260** | 125 | 1023/276 | ivqr load now after the memcmp, in the else block, as in the original |
+| g1 = w1 with `let mut fee=0; if .. { require!..; fee=creator_fee_bps.0; }` | 15,552 | 0.81454 | 125 | 1023/276 | |
+| **g7 = g1 with `matches!(source,Controlled\|Nested(_)) && creator_fee_bps.0>0`** | **15,544** | **0.82553** | 125 | 1023/276 | fee-branch polarity now as original (`and 2; jne 2` falls into the configurable check) |
+
+g10 (`!matches!(source,Sol|Whitelisted)` in g7) scores 0.82597 but lowers the tag test to `jlt tag,2`, unlike the
+original's `and64 2; jne 2`, so g7 is kept. Fee spellings with no effect: nested ifs, if-let, `!=0`, negated
+condition with `0` first; non-mut matches-first 0.82359. Depth position/spelling, helper binding order, param
+order, creator by ref: byte-identical or worse.
 
 Other trials (all 1023/276, raw -0xa868): plain `unwrap_or` in helper 0.75485 (sink.split back); ivqr let inside
 else 0.7558; depth computed inside helper 0.80365/0.80829; creator stored after tts / `OptionBool` holder /
@@ -35,7 +42,9 @@ else 0.7558; depth computed inside helper 0.80365/0.80829; creator stored after 
 3. **default first**: with `let sol=Pubkey::default();` before the eager ivqr load, the memset precedes the
    load and only the readonly memcmp follows it, so after SimplifyCFG has formed the select InstCombine sinks
    the load into the non-SOL block (original: `ldxdw r3,[global+0x428]` after the memcmp branch).
-4. Remaining diff is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
+5. **fee as a mutable default**: `let mut fee=0; if matches!(..) && creator_fee_bps.0>0 {..; fee=..}` gives the
+   original's fee-check block layout.
+6. Remaining diff is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
    -0x720, depth as `jlt tag,3; mov r9,r5`) and the curve-store schedule.
 
 ## Raw-layout caveat
