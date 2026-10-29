@@ -36,6 +36,18 @@ function array(value: unknown, label: string, maximum: number): unknown[] {
       `${label} must be an array with at most ${maximum} entries.`,
     );
   }
+  // Array.prototype.map/forEach skip holes, so a sparse array would pass
+  // validation and come back with the hole preserved in the typed result:
+  // a consumer indexing that slot reads undefined instead of the promised
+  // entry. Reject any missing index, the same dense-list admission the
+  // backend stores enforce (user-trades sparse-array fix).
+  for (let index = 0; index < value.length; index++) {
+    if (!Object.hasOwn(value, index)) {
+      throw new UpstreamValidationError(
+        `${label} must be a dense array without holes.`,
+      );
+    }
+  }
   return value;
 }
 
