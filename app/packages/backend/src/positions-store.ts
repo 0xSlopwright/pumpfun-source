@@ -433,7 +433,7 @@ export class PositionsStore {
   ): { positions: Position[] } | null {
     if (
       mints.length > 200 ||
-      !mints.every((mint) => typeof mint === "string") ||
+      !mints.every((mint) => typeof mint === "string" && mint.length > 0) ||
       !Number.isInteger(updatesLimit) ||
       updatesLimit < 0 ||
       updatesLimit > 20

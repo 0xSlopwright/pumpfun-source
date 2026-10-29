@@ -171,6 +171,22 @@ function contract(
   );
 }
 
+test("an empty mint entry is rejected instead of silently ignored", async () => {
+  const store = new PositionsStore(dataset());
+  for (const mints of [[""], ["mint-a", ""], ["", "mint-a"], ["mint-a", "", "mint-b"]])
+    assert.throws(() => store.positions("person-a", mints), RangeError);
+  const app = withApp();
+  try {
+    for (const query of ["mints=", "mints=mint-a,", "mints=,mint-a", "mints=mint-a,,mint-b"]) {
+      const res = await get(app, `/v1/user-positions/person-a?${query}`);
+      assert.equal(res.statusCode, 400, query);
+      assert.equal(res.json().error, "INVALID_QUERY", query);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
 test("mint selection is native, deduplicated, alias-aware and request-ordered", async () => {
   const app = withApp();
   try {
@@ -404,7 +420,7 @@ for (const url of invalid)
       await app.close();
     }
   });
-test("200 mints allowed; empty CSV matches nothing under the declared string-array contract", async () => {
+test("200 mints allowed; an empty CSV field is rejected, not read as a no-match", async () => {
   const app = withApp();
   try {
     assert.equal(
@@ -416,10 +432,10 @@ test("200 mints allowed; empty CSV matches nothing under the declared string-arr
       ).statusCode,
       200,
     );
-    assert.deepEqual(
-      (await get(app, "/v1/user-positions/person-a?mints=")).json(),
-      { positions: [] },
-    );
+    // An empty CSV field is not a mint: 200 with an empty list would read as "holds none".
+    const empty = await get(app, "/v1/user-positions/person-a?mints=");
+    assert.equal(empty.statusCode, 400);
+    assert.equal(empty.json().error, "INVALID_QUERY");
   } finally {
     await app.close();
   }
