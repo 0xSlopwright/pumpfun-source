@@ -157,6 +157,7 @@ function isProgramHoldings(
 
 export function isPortfolioResponse(
   value: unknown,
+  expectedAddress?: string,
 ): value is PortfolioResponse {
   if (!isRecord(value) || typeof value.ok !== "boolean") return false;
   if (value.ok === false) {
@@ -169,6 +170,7 @@ export function isPortfolioResponse(
   }
   return (
     typeof value.address === "string" &&
+    (expectedAddress === undefined || value.address === expectedAddress) &&
     value.cluster === "mainnet-beta" &&
     value.genesisHash === MAINNET_GENESIS_HASH &&
     value.commitment === "confirmed" &&
@@ -181,6 +183,10 @@ export function isPortfolioResponse(
     Number(value.sol.contextSlot) >= 0 &&
     isProgramHoldings(value.splToken, "spl-token") &&
     isProgramHoldings(value.token2022, "token-2022") &&
+    (expectedAddress === undefined ||
+      [...value.splToken.accounts, ...value.token2022.accounts].every(
+        (account) => account?.owner === expectedAddress,
+      )) &&
     value.snapshotAtomic === false
   );
 }

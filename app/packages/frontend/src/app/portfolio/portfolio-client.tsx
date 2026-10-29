@@ -291,7 +291,7 @@ export default function PortfolioClient({
           },
         );
         const payload: unknown = await response.json();
-        if (!isPortfolioResponse(payload)) {
+        if (!isPortfolioResponse(payload, initialAddress.trim())) {
           throw new Error(
             "The portfolio endpoint returned an invalid response.",
           );
