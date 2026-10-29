@@ -58,3 +58,24 @@ caching them across the calls as it may for a noalias-readonly `&`.
 ## Tools (lane scratch, ~/.cache/pumpfun-reconstruction/lanes/w3-sweep/scripts)
 oracle.py (one-function llc oracle, 0.1 s), mkone.py, blk.py/bwscan.py (block move / branch weight
 scans), mbp.sh (post-placement block order), sdiff.py (structural diff), trial.sh, capture.py (+MIR).
+
+## Trials after a23 (all in ledger, none better)
+- token helper `#[inline]` / no attribute / second admit as tail (0.473, 0.473, 0.450).
+- `if let Err(e) = admit(..) { return Err(e) }` for the first or both admits (40-41 calls).
+- rent helper bodies (`>= {Ok}`, `match`, `minimum > lamports`, `transfer()?; Ok(())`): identical or worse.
+- event `bucket: creator as u8`: identical.
+- token code in an immediately-invoked closure: 0.4695.
+- IR oracle: inverting the lamports branch or IR block moves/branch weights on a23 give at most
+  11 fewer structural diff lines; the rent transfer placement is not an IR-order/weight effect.
+
+## Where the remaining distance is (a23)
+- 157 stack operands differ by exactly +24 bytes (one extra 24-byte slot near the frame top in the
+  candidate), 56 by +88, 33 by -56; 89 register-only differences.
+- Structural (regs/stack masked) diff: ~350 lines, mostly the token-helper spills, rent transfer
+  placement, base_mint/quote_mint load order at the join and protocol-native copy.
+
+## Lab tools (scratch ~/.cache/pumpfun-reconstruction/lanes/w3-sweep/jt)
+- `lab.py`: synthetic copy of the execute structure (externs), compiled with the hybrid rustc in
+  ~0.1 s, dumps MIR before/after JumpThreading; counts memcmp/clone copies (F1/F2 screening).
+- `labinl.py` / `labbfi.py`: same with `-print-before=inline` and `scripts/bfi.py` (homebrew opt
+  print<block-freq>) to see pre-inline call-site frequencies (cold threshold 2% of entry).
