@@ -340,7 +340,7 @@ pub mod cashback {
 
 
    let recipient={let data=ctx.accounts.associated_quote_user.try_borrow_data()?;TokenAccount::try_deserialize(&mut &data[..])?.owner};require_keys_eq!(recipient,user.key(),PumpError::InvalidCashbackRecipient);
-   let mint={let data=ctx.accounts.quote_mint.try_borrow_data()?;Mint::try_deserialize(&mut &data[..])?};let user=user.key();let signer_seeds:&[&[&[u8]]]=&[&[b"user_volume_accumulator",user.as_ref(),&[ctx.bumps.user_volume_accumulator]]];
+   let mint={let data=ctx.accounts.quote_mint.try_borrow_data()?;Mint::try_deserialize(&mut &data[..])?};let user=user.key();let bump=ctx.bumps.user_volume_accumulator;let signer_seeds:&[&[&[u8]]]=&[&[b"user_volume_accumulator",user.as_ref(),&[bump]]];
    token_interface::transfer_checked(CpiContext::new_with_signer(ctx.accounts.quote_token_program.to_account_info(),TransferChecked{from:ctx.accounts.associated_user_volume_accumulator.to_account_info(),mint:ctx.accounts.quote_mint.to_account_info(),to:ctx.accounts.associated_quote_user.to_account_info(),authority:user_volume_accumulator.to_account_info()},signer_seeds),amount,mint.decimals)?;
 
    amount};

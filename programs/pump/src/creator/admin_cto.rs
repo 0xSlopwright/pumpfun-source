@@ -98,7 +98,7 @@ pub swept_to_holder_vault:u64,
 pub pool_updated:bool,
 }
 pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>)->Result<()>{
- let a=&ctx.accounts;let mint=a.mint.key();let (holder_key,_)=Pubkey::find_program_address(&[b"holder-rewards",mint.as_ref()],&crate::ID);let shared=a.bonding_curve.creator==a.sharing_config.key()&&a.sharing_config.owner==&FEES&&!a.sharing_config.data_is_empty();let quote_locked=crate::pump_quote::global_quote(a.bonding_curve.quote_mint,&a.global);let old=a.bonding_curve.creator;let old_fee=a.bonding_curve.creator_fee_bps;
+ let a=&ctx.accounts;let mint=a.mint.key();let (holder_key,_)=Pubkey::find_program_address(&[b"holder-rewards",mint.as_ref()],&crate::ID);let shared=a.bonding_curve.creator==a.sharing_config.key()&&a.sharing_config.owner==&FEES&&!a.sharing_config.data_is_empty();let quote_locked=crate::pump_quote::global_quote(a.bonding_curve.quote_mint,&a.global);let old=a.bonding_curve.creator;
 // layout-pad(182): aligns the next Source site with the original line
 
 
@@ -336,7 +336,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
 
  if let Some(f)=fee{if f==0||f>a.global.max_configurable_creator_fee_bps{return Err(error!(PumpError::CreatorFeeBpsOutOfRange));}}
- Ok((holder,cashback,target))})()?;let collect_old=!shared&&!a.bonding_curve.is_holder_reward&&old!=Pubkey::default(); crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.admin_set_creator_authority)?;
+ Ok((holder,cashback,target))})()?;let sharing_update=if shared{Some(if holder{None}else{new})}else{None};let collect_old=sharing_update.is_none()&&!a.bonding_curve.is_holder_reward&&old!=Pubkey::default();if shared&&!holder{target=old;} crate::trade_types::prepare_bonding_curve(&a.bonding_curve,&a.system_program,&a.admin_set_creator_authority)?;
 
 
 
@@ -743,20 +743,20 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
 
 
  let pb=[ctx.bumps.pool_authority];let poolseeds:&[&[u8]]=&[b"pool-authority",mint.as_ref(),&pb];
- if shared{
-  let val=if holder{None}else{new};
+ if let Some(val)=sharing_update{
+
   let cpi_program=a.pump_fees.to_account_info();let cpi_accounts=crate::pump_fees::cpi::accounts::AdminCtoSharingConfig{pool_authority:a.pool_authority.to_account_info(),authority:a.admin_set_creator_authority.to_account_info(),global:a.global.to_account_info(),mint:a.mint.to_account_info(),sharing_config:a.sharing_config.to_account_info(),event_authority:a.pump_fees_event_authority.to_account_info(),program:a.pump_fees.to_account_info()};
   crate::pump_fees::cpi::admin_cto_sharing_config(CpiContext::new_with_signer(cpi_program,cpi_accounts,&[poolseeds]),val)?;
-  if !holder{target=old;}
+
  }
- {
-  let curve=&mut ctx.accounts.bonding_curve;
+ let (old_creator,old_fee)={
+  let curve=&mut ctx.accounts.bonding_curve;let old_creator=curve.creator;let old_fee=curve.creator_fee_bps;
   curve.creator=target;
   curve.is_holder_reward=holder;
   curve.is_cashback_coin=cashback;
   if let Some(f)=fee{curve.creator_fee_bps=f;}
   curve.can_edit_creator_fee=false;
- }
+ (old_creator,old_fee)};
  let a=&ctx.accounts;
  let pool_updated=a.pool.owner==&AMM && !a.pool.data_is_empty();
  if pool_updated{
@@ -764,7 +764,7 @@ pub fn execute(ctx:Context<AdminCto>,holder:Option<bool>,fee:Option<u64>,new:Opt
   let signer_seeds:&[&[&[u8]]]=&[poolseeds];
   crate::pump_amm::cpi::admin_cto_pool(CpiContext::new_with_signer(cpi_program,cpi_accounts,signer_seeds),target,holder,fee)?;
  }else{msg!("No canonical pump pool for this mint; curve only");}
- let e=AdminCtoEvent{timestamp:Clock::get()?.unix_timestamp,authority:a.admin_set_creator_authority.key(),mint,bonding_curve:a.bonding_curve.key(),old_creator:old,new_creator:target,is_holder_reward:holder,is_cashback_coin:cashback,old_creator_fee_bps:old_fee,new_creator_fee_bps:fee.unwrap_or(old_fee),sharing_config_reset:shared,swept_to_holder_vault:swept,pool_updated};emit!(e.clone());emit_cpi!(e);Ok(())
+ let e=AdminCtoEvent{timestamp:Clock::get()?.unix_timestamp,authority:a.admin_set_creator_authority.key(),mint,bonding_curve:a.bonding_curve.key(),old_creator,new_creator:a.bonding_curve.creator,is_holder_reward:a.bonding_curve.is_holder_reward,is_cashback_coin:a.bonding_curve.is_cashback_coin,old_creator_fee_bps:old_fee,new_creator_fee_bps:a.bonding_curve.creator_fee_bps,sharing_config_reset:sharing_update.is_some(),swept_to_holder_vault:swept,pool_updated};emit!(e.clone());emit_cpi!(e);Ok(())
 }
 
 fn token_frozen(a:&AccountInfo)->Result<bool>{if a.data_is_empty(){return Ok(false);}let d=a.try_borrow_data()?;let t=anchor_spl::token_interface::TokenAccount::try_deserialize(&mut &d[..])?;Ok(t.is_frozen())}
