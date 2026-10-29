@@ -35,7 +35,7 @@ fn process_cashback_inner<'info>(
         let rent = Rent::get()?;
         let space = 137;
         let lamports = rent.minimum_balance(space);
-        let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &[bump]]; let signer_seeds = &[&seeds[..]];
+        let bump_seed = [bump]; let seeds = &[b"user_volume_accumulator".as_ref(), user_key.as_ref(), &bump_seed]; let signer_seeds = &[&seeds[..]];
         let required_lamports = lamports.saturating_sub(user_volume_accumulator.lamports());
         if required_lamports > 0 {
             anchor_lang::system_program::transfer(
@@ -85,7 +85,7 @@ fn process_cashback_inner<'info>(
         if data.len() < 8 || &data[..8] != crate::UserVolumeAccumulator::DISCRIMINATOR { return err!(PumpError::InvalidCashbackAccumulator); }
     }
     crate::trade::quote_payments::transfer_native(bonding_curve, user_volume_accumulator, amount)?;
-    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from_unchecked(user_volume_accumulator)?;
+    let mut user_volume_accumulator = Account::<crate::UserVolumeAccumulator>::try_from(user_volume_accumulator)?;
     if user_volume_accumulator.user == Pubkey::default() {
         user_volume_accumulator.user = user_key;
     }
