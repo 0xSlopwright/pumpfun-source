@@ -8,7 +8,7 @@ P=Path(__file__).resolve().parent
 SOURCE='178f60de87b1b739f2431181dafab55fbbf71750336949813eda105e78a7083c'
 CATALOG='fb2c0a47514567d65eb45c1e268dacd5291e4659bb7dceb575a767dc20bcaff8'
 ORIGINAL='7a19affaa2c6187e04a5fe0ea298cee81fa5eb8c24cfcc30d85f615e89f7b02d'
-AUDIT='227e5f4f29151de461f79d49994d3544ce17951a242aa5581fc96a2593819cab'
+AUDIT='17f0b69514fbf46ca74de3b98e6e5b12765f545718bde07b382b214ec5a35d8f'
 ELF='93c046dbecfcdf2863d0988cafc9411e8eb61c6fbdfe58aa046d2c53e0cc06c9'
 REMAP='--remap-path-prefix=programs/pump/src\\trade_v3.rs=programs/pump/src/trade_v3.rs'
 OLD=b'    let second=match post{Some(p)=>add3(p.quote_in,p.fees.protocol_fee,p.fees.creator_fee)?,None=>0};'

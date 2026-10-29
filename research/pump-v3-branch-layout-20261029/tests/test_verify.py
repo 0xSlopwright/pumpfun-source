@@ -58,6 +58,35 @@ class SavedEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'bounded call/data audit'):
             v.reference_audit(R,self.parent,changed)
 
+    def changed_parent_operands(self,kind):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'parent.so';path.write_bytes(self.parent);api=v.elf_reader();e=api.Elf(path)
+            f=next(f for f in e.functions if '5trade12v3_buy_costs17h' in f['name'])
+            raw=e.body(f['address'],f['size']);normal,refs=e.normalize(raw,f['address'])
+            modified=bytearray(self.parent);base=e.sections['.text']['offset']+f['address']-e.sections['.text']['addr']
+            if kind=='call':
+                a,b=[r for r in refs if r['kind']=='direct-call'][:2]
+                self.assertNotEqual(a['target'],b['target'])
+                for site,target in [(a,b['target']),(b,a['target'])]:
+                    struct.pack_into('<i',modified,base+site['offset']+4,(target-f['address']-site['offset']-8)//8)
+            else:
+                a,b=[r for r in refs if r['kind']=='elf-pointer'][2:4]
+                self.assertNotEqual(a['value'],b['value'])
+                for site,target in [(a,b['value']),(b,a['value'])]:
+                    struct.pack_into('<I',modified,base+site['offset']+4,target&0xffffffff)
+                    struct.pack_into('<I',modified,base+site['offset']+12,target>>32)
+            path.write_bytes(modified);changed=api.Elf(path)
+            self.assertEqual(normal,changed.normalize(changed.body(f['address'],f['size']),f['address'])[0])
+            return bytes(modified)
+
+    def test_parent_valid_call_permutation_rejected(self):
+        with self.assertRaisesRegex(ValueError,'original-parent direct-call order differs'):
+            v.reference_audit(R,self.changed_parent_operands('call'),self.candidate)
+
+    def test_parent_valid_data_permutation_rejected(self):
+        with self.assertRaisesRegex(ValueError,'original-parent bounded-data order differs'):
+            v.reference_audit(R,self.changed_parent_operands('data'),self.candidate)
+
     def test_changed_catalog_extent_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);original=root/'evidence/original/pump/deployed.so';original.parent.mkdir(parents=True);original.write_bytes((R/'evidence/original/pump/deployed.so').read_bytes())
