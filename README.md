@@ -19,6 +19,9 @@ specified call/address operands and do not prove whole-program identity.
 These counts describe the selected maintained recipes; they are not a
 percentage of engineering work completed.
 
+The [reconstruction toolchain](reconstruction/README.md) rebuilds `programs/pump` and
+scores it against the captured original in `evidence/original/`.
+
 <!-- app-progress:start -->
 ## Application source and feature progress
 
