@@ -150,10 +150,10 @@ pub struct PreviousHop<'info> {
     h: &CurveHop<'info>,
     a: &MultiHopCurve<'info>,
     base_token_program: &AccountInfo<'info>,
-    quote_token_program: &AccountInfo<'info>, native: bool,
+    quote_token_program: &AccountInfo<'info>, native: bool, curve_key: &Pubkey,
     require_ata: fn(&Pubkey,&Pubkey,&Pubkey,&Pubkey)->Result<()>,
 ) -> Result<()> {
-    require_ata(&h.associated_base_bonding_curve.key(), &h.bonding_curve.key(),
+    require_ata(&h.associated_base_bonding_curve.key(), curve_key,
         &h.base_mint.key(), &base_token_program.key())?;
     if !native {
         crate::buy_v2::admit_associated_token_account(
@@ -162,7 +162,7 @@ pub struct PreviousHop<'info> {
             &h.quote_mint.to_account_info(), quote_token_program,
             false, a.user.as_ref(), a.system_program.as_ref(),
         )?;
-    } else { require_ata(&h.associated_quote_bonding_curve.key(), &h.bonding_curve.key(), &h.quote_mint.key(), &quote_token_program.key())?; }
+    } else { require_ata(&h.associated_quote_bonding_curve.key(), curve_key, &h.quote_mint.key(), &quote_token_program.key())?; }
     Ok(())
 }
 
@@ -482,7 +482,7 @@ pub fn transfer_input<'info>(a: &MultiHopCurve<'info>, previous: Option<&Previou
 
 
         require!(!h.bonding_curve.is_mayhem_mode,PumpError::MultiHopMayhemCurveNotSupported);
-        let native = h.bonding_curve.quote_mint == Pubkey::default(); let quote_fee = if native { None } else { crate::transfer_fee_recovered::get_transfer_fee(&h.quote_mint.to_account_info())? }; let base_token_program = token_program_for(&a.token_program, &a.token_2022_program, h.base_mint.as_ref().as_ref())?; let quote_token_program = token_program_for(&a.token_program, &a.token_2022_program, h.quote_mint.as_ref().as_ref())?; admit_vaults(h,a,&base_token_program,&quote_token_program,native,require_ata)?;
+        let native = h.bonding_curve.quote_mint == Pubkey::default(); let quote_fee = if native { None } else { crate::transfer_fee_recovered::get_transfer_fee(&h.quote_mint.to_account_info())? }; let base_token_program = token_program_for(&a.token_program, &a.token_2022_program, h.base_mint.as_ref().as_ref())?; let quote_token_program = token_program_for(&a.token_program, &a.token_2022_program, h.quote_mint.as_ref().as_ref())?; let curve_key = h.bonding_curve.key(); admit_vaults(h,a,&base_token_program,&quote_token_program,native,&curve_key,require_ata)?;
         if flag & 1 != 0 {
             crate::trade::validate_buyback_fee_recipient_account(&a.global,a.buyback_fee_recipient.as_ref(),false,
                 &h.quote_mint.key(),&quote_token_program.key())?;
