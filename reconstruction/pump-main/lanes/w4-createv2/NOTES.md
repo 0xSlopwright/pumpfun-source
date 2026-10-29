@@ -19,7 +19,9 @@ Base: origin/main 630a074 (1023 normalized / 277 raw); target 0.75114, 15,632 B,
 g10 (`!matches!(source,Sol|Whitelisted)` in g7) scores 0.82597 but lowers the tag test to `jlt tag,2`, unlike the
 original's `and64 2; jne 2`, so g7 is kept. Fee spellings with no effect: nested ifs, if-let, `!=0`, negated
 condition with `0` first; non-mut matches-first 0.82359. Depth position/spelling, helper binding order, param
-order, creator by ref: byte-identical or worse.
+order, creator by ref: byte-identical or worse. Later (all on g7): mutable depth / ctx.accounts spelling / `==true`:
+identical; holder store outside helper 0.81862; vqr as mutable default 0.716/0.723; `quote_mint!=sol` with the
+non-SOL arm first 0.73021; else-if-let 0.81733; validate tuple reorders 0.749/0.756.
 
 Other trials (all 1023/276, raw -0xa868): plain `unwrap_or` in helper 0.75485 (sink.split back); ivqr let inside
 else 0.7558; depth computed inside helper 0.80365/0.80829; creator stored after tts / `OptionBool` holder /
@@ -44,7 +46,14 @@ else 0.7558; depth computed inside helper 0.80365/0.80829; creator stored after 
    the load into the non-SOL block (original: `ldxdw r3,[global+0x428]` after the memcmp branch).
 5. **fee as a mutable default**: `let mut fee=0; if matches!(..) && creator_fee_bps.0>0 {..; fee=..}` gives the
    original's fee-check block layout.
-6. Remaining diff is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
+6. Remaining diff (g7): 1,808 of 1,859 original instructions align abstractly; 214 aligned lines differ only in
+   registers and 34 in spill offsets. A single rotation of callee-saved roles (cand r7->orig r6 = is_holder_reward,
+   cand r9->orig r7, cand r6->orig r9) would lift the ratio to 0.8697: in the original, is_holder_reward is assigned
+   r6 before ctx/accounts, which in our build gets r6 first (it carries the $r2 copy hint, so greedy RA queues it
+   first). Not found: a natural source change that flips this. Other residuals: depth select kept in a register
+   (`jlt tag,3; mov r9,r5`), creator stores scheduled after the u64 fields via a data pointer kept in r4 (IR oracle
+   reproduces the pointer but not the order), the validate-time bonding-curve Account pointer reused at the end.
+7. Older note is register assignment (orig keeps is_holder_reward in r6/ctx in r7, global ptr spilled at
    -0x720, depth as `jlt tag,3; mov r9,r5`) and the curve-store schedule.
 
 ## Raw-layout caveat
