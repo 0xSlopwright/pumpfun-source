@@ -71,3 +71,33 @@ zero-loss rule blocks every size-changing improvement to any function inside the
 Ledger ids: 444b7f90 (T5a), 2b183c2a (T6a), 3a99ea9a (T6b), 772f3bdc (T7), 83140257 (oracle sweep),
 d13d598a (T8), 8e4ad53d (T9b), bf762e96 (T9), 658ccd87 (T1a), 2cff5c98 (T1c), d54e6036 (T1b), fd0ddd62 (T2), 660c14cb (T3b),
 fd1c95b8 (T3), 5381e84e (T4a), d31762c3 (T4b).
+
+## Beyond the head: T11/T12 (better target metrics, raw 0xa868 artifact only)
+
+| build | bytes | win ratio | opregs | segdist opregs / exact | official |
+|---|---:|---:|---:|---:|---|
+| T9b (head) | 18,328 | 0.6006 | 0.7182 | 938 / 1110 | 1023 / 277, no losses |
+| **T11** T9b + admit_vaults body written in swap_hop | 18,448 | **0.6851** | **0.7255** | **819 / 966** | 1023 / 276 (raw 0xa868 only) |
+| T12 T11 + post_fill as arm-tuple element | 18,568 | 0.6802 | 0.7192 | 836 / 982 | 1023 / 276 (raw 0xa868 only) |
+
+T11 mechanism: the original writes the admit_associated_token_account Err into swap_hop's sret
+*before* dropping the two `to_account_info()` temporaries (0x1460), and it keeps a separate copy of
+those drops on the Err path. That is the MIR shape of `?` in swap_hop itself; through the
+`#[inline(always)] admit_vaults` helper the temporaries drop first and LLVM hoists the common
+drop. Patch: `T11-admit-inline.patch` (helper lines replaced by blank lines so all line!() sites
+keep their lines). T12 (`T12-admit-inline-post-fill-tuple.patch`) also makes fees/post_fill
+frame-exact (0x700/0x710/0x730) and reaches 18,568 B (orig 18,584). The sell-tail block
+(net-output, post_fill tag 0 at orig 0x2438; buy enters at 0x2458) now has the original's
+shape, but it is placed after the buy arm.
+
+Both are blocked only by the raw 0xa868 span artifact. If the coordinator rules that artifact out,
+T11 is the better head.
+
+## Remaining residual (T11)
+orig@0x23f8 / 0x28c8 (~375 of 819 segdist): the original places the sell tail + accrue join
+right after the 599 error / apply_sell Err store, and the 590 error after post_fee/744. Ours
+places the 590 error and complete_fill there. Neither IR block moves (10,335-move sweep) nor
+branch weights or polarity on the mayhem/memcmp branches (oracle E2-E5) change it. It is a
+MachineBlockPlacement worklist-frequency effect: the next chain is the ready block with the
+highest frequency. Next idea: find which error paths the original treats as unlikely (cold
+callee or `?` shape), so that the sell tail has a higher frequency than the 590 error.
