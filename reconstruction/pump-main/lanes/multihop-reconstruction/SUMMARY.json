@@ -1,22 +1,114 @@
 {
-  "lane": "multihop-reconstruction",
-  "target": "0x5b3b0 multi_hop_curve::swap_hop",
-  "base": "origin/main 016a11c7f (includes #1197 and the #1164 tokens_for_quote/sub3 helper calls)",
-  "pr": "https://github.com/lalalune/pumpfun-source/pull/1248",
-  "best": {"build": "br3", "unstripped_sha256": "8c4483af3d99afaa20a761fbb841a854caeac5c283aa93765081a2014d772702",
-           "bytes": 18376, "orig_bytes": 18584, "calls": 107, "orig_calls": 107, "callee_multiset_diff": 0,
-           "winpy_ratio": 0.0915, "opregs_ratio": 0.6574, "op_ratio": 0.7370,
-           "official": {"normalized": 1020, "raw": 188, "losses": []}},
-  "before": {"bytes": 19024, "calls": 108, "callee_multiset_diff": 1, "winpy_ratio": 0.2229, "opregs_ratio": 0.4645, "op_ratio": 0.5491},
-  "attempts": 26,
-  "kept_mechanisms": ["cap/data_len before trade_amount", "seeds from temporary base_mint clone key after :546", "clone-free validate_buyback args (&quote_token_program.key())",
-    ":546 if/else-if buy chain", "completion re-check of real_token_reserves after TradeEvent with nested post-complete emission",
-    "post_out checked_add join at :624", "user key before mayhem test", "per-arm transfer/apply/payout", "TradeFees as arm result"],
-  "rejected": ["single curve_key in admit_vaults (moves native require_ata, -344 B)", "admit_vaults branch polarity (identical)", "require operand swaps / negated-or (identical or no gain)",
-    "post_fill as tuple element (op ratio down)", "complete_fill bps into fees (semantics, no gain)", "precomputed completed bool in nested tail (little change)"],
-  "residuals": ["buy-arm chain placement between sell transfer_quote_out and accrue join", "whitelist memcmp fallthrough (orig: complete_fill)",
-    "64-byte arm-result aggregate copied at accrue join in orig (ours SROA-split)", "post_complete_buy_event block before HopOutput block in orig",
-    "admit_vaults curve key reused across both require_ata in orig", "stack frame layout (win.py exact ratio)"],
-  "next_ideas": ["capture LLVM IR (experiment-only) of swap_hop to compare block frequencies/order against orig layout", "make the arm result a named struct passed by reference to keep the 64-byte aggregate in memory",
-    "spell admit_vaults with curve key bound outside and the native require_ata via a shared helper to keep its block after admit", "try if-let/match forms for complete_fill result so the memcmp falls through to complete_fill"]
+ "lane": "multihop-reconstruction",
+ "target": "0x5b3b0 multi_hop_curve::swap_hop",
+ "base": "origin/main 016a11c7f (includes #1197 and the #1164 tokens_for_quote/sub3 helper calls)",
+ "pr": "https://github.com/lalalune/pumpfun-source/pull/1248",
+ "best": {
+  "build": "br3",
+  "unstripped_sha256": "8c4483af3d99afaa20a761fbb841a854caeac5c283aa93765081a2014d772702",
+  "bytes": 18376,
+  "orig_bytes": 18584,
+  "calls": 107,
+  "orig_calls": 107,
+  "callee_multiset_diff": 0,
+  "winpy_ratio": 0.0915,
+  "opregs_ratio": 0.6574,
+  "op_ratio": 0.737,
+  "official": {
+   "normalized": 1020,
+   "raw": 188,
+   "losses": []
+  }
+ },
+ "before": {
+  "bytes": 19024,
+  "calls": 108,
+  "callee_multiset_diff": 1,
+  "winpy_ratio": 0.2229,
+  "opregs_ratio": 0.4645,
+  "op_ratio": 0.5491
+ },
+ "attempts": 26,
+ "kept_mechanisms": [
+  "cap/data_len before trade_amount",
+  "seeds from temporary base_mint clone key after :546",
+  "clone-free validate_buyback args (&quote_token_program.key())",
+  ":546 if/else-if buy chain",
+  "completion re-check of real_token_reserves after TradeEvent with nested post-complete emission",
+  "post_out checked_add join at :624",
+  "user key before mayhem test",
+  "per-arm transfer/apply/payout",
+  "TradeFees as arm result"
+ ],
+ "rejected": [
+  "single curve_key in admit_vaults (moves native require_ata, -344 B)",
+  "admit_vaults branch polarity (identical)",
+  "require operand swaps / negated-or (identical or no gain)",
+  "post_fill as tuple element (op ratio down)",
+  "complete_fill bps into fees (semantics, no gain)",
+  "precomputed completed bool in nested tail (little change)"
+ ],
+ "residuals": [
+  "buy-arm chain placement between sell transfer_quote_out and accrue join",
+  "whitelist memcmp fallthrough (orig: complete_fill)",
+  "64-byte arm-result aggregate copied at accrue join in orig (ours SROA-split)",
+  "post_complete_buy_event block before HopOutput block in orig",
+  "admit_vaults curve key reused across both require_ata in orig",
+  "stack frame layout (win.py exact ratio)"
+ ],
+ "next_ideas": [
+  "capture LLVM IR (experiment-only) of swap_hop to compare block frequencies/order against orig layout",
+  "make the arm result a named struct passed by reference to keep the 64-byte aggregate in memory",
+  "spell admit_vaults with curve key bound outside and the native require_ata via a shared helper to keep its block after admit",
+  "try if-let/match forms for complete_fill result so the memcmp falls through to complete_fill"
+ ],
+ "round2": {
+  "base": "main b8d494168 (rebased)",
+  "best": {
+   "build": "pf1",
+   "commit": "1e90f38b7",
+   "unstripped_sha256": "65e92d5d0b6d1d4891005c2ff5c3fe9230aeaa5857f5c7f735825de77044bc10",
+   "bytes": 18272,
+   "orig_bytes": 18584,
+   "calls": "107/107 multiset exact",
+   "aligned_calls": 101,
+   "win_ratio": 0.2148,
+   "opregs": 0.7233,
+   "op": 0.8071,
+   "segdist_opregs": 903,
+   "segdist_exact": 1628,
+   "official": "1020/188, no losses"
+  },
+  "best_win_ratio_build": {
+   "build": "mac1",
+   "commit": "d2e730407",
+   "win_ratio": 0.2435,
+   "opregs": 0.6913,
+   "segdist": "991/1728"
+  },
+  "kept_mechanisms": [
+   "emit!/emit_cpi! expansion as macro_rules! route_event! so the invoke result is tested once and ? returns from swap_hop (mac1)",
+   "deferred `let post_fill;` assigned None at the end of the sell arm and on both buy no-post paths (pf1)"
+  ],
+  "rejected": [
+   "named ArmResult struct (destructured: identical; field access: worse)",
+   "599 split into two requires / if-else-if (two error sites, 110 calls)",
+   "trade_event mint as fresh h.base_mint.key() copy (on r0 and pf1)",
+   "CompleteEvent mint from h.base_mint.key() (mixed)",
+   "post event post by value and/or base_mint key (locally closer, but cancels pf1)",
+   "sell checked_sub moved after payout (normalized loss)",
+   "IR oracle: ~1000 single block moves, plus branch inversions/weights on 547/723/821/841/857/935: none improves call order"
+  ],
+  "residuals": [
+   "buy arm: orig mayhem test falls through into the 599 error and the whitelist memcmp is chained with complete_fill after the buy transfer_input; ours lets the mayhem test fall into the memcmp (memcmp falls into 599)",
+   "admit_vaults: the original places the token-program AccountInfo drop chain right after the admit_associated_token_account error; ours places it after the :546 error",
+   "stack frame: offsets now mostly +8/+24 vs orig; top-of-frame event temporaries (post event user/mint/curve/quote_mint fresh copies, PostComplete copy) differ"
+  ],
+  "next_ideas": [
+   "Recapture IR for pf1 and test splitting the 599 error block per predecessor in the oracle, to see if the original merged two error sites post-placement",
+   "A pe2-style by-value post event that keeps pf1's per-path stores (e.g. take() or a match on a copied Option)",
+   "Frame-object census: map each orig top-of-frame object (0x30..0x200) to its MIR local using the claimv2 finding (frame index order = reverse MIR local creation order)"
+  ],
+  "tools": "capir.py/extract.py/reorder.py/sweep.py (llc IR oracle, reproduces build exactly), seg.py (call-anchored segment distance), offmap.py/offuse.py (stack-offset mapping)"
+ }
 }
