@@ -920,3 +920,9 @@ for (const nested of [false, true])
     );
     assert.throws(() => new PositionsStore(data), /non-spot enrichment/);
   });
+
+test('direct portfolio query flags are booleans rather than truthy values',()=>{
+  const store=new PositionsStore(dataset());
+  for(const field of ['totalsOnly','filterSpam','spamOnly'])for(const value of ['false',0,null])assert.throws(()=>store.portfolio('person-a',{[field]:value} as any),/Invalid portfolio/);
+  assert.doesNotThrow(()=>store.portfolio('person-a',{totalsOnly:false,filterSpam:false,spamOnly:false}));
+});
