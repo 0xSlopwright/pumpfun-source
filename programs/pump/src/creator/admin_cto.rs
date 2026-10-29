@@ -280,7 +280,7 @@ struct CtoState{creator:Pubkey,max_fee:u64,mayhem:bool,holder_reward:bool,cashba
 
 
 
- let (holder,cashback,mut target)=validate(&st,holder,fee,new,holder_key,a.sharing_config.key())?;fn validate(st:&CtoState,holder:Option<bool>,fee:Option<u64>,new:Option<Pubkey>,holder_key:Pubkey,sharing:Pubkey)->Result<(bool,bool,Pubkey)>{
+ let (holder,cashback,mut target)=validate(&st,(holder,fee,new),holder_key,a.sharing_config.key())?;fn validate(st:&CtoState,args:(Option<bool>,Option<u64>,Option<Pubkey>),holder_key:Pubkey,sharing:Pubkey)->Result<(bool,bool,Pubkey)>{let (holder,fee,new)=args;
  if st.mayhem{return Err(error!(PumpError::CtoNotAllowedForMayhemCoin));}
 // Reconstructed positions of the same deployed validations.
 
