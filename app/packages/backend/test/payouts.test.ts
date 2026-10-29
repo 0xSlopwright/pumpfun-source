@@ -516,14 +516,33 @@ test("bounded startup loader reads only explicit regular UTF-8 JSON and leaves b
     );
     assert.deepEqual(readFileSync(file), bytes);
     assert.throws(() => loadPayoutsStore(dir));
-    symlinkSync(file, join(dir, "link"));
-    assert.throws(() => loadPayoutsStore(join(dir, "link")));
     writeFileSync(file, Buffer.from([0xff]));
     assert.throws(() => loadPayoutsStore(file));
     writeFileSync(file, "{");
     assert.throws(() => loadPayoutsStore(file));
     truncateSync(file, 16 * 1024 * 1024 + 1);
     assert.throws(() => loadPayoutsStore(file));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("startup loader rejects symlink files when creation is permitted", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "pump-payouts-symlink-test-"));
+  const file = join(dir, "facts.json");
+  const link = join(dir, "link");
+  try {
+    writeFileSync(file, JSON.stringify(dataset()));
+    try {
+      symlinkSync(file, link);
+    } catch (error) {
+      if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+        t.skip("Windows account cannot create file symlinks; requires Developer Mode or symlink privilege");
+        return;
+      }
+      throw error;
+    }
+    assert.throws(() => loadPayoutsStore(link));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
