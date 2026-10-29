@@ -1,6 +1,6 @@
 # Lane callgraph-census: call-graph and inlining-boundary census
 
-## Round 2 (base origin/main 60bdd8a, 1020 normalized / 188 raw)
+## Round 2 (base origin/main 60bdd8a, rebased onto 8afbba1; 1020 normalized / 188 raw)
 
 ### Hidden call-target audit (`callid_audit.py`, `CALLID-AUDIT.json`)
 
@@ -24,6 +24,28 @@ After both: 1019 / 1019 normalized matches bisimilar, census msdiff for 0x6cd78 
 Lesson for reconstruction lanes: when choosing between functions that differ only in which helper they
 call (try_from / try_from_unchecked, `format` / `format_inner`, generic monomorphs), use the census
 key (body + callee identities), not the normalized body, and re-run `callid_audit.py` before a PR.
+
+### Data-reference audit (`dataref_audit.py`)
+
+score.py also masks lddw values that point into a section, so a normalized match could load a different
+string, table or function pointer. The audit compares the referenced bytes; pointer words are masked.
+sBPF data relocations keep the target as a u32 in the upper half of the 8-byte word. `.text`
+references are compared by body identity. At width 4 all 1020 windows are clean. At width 8, 22 are
+flagged, and every one is a neighbour of a short merged constant (the first u32 is equal, the next one
+differs by layout). No hidden data mismatch was found. So on this branch every normalized match is clean
+at the identity level, and the 832 normalized-but-not-raw windows differ only by layout (call
+displacements and data addresses), which is what layout-order-census works on.
+
+### Cross-check of open PR branches (ledger 1149bf4b)
+
+`callid_audit.py` plus the depth-6 census on sellv2 #1275, admincto #1246, v3execute #1243,
+migrate-token #1278, multihop #1248 and claimv2 #1230 found no new hidden callee errors. They carry only the
+two main-wide sites this PR fixes. Their callee multisets are exact with call identity at depth 6:
+admin_cto 154/154, swap_hop 107/107, claim_v2 68/68 (all aligned). claimv2's branch (base 1fb76c54f)
+loses 0x14f4e0 against current main because its base is stale and needs a rebase.
+
+Reusable: `prcheck.sh`-style flow = `git archive <branch> programs/pump` into $OUT, fastbuild, score,
+`callid_audit.py --cand`, `census.py --cand`.
 
 ### Census refresh on 60bdd8a
 
