@@ -42,3 +42,26 @@ Base: origin/main 6654999 (1022 normalized / 276 raw). Target on base: 27,160 B,
 | e2 | + CollectCoinCreatorFee program/accounts as call-argument temporaries | 26,616 | **0.2286** | 0x8c8 (orig 0x8d8) | 1022/276 |
 
 Ledger: t19 b482bc3a, e1 9647310e, e2 1d8fd823.
+
+## Round 2 trials (CtoState line; judged by exact ratio plus the offset-abstracted ratio `segab.py`)
+
+| trial | mechanism | bytes | ratio | note |
+|---|---|---:|---:|---|
+| e5 | prior t18 CtoState + nested `fn validate` | 26,936 | 0.153 | abstracted 0.537 (code much closer; frame off) |
+| e6 | CtoState scoped in a block ending before prepare | 27,000 | 0.157 | st merges into top slot; 109 spills = orig |
+| e9 | no entry `old` copy; vault seeds/event use `a.current_creator.key()` | 27,024 | 0.154 | |
+| e11 | holder/non-holder split with `holder==Some(true)` | 27,312 | 0.334 | frame r10-0x0..0x4ff now equal to orig |
+| e13 | validate takes `(holder,fee,new)` tuple | 27,488 | 0.347 | |
+| **e17** | validate returns `Result<Pubkey>` (target); holder/cashback outside | **27,416** | **0.3633** | 7 B/9 B Pubkey pieces like orig (Pubkey at offset 1 of Result<Pubkey>) |
+| e8/e10 | split with `unwrap_or(false)` | 27,024 | 0.142 | extra None branch; 326 cold |
+| e12,e14,e16,e18,e19 | target from current_creator after block; global_quote in literal; validate returns sharing_update; block as closure; deferred init | | 0.25-0.34 | not kept |
+| e15 | sweep flag `matches!(sharing_update,Some(None))` | 27,552 | 0.255 | rejected |
+| e20/e21 | sweep `?` as `match` (both arm orders) | | 0.3633 | byte-identical |
+
+The prior lane rejected the CtoState and holder-split mechanisms on the difflib ratio, which is dominated by r10 offsets. `segab.py` (offsets and jumps masked) showed that both are closer to the original.
+
+Inline hot/cold: in the original, to_string is inlined at 284, 289, 298, 306, 296 and 326, and not at 307, 312, 330, 334 or 338 (`rem.sh` gives the remark sets).
+
+IR oracle (`irexp.py`; llc reproduces e17 exactly): giving the sweep's 648 dest-memcmp branch a mild continue-favoring weight (3:2 or 5:3) moves 719/648/660 to the original's offsets (0x21d8/0x2388/0x2588) and places the 5 KB transfer_creator_fees clone block before the pool CPI, as in the original. The ratio goes to 0.3765. The source mechanism that produces this probability is still open. 1:1 and 4:3 do not reproduce the layout.
+
+Remaining frame residuals: the wallet emit_cpi signer slice `_109.i` (16 B) is unmerged; the original merges it into a 24 B outer object at 0x680. The original has validate-region Result<Pubkey> pieces at 0x538-0x580, and its outer pieces sit at 0x658/0x668. Ours has the block-tuple copies `sharing_update2.sroa.3`/`target1` (no lifetime markers). There are 33 ISel 16 B temporaries against the original's 32.
