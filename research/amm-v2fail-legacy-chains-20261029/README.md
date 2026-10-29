@@ -178,10 +178,28 @@ Family E -- loop, deposit-first, and claim-last orderings:
   compared across images, because original and rebuilt sources
   differ in line numbers.
 
-## Verification
+## Saved-receipt verification
 
-Run `python3 verify.py` from this directory. It checks, from the
-packet files alone (plus the three program images):
+From the repository root:
+
+```sh
+python3 -B research/amm-v2fail-legacy-chains-20261029/verify.py
+```
+
+The defaults use the retained original image and the compressed candidate images
+from `amm-multi-hop-group-slice-recovery` (#424 control) and
+`amm-transfer-fee-diagnostic-recovery` (#427 candidate). To use images elsewhere,
+pass `--original /path/to/original.so --control /path/to/control.so --candidate
+/path/to/candidate.so`; each option accepts raw or gzip-compressed bytes. All
+three image hashes must still match the report.
+
+This command checks stored receipts, signatures and snapshots; it does not execute
+the transactions again. `producer.py` is the retained historical producer and
+keeps its original workspace paths and harness imports. Its introductory scenario
+summary is inherited from the preceding v2-exact packet; its `CASES` table and
+this report describe the fourteen failed-v2/legacy-recovery chains measured here.
+
+It checks, from the packet files alone (plus the three program images):
 
 - MANIFEST.json lists every packet file with a matching sha256.
 - runtime/report.json.gz: 14 cases, 210 receipts, 21 parts
