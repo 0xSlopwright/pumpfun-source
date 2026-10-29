@@ -62,7 +62,7 @@ The three-value tuple let was a loss on its own (vc, 0.7524) but helps once the 
 is computed in argument position: the candidate reaches the original's 3,440 B.
 | z1 | curve wrapper params reordered `(token_program,mint,destination,source,authority,amount,seeds)` | 3,440 | 0.8507 | 1020 / 188, no gains/losses | 2cae605e6d7e43559da4bc7075a1928a |
 | q3 | `let (_b,quote_token_program)=(&a.base_token_program,&a.quote_token_program);` before apply_buy, used by both quote transfers | 3,448 | 0.9278 | 1020 / 188, no gains/losses | 6a64cc639f1c472e8a85c2685008f604 |
-| q6 | q3 with `base_token_program` from the tuple used by the curve transfer | 3,456 | 0.9645 | 1020 / 188, no gains/losses | see ledger (program-tuple-binding-both-used) |
+| q6 | q3 with `base_token_program` from the tuple used by the curve transfer | 3,456 | 0.9645 | 1020 / 188, no gains/losses | db9e997f1c184ad8a90713364439b8e7 |
 
 ### Why round-1 early bindings were byte-identical
 
