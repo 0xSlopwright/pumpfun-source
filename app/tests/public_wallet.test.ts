@@ -303,3 +303,20 @@ test("optional disconnect absence explicitly distinguishes local forgetting from
   assert.equal(f.counts.disconnects, 0);
   f.controller.dispose();
 });
+
+test('selects a Solana account after another chain account and tracks changes', async () => {
+  const f = fixture();
+  f.accounts([{ address: '0xsynthetic', chains: ['eip155:1'] }, { address: A, chains: ['solana:mainnet'] }]);
+  f.controller.discover();
+  try {
+    await f.controller.connect(0);
+    assert.equal(f.controller.getSnapshot().status, 'connected');
+    assert.equal(f.controller.getSnapshot().address, A);
+    f.accounts([{ address: '0xsynthetic', chains: ['eip155:1'] }, { address: B, chains: ['solana:mainnet'] }]);
+    f.change({ accounts: [] });
+    assert.equal(f.controller.getSnapshot().address, B);
+    f.accounts([{ address: '0xsynthetic', chains: ['eip155:1'] }]);
+    f.change({ accounts: [] });
+    assert.equal(f.controller.getSnapshot().address, null);
+  } finally { f.controller.dispose(); }
+});
