@@ -429,7 +429,7 @@ fn v3_trade_fees(a:&SellV3,amount:u64)->Result<TradeFees>{
 
 // layout-pad(62): aligns the next Source site with the original line
 #[inline(always)] fn v3_fee_exempt(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{curve.is_mayhem_mode || *user==global.whitelist_pda}
-
+fn v3_can_cross(global:&Global,curve:&BondingCurve,user:&Pubkey)->bool{!v3_fee_exempt(global,curve,user)}
 
 
 
@@ -912,7 +912,7 @@ pub fn buy_exact_quote(mut ctx:Context<SellV3>,spendable_quote_in:u64,min_tokens
         (tokens,net,protocol_fee,creator_fee,protocol_fee_bps,creator_fee_bps)
     };
     let (amount,quote,fees,post,costs)=if tokens>curve.real_token_reserves{
-        let can_cross=!v3_fee_exempt(&a.global,curve,&a.user.key());
+        let can_cross=v3_can_cross(&a.global,curve,&a.user.key());
 
 
 
