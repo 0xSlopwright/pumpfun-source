@@ -38,3 +38,9 @@ t4: the direct-callee multiset equals the original's (154 calls, 3 syscalls), th
 sharing-config CPI clones are inlined as in the original, and the other 33 clone calls stay
 outlined. Zero losses (1020/188). win.py's difflib ratio falls because the block layout differs;
 block_jaccard and insn_jaccard (callgraph-census `blocksim.py`) both rise.
+| t5 | + gate `collect_old` computed before prepare_bonding_curve | 24,576 | 163 | | | 0.103 (call order closer, sharing_config CPI goes cold) |
+| t6 | + sweep / reset flags precomputed | 24,512 | 163 | | | 0.069 |
+
+t5/t6 not kept: in the original the gate flags are computed before prepare, but here that pushes the
+sharing_config CPI site below 2 % entry frequency. Next: tune what is computed early
+so physical order matches without losing the hot CPI sites; replace closures with named helpers.
