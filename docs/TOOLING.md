@@ -8,13 +8,19 @@ No command here signs or sends transactions to a network. LiteSVM uses local tes
 ## Verify the saved snapshot
 
 ```sh
-python3 scripts/verify_evidence.py
+python3 research/evidence-checks-optimized-python/verify.py
 python3 scripts/test_tooling.py
 python3 scripts/analyze.py
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python scripts/local_validation.py
 ```
+
+The saved-capture command uses the existing [optimization-safe entrypoint](../research/evidence-checks-optimized-python/README.md).
+It retains the pinned helpers' integrity checks under `-O`, `-OO` and
+`PYTHONOPTIMIZE`. The archived `scripts/verify_evidence.py` remains unchanged;
+its direct invocation requires unoptimized Python, as used by CI. This entrypoint
+checks saved captures only and adds no source-rebuild or runtime-equivalence claim.
 
 The validation script regenerates `audit/local-validation.json`. Evidence verification
 is distinct from reconstruction verification. Evidence CI checks captures, source manifests,
