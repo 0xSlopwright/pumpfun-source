@@ -222,7 +222,7 @@ fn validate_quote_mint<'info>(ctx:&Context<'_,'_,'_,'info,CreateV2<'info>>,remai
   (QuoteSource::Whitelisted,None)
  } else {
   let control=nested_create::quote_control(remaining_accounts.get(3))?;
-  match nested_create::control_account(control,&mint_key)? {
+  match nested_create::control_account(control,mint_key)? {
    Some(reserves)=>(QuoteSource::Controlled,Some((reserves,0))),
    None=>{
     let (reserves,depth)=nested_create::walk(remaining_accounts,&a.global)?;
@@ -295,9 +295,9 @@ pub(crate) fn overflow() -> anchor_lang::error::Error { error!(PumpError::Overfl
 
 
 #[inline(never)]
-pub(super) fn control_account(account: &AccountInfo<'_>, mint: &Pubkey) -> Result<Option<u64>> {
+pub(super) fn control_account(account: &AccountInfo<'_>, mint: Pubkey) -> Result<Option<u64>> {
     let data = account.try_borrow_data()?;
-    control_entry(&data, mint)
+    control_entry(&data, &mint)
 }
 
 // layout-pad(39): aligns the next Source site with the original line
