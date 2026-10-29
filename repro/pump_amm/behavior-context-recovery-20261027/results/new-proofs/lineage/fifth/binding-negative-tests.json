@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "rejected": [
+    "missing input",
+    "extra input",
+    "changed Rust source",
+    "changed registry source"
+  ],
+  "source_inputs": 226
+}

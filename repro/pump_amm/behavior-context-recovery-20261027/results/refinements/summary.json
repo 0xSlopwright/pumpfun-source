@@ -1,0 +1,10 @@
+[
+  {
+    "suite": "virtual",
+    "cases": 60
+  },
+  {
+    "suite": "predicate",
+    "cases": 16
+  }
+]
