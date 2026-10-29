@@ -105,14 +105,34 @@ The inlining boundary is clearly different. The original:
   (LLVM inlines `Clone::clone` bottom-up into the small helper, then the helper into execute), or built
   through a path whose clone is MIR-inlined. Test: move each CPI into a separate non-`inline(never)` fn.
 
-### 0x1e7c0 create_v2::execute, 0x6cd78 process_cashback_inner, 0x22a10 (error-message form)
+### Inline decisions are a per-site hot/cold bit (confirmed with inliner remarks)
 
-The fmt/to_string differences are per-site LLVM decisions on the same `From<PumpError>`
-expansion (no macro-form correlation: `require!` sites show both forms). Without a profile LLVM treats
-a call site as cold when its block frequency is under 2 % of entry and drops the threshold, so an
-`fmt` (ToString inlined) site in the original that is `to_string` in ours sits under less conditional
-nesting in the original. Flips (orig/ours): create_v2.rs:205, :210, :541 fmt/to_string; sell.rs:85
-to_string in orig. These are block-frequency hints for the reconstruction lanes, not helper-boundary fixes.
+`capture_inline.py` (experiment-only `-C remark=inline` on the root crate; same unstripped hash as the
+source build) shows the two small callees that differ between the builds sit exactly between LLVM's
+cold-callsite threshold and the inline-hint threshold:
+
+| callee | cost | outlined at cold sites | inlined at normal sites |
+|---|---:|---|---|
+| `<AccountInfo as Clone>::clone` | 60 | threshold 45 | threshold 325 |
+| `<T as ToString>::to_string` (inside `From<PumpError>`) | 130 | threshold 45 | threshold 325 |
+
+Without profile data LLVM calls a site cold when its block frequency is below 2 % of the function's
+entry frequency. So every original site where `clone` or `to_string` is **inlined** (no call; for
+to_string a direct `<PumpError as Display>::fmt` call) is at >= 2 % entry frequency in the original CFG,
+and every site where it is a call is below 2 %. This gives the reconstruction lanes a hotness bit per
+site:
+
+- admin_cto (0x22a10): the original's transfer_creator_fees_to_pump_v2 (13 accounts) and
+  admin_cto_sharing_config (8) CPIs are hot; in ours every clone site in execute is cold. Something in
+  our execute's control flow drops the frequency below 2 % much earlier than in the original.
+- create_v2 (0x1e7c0): create_v2.rs:205, :210, :541 are hot in the original (fmt) but cold in ours
+  (to_string); 11 vs 6 hot error sites overall.
+- process_cashback_inner (0x6cd78): sell.rs:85 is cold in the original, hot in ours.
+- claim_v2 (0x77940): the original's two clones at pos 26/55 and the to_string at :333.
+
+Extracting a CPI into a small helper makes its clones inline (the helper's entry is hot), but the
+helper is then not inlined back (t9/t11); `#[inline(always)]` inlines it before the clones (t10). The
+fix has to be control flow (block frequency), not helper boundaries.
 
 ### 0x72810 sweep::execute
 
@@ -134,3 +154,16 @@ See the ledger (`--lane callgraph-census`) and the table below (filled as trials
 
 | trial | target | mechanism | result |
 |---|---|---|---|
+| t1 | 0x5b3b0 | `route_event` -> `#[inline(always)]` literal emit!/emit_cpi! expansion | ratio 0.1575 -> 0.1690, calls 94 -> 121, all event-callee diffs gone (ledger 15443db7) |
+| t2 | 0x5b3b0 | + sub3 x2, buy_fee_market_cap, tokens_for_quote, post_complete_buy_event, quote_payments::transfer_native | 0.2078, 113 calls, 20,264 B (ab955690) |
+| t3 | 0x5b3b0 | + one hoisted fee_config data_len, buyback_fee = received_buyback | **0.2229, 108 calls (orig 107), 19,024 B (orig 18,584); kept in source** (1f217d1e) |
+| t4 | 0x5b3b0 | + validate_buyback args without clones | 106 calls, ratio 0.127 (141c0f0f) |
+| t5 | 0x5b3b0 | + one of the two validate clones removed | 107 calls, callee multiset identical, ratio 0.119 (a5064c2b) |
+| t6 | 0x5b3b0 | t4 + `mint_key = h.base_mint.to_account_info().key` (orig seeds point into a temporary clone's key) | multiset identical, 18,552 B (32 B short), insn-jaccard 0.354 > t3 0.349, win.py ratio 0.127; `t6-call-multiset-exact.patch` (75e75861) |
+| t7 | 0x77940 | manual lamport credit instead of `add_lamports` | add_lamports/lamports/try_borrow_mut/From counts equal orig, aligned 48 -> 52, ratio 0.167 -> 0.164 (8179d4d2) |
+| t8 | 0x77940 | t7 + `data_is_empty()` before `try_borrow_data` | multiset diff down to fmt/to_string and clone 6 vs 8, ratio 0.163 (5aeb7a66) |
+| t9-t11 | 0x22a10 | CPI or accounts-struct helper for transfer_creator_fees | clones inline inside helper, helper stays outlined; inline(always) undoes it (db8120b9) |
+
+win.py's ratio is a difflib alignment and collapses when LLVM re-lays blocks (t4-t6 match the
+original's callee multiset and size far better yet score lower). `blocksim.py` gives order-insensitive
+block and instruction Jaccard as a second diagnostic.
