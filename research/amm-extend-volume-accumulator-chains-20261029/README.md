@@ -57,10 +57,12 @@ user unless a step says otherwise. 10 cases, 32 steps, 96 receipts
 
 ## Result
 
-All 10 cases pass on all three images with byte-identical observed
-surfaces (steps, errors, event counts, snapshots). Measured values:
+All 10 cases pass on all three images with identical observed
+surfaces (steps, errors, event counts, and account snapshots with
+fee-payer lamports excluded, as verify.py compares them). Measured
+values:
 
-- Extend 90 -> 137 preserves every field byte-for-byte and tops
+- Extend 90 -> 137 preserves every decoded accumulator field and tops
   the balance up to the 137-byte rent-exempt 1,844,400 (payer
   -332,120 = 5,000 fee + 47*6960 rent delta), emitting one
   96-byte ExtendAccount event (disc 6161d7905d92167c, timestamp
@@ -85,9 +87,10 @@ surfaces (steps, errors, event counts, snapshots). Measured values:
   the extend reports the truncated layout in the close event
   (unc 500, claimed 188, vol 0, last 0).
 - Extend of a missing account (after a close) fails 2004
-  ConstraintOwner (caused by account: account), not 3012: the
-  missing account's default owner fails the program-owner check
-  before any existence check. Full rollback, fee payer -5,000.
+  ConstraintOwner (caused by account: account), not 3012. A likely
+  reading (inferred, not separately tested) is that the missing
+  account's default owner fails the program-owner check before any
+  existence check. Full rollback, fee payer -5,000.
   A re-init after it creates a fresh 137-byte account, and a
   further extend on that fresh account is a silent no-op.
 - Extend with an unsigned user fails 3010 AccountNotSigner
@@ -97,8 +100,9 @@ surfaces (steps, errors, event counts, snapshots). Measured values:
   fails 2000 ConstraintMut (caused by account: account), same
   recovery (signed extend, then claim pays 500).
 - Extend twice: the second extend is a silent no-op (0 events,
-  -5,000), proving the first extend already reached target.
-- Close refunds are balance-driven, not size-driven: a prefunded
+  -5,000), consistent with the first extend having reached target.
+- In the two measured cases, close refunds follow the balance, not
+  the size: a prefunded
   extended account (10^9 + 605,520 after a 50-byte extend) closes
   for 1,000,600,520, while a rent-exact extended account closes
   for 1,839,400. The close event always reports the live fields.
@@ -123,10 +127,12 @@ accumulator state, decoded events, error codes, and rollback.
   is claimed: this packet pins executed behaviour on three
   images only.
 
-## Reproduction
+## Verify and provenance
+
+Run from the repository root:
 
 ```
-python3 verify.py
+python3 research/amm-extend-volume-accumulator-chains-20261029/verify.py
 ```
 
 Expected output:
@@ -134,3 +140,14 @@ Expected output:
 ```
 PASS: 10 cases, 96 receipts, 10 parts, 3 images agree (signatures, deltas, events, error codes/sites, rollback)
 ```
+
+verify.py re-checks the retained receipts only; it does not re-execute
+any transaction. It hashes the three program images from the
+repository: `evidence/original/pump_amm/deployed.so` (original),
+`research/amm-multi-hop-group-slice-recovery/artifacts/candidate.so.gz`
+(#424 control) and
+`research/amm-transfer-fee-diagnostic-recovery/artifacts/candidate.so.gz`
+(#427 candidate), the last two decompressed before hashing.
+`producer.py` records how the receipts were produced but is not
+runnable as committed: it expects a private `~/workspace` layout
+(`pumpfun-sparse`, `slop-verify`) that is not part of this repository.
