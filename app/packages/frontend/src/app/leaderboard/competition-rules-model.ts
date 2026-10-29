@@ -35,14 +35,12 @@ const number = new Intl.NumberFormat("en");
 function amount(text: string): string {
   const trimmed = text.trim();
   if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return text;
-  const value = Number(trimmed);
-  // Defensive local guard for direct callers; admitted amounts are <=200 chars.
-  if (!Number.isFinite(value)) return text;
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
-  }).format(value);
+  const [whole, fraction = ""] = trimmed.split(".");
+  const formatWhole = (value: bigint) => new Intl.NumberFormat("en", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  if (!/[1-9]/.test(fraction)) return formatWhole(BigInt(whole));
+  let cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
+  if ((fraction[2] ?? "0") >= "5") cents += 1n;
+  return `${formatWhole(cents / 100n)}.${(cents % 100n).toString().padStart(2, "0")}`;
 }
 
 export function competitionRules(competition: CompetitionSummary) {
