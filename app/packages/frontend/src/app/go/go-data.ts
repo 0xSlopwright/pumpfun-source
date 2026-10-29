@@ -141,10 +141,23 @@ function optionalIsoDate(
 ): string | undefined {
   const value = record[field];
   if (value === undefined) return undefined;
+  const parts =
+    typeof value === "string"
+      ? value.match(
+          /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/,
+        )
+      : null;
   if (
     typeof value !== "string" ||
     value.length > 40 ||
-    !Number.isFinite(Date.parse(value))
+    !parts ||
+    !Number.isFinite(Date.parse(value)) ||
+    Number(parts[4]) > 23 ||
+    Number(parts[5]) > 59 ||
+    Number(parts[6]) > 59 ||
+    new Date(`${parts[1]}-${parts[2]}-${parts[3]}T00:00:00Z`)
+      .toISOString()
+      .slice(0, 10) !== value.slice(0, 10)
   ) {
     throw new GoEvidenceError(`${context} ${field} is invalid`);
   }
@@ -587,7 +600,8 @@ export function queryArchivedBounties(
   const sorted = [...filtered].sort((left, right) => {
     let result = 0;
     if (query.sort === "createdAt")
-      result = (Date.parse(left.createdAt) - Date.parse(right.createdAt)) * direction;
+      result =
+        (Date.parse(left.createdAt) - Date.parse(right.createdAt)) * direction;
     else if (query.sort === "rewardTotalUsd")
       result = compareOptionalNumbers(
         left.rewardTotalUsdAtCapture,

@@ -149,3 +149,9 @@ test("malformed bounty records fail schema validation", () => {
     GoEvidenceError,
   );
 });
+
+test('archived bounty dates require real ISO instants',()=>{
+  const base={taskId:'11111111-1111-4111-8111-111111111111',creatorAddress:'1'.repeat(32),status:'PUBLISHED',createdAt:'2026-10-29T00:00:00Z',title:'Synthetic',bodyMarkdown:'Synthetic body',counts:{submissionCount:0},rewardLegs:[]};
+  for(const field of ['createdAt','expiresAt']) for(const value of ['1','10/29/2026','2026-02-30T00:00:00Z','2025-02-29T00:00:00Z','2026-10-29T24:00:00Z']) assert.throws(()=>validateArchivedBounty({...base,[field]:value},'2026-10-29T12:00:00Z'),/invalid/);
+  assert.doesNotThrow(()=>validateArchivedBounty({...base,expiresAt:'2026-10-30T00:00:00+05:30'},'2026-10-29T12:00:00Z'));
+});
