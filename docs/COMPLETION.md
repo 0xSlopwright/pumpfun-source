@@ -1,6 +1,22 @@
 # Completion and remaining work
 
-Current selected artifacts must agree with [status.json](../repro/status.json) and the complete pass-26 byte/function index. Whole-file identity remains **0/4 core programs**. Dependency capture images remain **2/5**; only SPL Token is a whole-file exact raw compiler output (**1/5**). Token-2022 and Metaplex allocation images are recorded separately from shorter raw compiler output. No overall reconstruction percentage follows from finite tests or normalized function matches.
+## Current maintained selections
+
+Use the [maintained coverage table and qualifications](../README.md#current-qualifications-and-remaining-work)
+for the current selection. Fees, Mayhem and Donation Relay reproduce their complete
+meaningful ELF under those qualified recipes; Pump and AMM still have unmatched
+windows and do not reproduce their complete meaningful files. Meaningful ELF
+identity, allocated-image identity, normalized window matches and finite runtime
+comparisons remain distinct claims. The linked qualifications bind the source,
+builds and receipts; they do not establish a complete security review.
+
+The pass-26 selection and older checkpoint notes below are retained for provenance.
+Their candidate hashes, counts, exclusions and uses of “current” describe those
+checkpoints, rather than replacing the maintained selections linked above.
+
+## Historical pass-26 selection
+
+The pass-26 selected artifacts agree with its [status.json](../repro/status.json) and complete byte/function index. At that checkpoint, whole-file identity remained **0/4 core programs**. Dependency capture images remained **2/5**; only SPL Token was a whole-file exact raw compiler output (**1/5**). Token-2022 and Metaplex allocation images were recorded separately from shorter raw compiler output. No overall reconstruction percentage follows from finite tests or normalized function matches.
 
 | Program | Selected executable SHA256 prefix | Differing or missing captured positions |
 | --- | --- | ---: |
@@ -24,7 +40,7 @@ Stopped executions remain excluded: the new Pump sell_v2 corrective/transfer-fee
 
 ## Historical checkpoint notes
 
-Everything below is retained verbatim from the prior document for provenance. References to “current,” “latest,” candidate hashes, compiler selection, or counts in this historical text describe its earlier checkpoint. The current selection and remaining work are stated above and in the latest machine-readable status/index. Historical implementation and test claims must not be transferred to later artifacts without explicit source/build/receipt bindings.
+Everything below is retained verbatim from the prior document for provenance. References to “current,” “latest,” candidate hashes, compiler selection, or counts in this historical text describe its earlier checkpoint. Current maintained selections and remaining work are linked at the top of this document; the pass-26 status/index is historical. Historical implementation and test claims must not be transferred to later artifacts without explicit source/build/receipt bindings.
 
 # Completion and remaining work
 
