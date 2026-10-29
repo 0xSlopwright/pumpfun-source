@@ -148,14 +148,13 @@ pub fn execute(ctx:Context<SweepFees>,creator:bool)->Result<()>{
   amount=a.bonding_curve.protocol_fees;a.bonding_curve.protocol_fees=0;
  }
  if amount==0{msg!("Nothing to sweep for fee bucket {}",creator as u8);return Ok(());}
- if creator&&a.bonding_curve.quote_mint==Pubkey::default(){
+ let native=a.bonding_curve.quote_mint==Pubkey::default();
+ if creator&&native{
    let minimum=Rent::get()?.minimum_balance(0);
    if a.recipient.lamports()<minimum{
     crate::legacy_buy::native_payments::transfer(a.system_program.as_ref(),&a.payer,a.recipient.as_ref(),minimum)?;
    }
- }
- let native=a.bonding_curve.quote_mint==Pubkey::default();
- if !native{
+ }else if !native{
   let quote_mint=a.quote_mint.key();let quote_token_program=a.quote_token_program.key();let quote_mint_info=a.quote_mint.to_account_info();let quote_token_program_info=a.quote_token_program.to_account_info();
   crate::buy_v2::admit_associated_token_account(a.associated_quote_bonding_curve.as_ref(),&a.bonding_curve.to_account_info(),quote_mint,quote_token_program,&quote_mint_info,&quote_token_program_info,false,a.payer.as_ref(),a.system_program.as_ref())?;
   crate::buy_v2::admit_associated_token_account(a.associated_quote_recipient.as_ref(),a.recipient.as_ref(),quote_mint,quote_token_program,&quote_mint_info,&quote_token_program_info,true,a.payer.as_ref(),a.system_program.as_ref())?;
