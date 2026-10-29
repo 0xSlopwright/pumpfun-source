@@ -11,8 +11,13 @@ import {
   type LocalProfile,
 } from "./profile-data";
 
+import {
+  loadLocalFollowGraph,
+  type LocalFollowGraphResult,
+} from "./profile-follow-graph";
+
 export type LocalProfileLoadResult =
-  | { ok: true; profile: LocalProfile }
+  | { ok: true; profile: LocalProfile; followGraph: LocalFollowGraphResult }
   | {
       ok: false;
       reason: "invalid-identifier" | "not-found" | "invalid-data";
@@ -41,7 +46,13 @@ export async function loadLocalProfile(
     );
     const profile = resolveLocalProfile(dataset, identifier);
     return profile
-      ? { ok: true, profile }
+      ? {
+          ok: true,
+          profile,
+          followGraph: await loadLocalFollowGraph(dataset, profile, () =>
+            readFile(resolve(backendSource, "following-seed.json")),
+          ),
+        }
       : {
           ok: false,
           reason: "not-found",

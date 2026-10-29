@@ -41,7 +41,7 @@ export function sha256(bytes: Uint8Array): string {
 }
 
 export function parseProfileSeedBytes(
-  label: "posts" | "users",
+  label: "posts" | "users" | "following",
   bytes: Uint8Array,
   expectedSha256: string,
 ): unknown {

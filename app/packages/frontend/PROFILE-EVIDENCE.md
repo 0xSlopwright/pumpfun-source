@@ -69,7 +69,7 @@ placeholder preserve the offline/network boundary.
 - Authored posts include only validated visible roots. Replies, quotes, reposts,
   hidden rows, and deleted rows are not promoted into the Posts view.
 - All visible data carries synthetic-data disclosure. No ownership, live
-  activity, relationship, verified status, or native API compatibility is
+  activity, real relationship, verified status, or native API compatibility is
   inferred.
 
 ## Qualification
@@ -176,3 +176,54 @@ posttest; captured runtime execution was not authorized or attempted. The local
 partial checkout. These are missing-input failures, not passing qualification
 gates. No screenshots, captures, receipts, seed changes or ledger increases are
 included in this follow-up.
+
+## Local follow graph lists (2026-10-29)
+
+The profile now also reads the existing backend `following-seed.json` on the
+server. Its exact SHA-256 is
+`37a0e7710055e94dd6035e3e6c418eac16797095471601ed059440ee97530dae`.
+This adds an actual UI consumer for the previously backend-only synthetic graph,
+not a website API transport or an authenticated social state.
+
+Source and contract boundaries:
+
+- [Original exported follow-list client](../../contracts/ORIGINAL-FOLLOW-LIST.md)
+  binds captured **500056.Q** to the followers/following list reads and default
+  `followers` sort. The retained source does not establish a rendered original
+  profile list or modal. It is not executed or modified by this feature.
+- Captured **972407**, documented in the walletless identity section above,
+  and `contracts/developer.openapi.json` declare compact graph rows and their
+  identity fields. Their developer-host bearer credential is not used here.
+- [Existing local following model](../backend/FOLLOWING.md) supplies the
+  hand-authored directed edges and deterministic default ordering: descending
+  stored follower count, username, then stable user id/address. That tie-break
+  and the small seed's contents are local design, not observed production ranking.
+- The existing profile route helper evidence (**146695**) supports encoded
+  identity routes. The lists link to exact canonical local user ids, falling back
+  to a wallet only when the profile has no user id.
+
+The two inline lists, all-at-once presentation, labels, unavailable state and
+responsive layout are local design. They show all validated edges of this small
+seed. There is no search, pagination, recent-sort control, modal, mutation,
+viewer, mutual relationship, refresh loop, API key, production origin or HTTP
+request added. Recorded banned profiles remain visibly marked as in the local
+store; this does not establish production social visibility policy. Remote
+avatars and other media never enter the graph view model.
+
+The existing aggregate profile counters remain unchanged and are explicitly
+separate from the local graph's edge counts. Every edge must resolve to the
+validated profile dataset; malformed edges, duplicate canonical pairs and unknown
+identities fail the graph as a whole. Missing files or a hash mismatch produce
+an unavailable graph, while the existing identity and post view remain available.
+A successfully validated empty side displays an explicit empty state.
+
+`tests/profile_follow_graph.test.ts` covers both directions, exact bytes, count
+separation, stable ordering, walletless/wallet-only identity, duplicate aliases,
+unknown members, malformed edges, missing reads and changed bytes. The focused
+browser regression first failed because no Local follow graph existed, then
+passed list ordering, links/history, wallet aliases, empty and banned examples,
+network boundaries and four viewport widths. All six existing profile browser
+cases also pass. Local screenshots at 320 and 1280 pixels are in
+`visual/profile-follow-graph-20261029/`; no equivalent original profile screenshot
+was captured, so original visual parity and full profile/graph compatibility
+remain unqualified. No feature completion milestone is newly credited.

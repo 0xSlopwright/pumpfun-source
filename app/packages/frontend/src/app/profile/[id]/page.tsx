@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FeedList } from "@/components/feed/FeedList";
+import { ProfileFollowGraph } from "@/components/profile/ProfileFollowGraph";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { loadLocalProfile } from "@/components/profile/profile-snapshot";
 
@@ -62,6 +63,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       ) : null}
 
       <ProfileHeader profile={profile} />
+
+      <ProfileFollowGraph result={result.followGraph} />
 
       <section className="profile-posts" aria-labelledby="profile-posts-title">
         <div className="profile-section-heading">
