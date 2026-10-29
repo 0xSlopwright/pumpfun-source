@@ -129,9 +129,15 @@ class UpstreamProvenanceTests(unittest.TestCase):
 
     def test_successor_rejects_provenance_commit_rewrite(self):
         with SealedCopy(full=False) as root:
-            rewrite_json(root / 'evidence/upstream/provenance.json', lambda record: record.__setitem__('commit', '0' * 40))
-            with self.assertRaisesRegex(verify.UpstreamEvidenceError, 'provenance.json sha256'):
+            path = root / 'evidence/upstream/provenance.json'
+            rewrite_json(path, lambda record: record.__setitem__('commit', '0' * 40))
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            with self.assertRaises(verify.UpstreamEvidenceError) as caught:
                 verify.check(root)
+            self.assertEqual(
+                str(caught.exception),
+                f'provenance.json sha256 {digest} does not match pinned {verify.FILE_SHA256["provenance.json"]}',
+            )
 
     def test_successor_rejects_scope_address_rewrite(self):
         with SealedCopy(full=False) as root:
