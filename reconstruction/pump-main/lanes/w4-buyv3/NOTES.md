@@ -60,3 +60,14 @@ Without `#[inline(always)]`, the MIR inliner leaves `v3_cross_ok` as a call, and
 | **t44** | existing `v3_can_cross` (non-inline, `!v3_fee_exempt`) | 3680 | **0.93138** | 38 | 0 (byte-identical to t40) |
 
 Once the helper is inlined by LLVM, the spelling no longer matters (t42/t43/t44 are identical), so the `==false` helper is dropped. The committed change is a single line: `buy` uses `v3_can_cross` the same way `buy_exact_quote` does.
+| t45 | tail (require/execute/emit) in a nested non-inline fn | 2912 | 0.27353 | 462 | not inlined by LLVM (21 calls) |
+| t46-t51 | `if let Err(e)=costs{return Err(e)}` / match Err-first forms | 3680 | 0.60067 | 249 | 0 (frame +0x20) |
+
+## Lever 3 (still open): the v3_buy_costs Err block
+On the t44 IR, the oracle finds two equivalent fixes: `bb76>bb83` (costs Err after the execute Err; 12 slots, 0.982) and `bb50>bb76` (ret right after the costs Err; 15 slots).
+`flipsearch.py` tried reversing the successor order of every 2-way and n-way switch in the raw CFG; no flip gives either layout. A direct `?` always creates its Err arm at the call's switch, early in RPO, and no successor order changes that.
+Forms that create the Err arm first (`if let Err`, an Err-first match) change the creation order but grow the frame by 0x20. Wrapping the tail in a `match` keeps the result alive and grows the frame by 0x18. A big helper fn is not inlined by LLVM (hidden linkage).
+Untried ideas:
+- A small LLVM-inlined (no inline attribute) helper on the Ok path whose callee blocks hold the remaining error chain. It has to stay under LLVM's inline threshold.
+- A CFG where the Err payload copy sits in a multi-pred drop-tree node that rustc creates while codegenning the arm, with the arm itself emptied by hoisting the +16 load.
+- Check whether the original's +16 load hoist (`ldxdw r3,[r10-0x98]` before the branch) comes from MI-level branch folding rather than IR.

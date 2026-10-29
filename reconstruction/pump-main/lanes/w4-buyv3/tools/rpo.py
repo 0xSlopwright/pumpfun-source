@@ -22,6 +22,7 @@ for l in L[1:]:
 for b in order:
     succ[b]=[x.replace('__D__','') for x in succ[b]]
     if b in flips and kind[b]=='2': succ[b]=succ[b][::-1]
+    elif b in flips and kind[b]=='n': succ[b]=succ[b][:-1][::-1]+succ[b][-1:]
 def rpo(entry):
     seen={entry}; post=[]; stack=[(entry,iter(succ[entry][::-1]))]
     while stack:
