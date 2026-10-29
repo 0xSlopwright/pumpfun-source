@@ -190,7 +190,7 @@ fn create_quote_config(mint:Pubkey,remaining:&[AccountInfo<'_>],g:&Global)->Resu
 
 
 
-#[inline(always)]
+
 fn initialize_quote_accounts<'info>(ctx:&Context<'_,'_,'_,'info,CreateV2<'info>>)->Result<(Pubkey,CreateQuoteConfig)>{
  let a=&ctx.accounts;let remaining=ctx.remaining_accounts;
  if remaining.is_empty(){return Ok((Pubkey::default(),CreateQuoteConfig::Native));}
@@ -536,7 +536,7 @@ fn create_event<'info>(name:String,symbol:String,uri:String,creator:Pubkey,mint:
 
 
 
-#[inline(always)]
+
 fn validate_create_metadata(name:&String,symbol:&String,uri:&String)->Result<()>{
  require_gte!(
   32usize,
