@@ -104,6 +104,21 @@ for (const width of [390, 1280]) {
     await expect(
       dialog.getByRole("button", { name: "Close", exact: true }),
     ).toBeFocused();
+    // Exercise both boundaries and the browser's ordinary interior tab order.
+    for (let cycle = 0; cycle < 2; cycle++) {
+      await page.keyboard.press("Tab");
+      await expect(terms).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(
+        dialog.getByRole("button", { name: "Close", exact: true }),
+      ).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(terms).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(
+        dialog.getByRole("button", { name: "Close", exact: true }),
+      ).toBeFocused();
+    }
     const box = await dialog.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
