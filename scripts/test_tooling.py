@@ -17,6 +17,18 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class DataLayoutAddressTests(unittest.TestCase):
+    def test_string_address_uses_virtual_address(self):
+        blob = bytearray(0x40)
+        blob[0x20:0x24] = b'TEST'
+        elf = SimpleNamespace(
+            b=bytes(blob),
+            lo=0x2000,
+            hi=0x3000,
+            secs={'.rodata': (0, 1, 2, 0x1000, 0x20, 0x10, 0, 0, 1, 0)},
+        )
+        report = deep_section_analysis.analyze_data_layout(elf)
+        self.assertEqual(report['.rodata']['strings'][0]['address'], '0x1000')
 class SectionTerminalStringTests(unittest.TestCase):
     def test_terminal_strings_match_delimited_strings(self):
         for section in ('.rodata', '.data.rel.ro'):
