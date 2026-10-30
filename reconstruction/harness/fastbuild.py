@@ -16,6 +16,7 @@ Usage: fastbuild.py --src <crate dir with Cargo.toml/Cargo.lock/src[/recovered]>
   gated on ok (including exactsol-introspection capture.py) consequently skip IR extraction.
 """
 import argparse, hashlib, json, os, shutil, subprocess, sys, time, tomllib, fcntl, tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 H = Path(__file__).resolve().parent
@@ -81,6 +82,23 @@ def acquire_slot():
         time.sleep(0.5)
 
 
+@contextmanager
+def workspace_lock(work: Path):
+    """Protect staging, target invalidation and publication for one work directory."""
+    work = work.resolve()
+    work.mkdir(parents=True, exist_ok=True)
+    # Keep the inode after releasing it; unlinking would permit split locks.
+    with (work / '.fastbuild.lock').open('a+b') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError(f'build workspace already in use: {work}') from error
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def archive_previous_outputs(out: Path):
     """Keep old evidence separate from the next attempt's canonical output paths."""
     names = ('unstripped.so', 'candidate.so', 'build.log')
@@ -96,6 +114,11 @@ def archive_previous_outputs(out: Path):
 
 
 def build(src: Path, work: Path, out: Path, quiet=False, recipe=None):
+    with workspace_lock(work):
+        return _build_locked(src, work, out, quiet=quiet, recipe=recipe)
+
+
+def _build_locked(src: Path, work: Path, out: Path, quiet=False, recipe=None):
     recipe = recipe or DEFAULT_RECIPE
     R = RECIPES[recipe]; triple = R['triple']
     src = src.resolve(); work = work.resolve(); out = out.resolve()
