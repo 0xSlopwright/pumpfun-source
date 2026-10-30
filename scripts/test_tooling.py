@@ -15,6 +15,30 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class SectionTerminalStringTests(unittest.TestCase):
+    def test_terminal_strings_match_delimited_strings(self):
+        for section in ('.rodata', '.data.rel.ro'):
+            for text in (b'abcd', b'x' * 240):
+                with self.subTest(section=section, length=len(text)):
+                    def report(data):
+                        elf = SimpleNamespace(
+                            b=b'!' * 16 + data, lo=0x1000, hi=0x2000,
+                            secs={section: (0, 1, 2, 16, 16, len(data), 0, 0, 1, 0)},
+                        )
+                        return deep_section_analysis.analyze_data_layout(elf)[section]
+                    terminal = report(b'\0' + text)
+                    delimited = report(b'\0' + text + b'\0')
+                    self.assertEqual(terminal['strings'], delimited['strings'])
+                    self.assertEqual(terminal['string_count'], 1)
+                    self.assertEqual(terminal['strings'][0]['length'], len(text))
+                    self.assertEqual(terminal['strings'][0]['value'], text.decode()[:200])
+
+    def test_short_terminal_run_is_ignored(self):
+        elf = SimpleNamespace(b=b'abc', lo=0x1000, hi=0x2000,
+            secs={'.rodata': (0, 1, 2, 0, 0, 3, 0, 0, 1, 0)})
+        self.assertEqual(deep_section_analysis.analyze_data_layout(elf)['.rodata']['strings'], [])
+
+
 class RelocationTargetTests(unittest.TestCase):
     def test_target_section_uses_address_not_file_offset(self):
         blob = bytearray(64)

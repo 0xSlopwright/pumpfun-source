@@ -92,6 +92,14 @@ def analyze_data_layout(elf):
                 current = []
                 current_start = None
 
+        if len(current) >= 4:
+            strings.append({
+                "offset": current_start,
+                "address": hex(start + current_start),
+                "length": len(current),
+                "value": "".join(current)[:200],
+            })
+
         # Zero padding analysis
         zero_runs = []
         in_zero = False
