@@ -22,6 +22,13 @@ it, function by function, with the deployed original in
 
 ## Setup
 
+The tree-diff helper uses portable `/` paths in generated source patches. Its
+Git patch round-trip tests run on Windows and POSIX with only Python and Git:
+
+```bash
+python reconstruction/harness/test_treediff.py
+```
+
 The macOS v1.44 SDK is not stored in git (its `librustc_driver` is 134 MB, over
 GitHub's per-file limit). Install it once with `cargo-build-sbf --tools-version v1.44`
 so it lives at `~/.cache/solana/v1.44/platform-tools`, then run:
