@@ -49,7 +49,7 @@ def main():
             check(m['owner']=='BPFLoader2111111111111111111111111111111111')
             check(m['genesis_hash']=='5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d')
             check(m.get('last_deploy_slot') is None and m.get('upgrade_authority') is None and not any(k in m for k in ('programdata','programdata_sha256','programdata_bytes')))
-            elf_layout(b); print(folder.relative_to(ROOT),'OK (legacy loader)'); count+=1; continue
+            check(elf_layout(b)['trailing_all_zero']); print(folder.relative_to(ROOT),'OK (legacy loader)'); count+=1; continue
         p=(folder/'program-account.bin').read_bytes(); d=(folder/'programdata-account.bin').read_bytes(); b=(folder/'deployed.so').read_bytes()
         check(sha(p)==m['program_sha256']); check(sha(d)==m['programdata_sha256']); check(sha(b)==m['payload_sha256'])
         check(len(p)==36 and struct.unpack_from('<I',p)[0]==2)
