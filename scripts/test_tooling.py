@@ -126,6 +126,121 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class SyscallFingerprintTests(unittest.TestCase):
+    def test_mixed_calls_preserve_order_and_skip_lddw_data(self):
+        call = lambda src, imm: struct.pack('<BBhI', 0x85, src, 0, imm)
+        code = (call(0, 0x207559bd) + call(0x10, 0xffffffff)
+                + call(0x10, 0xffffffff) + call(0, 0x12345678)
+                + struct.pack('<BBhi', 0x18, 0, 0, 0) + call(0, 0x207559bd)
+                + call(0x10, 0xffffffff) + call(0x10, 1))
+        # Symbol 1 is imported, symbol 2 is a defined BPF function.
+        dynsym = bytes(24) + struct.pack('<IBBHQQ', 0, 0, 0, 0, 0, 0)
+        dynsym += struct.pack('<IBBHQQ', 0, 2, 0, 1, 16, 8)
+        rel = b''.join(struct.pack('<QQ', at, (idx << 32) | 10)
+                       for at, idx in ((8, 1), (16, 2), (48, 1)))
+        elf = SimpleNamespace(b=code + dynsym + rel, symbols={1: 'abort', 2: 'helper'},
+            secs={'.dynsym': (0, 11, 0, 0, len(code), len(dynsym), 0, 0, 8, 24),
+                  '.rel.dyn': (0, 9, 0, 0, len(code)+len(dynsym), len(rel), 0, 0, 8, 16)})
+        fp = deep_disassembly.fingerprint_window(elf, 0, len(code))
+        self.assertEqual(fp['syscall_sequence'],
+                         ['sol_log_64_', 'abort', 'unknown_0x12345678', 'abort'])
+        self.assertEqual(fp['opcode_count'], 7)
+
+    def test_missing_invalid_and_noncall_relocations(self):
+        code = struct.pack('<BBhI', 0x85, 0x10, 0, 0xffffffff)
+        for typ, index, entry_size in ((8, 1, 24), (10, 5, 24), (10, 1, 0)):
+            with self.subTest(typ=typ, index=index, entry_size=entry_size):
+                sym = bytes(48)
+                rel = struct.pack('<QQ', 0, (index << 32) | typ)
+                elf = SimpleNamespace(b=code + sym + rel, symbols={1: 'abort'},
+                    secs={'.dynsym': (0, 11, 0, 0, 8, 48, 0, 0, 8, entry_size),
+                          '.rel.dyn': (0, 9, 0, 0, 56, 16, 0, 0, 8, 16)})
+                self.assertEqual(deep_disassembly.fingerprint_window(
+                    elf, 0, 8)['syscall_sequence'], [])
+        elf.secs = {}
+        self.assertEqual(deep_disassembly.fingerprint_window(elf, 0, 8)['syscall_sequence'], [])
+
+    def test_unresolved_relocation_does_not_become_literal_syscall(self):
+        code = struct.pack('<BBhI', 0x85, 0, 0, 0x207559bd) * 2
+        for sections in ({}, {'.dynsym': (0, 11, 0, 0, 16, 24, 0, 0, 8, 0),
+                              '.rel.dyn': (0, 9, 0, 0, 16, 16, 0, 0, 8, 16)}):
+            with self.subTest(sections=sections):
+                elf = SimpleNamespace(b=code, secs=sections, symbols={},
+                                      relocations={0: {'type': 10, 'symbol': 'unresolved'}})
+                self.assertEqual(deep_disassembly.fingerprint_window(
+                    elf, 0, len(code))['syscall_sequence'], ['sol_log_64_'])
+
+    def test_captured_import_sequences(self):
+        for name, count in (('pump', 269), ('pump_amm', 173),
+                            ('pump_fees', 154), ('mayhem', 133)):
+            with self.subTest(program=name):
+                elf = deep_disassembly.Elf(analyze.ROOT / 'evidence/original' / name / 'deployed.so')
+                sym = elf.secs['.dynsym']
+                rel = elf.secs['.rel.dyn']
+                expected = []
+                for pos in range(rel[4], rel[4] + rel[5], 16):
+                    at, info = struct.unpack_from('<QQ', elf.b, pos)
+                    if info & 0xffffffff != 10:
+                        continue
+                    index = info >> 32
+                    fields = struct.unpack_from('<IBBHQQ', elf.b, sym[4] + index * 24)
+                    if fields[3] == 0:
+                        expected.append((at, elf.symbols[index]))
+                expected = [label for _, label in sorted(expected)]
+                self.assertEqual(len(expected), count)
+                self.assertEqual(deep_disassembly.fingerprint_window(
+                    elf, elf.lo, elf.hi)['syscall_sequence'], expected)
+                self.assertNotIn('custom_panic', expected)
+
+
+class InternalCallDecodeTests(unittest.TestCase):
+    def test_forward_and_backward_internal_targets(self):
+        for offset, immediate, target in ((8, 2, 32), (16, -2, 8)):
+            with self.subTest(immediate=immediate):
+                blob = bytes(offset) + struct.pack('<BBhi', 0x85, 0x10, 0, immediate)
+                elf = SimpleNamespace(
+                    funcs=[{'start': target, 'name': 'helper'}], relocations={})
+                record, size = deep_disassembly.decode_instruction(blob, offset, elf)
+                self.assertEqual(size, 8)
+                self.assertEqual(record['call_target'], target)
+                self.assertEqual(record['call_name'], 'helper')
+                self.assertEqual(record['mnemonic'], 'call helper')
+                self.assertNotIn('extern_symbol', record)
+
+    def test_relocated_placeholder_stays_external(self):
+        blob = struct.pack('<BBhi', 0x85, 0x10, 0, -1)
+        elf = SimpleNamespace(funcs=[], relocations={
+            0: {'type': 10, 'symbol': 'sol_log_'},
+        })
+        record, _ = deep_disassembly.decode_instruction(blob, 0, elf)
+        self.assertEqual(record['extern_symbol'], 'sol_log_')
+        self.assertEqual(record['mnemonic'], 'call_extern sol_log_')
+        self.assertNotIn('call_target', record)
+
+    def test_hashed_syscall_stays_syscall(self):
+        blob = struct.pack('<BBhI', 0x85, 0, 0, 0x207559bd)
+        elf = SimpleNamespace(funcs=[], relocations={})
+        record, _ = deep_disassembly.decode_instruction(blob, 0, elf)
+        self.assertEqual(record['syscall'], 'sol_log_64_')
+        self.assertNotIn('call_target', record)
+
+    def test_captured_call_targets_match_window_reader(self):
+        for name in ('pump', 'pump_amm', 'pump_fees', 'mayhem'):
+            with self.subTest(program=name):
+                elf = deep_disassembly.Elf(
+                    analyze.ROOT / 'evidence/original' / name / 'deployed.so')
+                self.assertGreater(len(elf.calls), 0)
+                for offset, target in elf.calls.items():
+                    record, _ = deep_disassembly.decode_instruction(elf.b, offset, elf)
+                    self.assertEqual(record['call_target'], target)
+                    self.assertNotIn('extern_symbol', record)
+                for offset, relocation in elf.relocations.items():
+                    if relocation['type'] == 10:
+                        record, _ = deep_disassembly.decode_instruction(elf.b, offset, elf)
+                        self.assertEqual(record['extern_symbol'], relocation['symbol'])
+                        self.assertNotIn('call_target', record)
+
+
 class RelocationTypeTests(unittest.TestCase):
     def test_sbpf_relocation_names(self):
         types = (0, 1, 8, 10, 2, 255)
