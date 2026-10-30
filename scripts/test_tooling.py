@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Mutation tests ensuring the byte comparator cannot hide code/padding changes."""
+import tempfile
+import unittest
+from pathlib import Path
+import compare as compare_module
 import struct
 import unittest
 from types import SimpleNamespace
@@ -19,6 +23,14 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class CompareProgramNamesTests(unittest.TestCase):
+    def test_program_names_fall_back_to_captures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            capture = root / 'evidence/original/probe'
+            capture.mkdir(parents=True)
+            (capture / 'deployed.so').write_bytes(b'ELF')
+            self.assertEqual(compare_module.program_names(root), ['probe'])
 class RodataStringAddressTests(unittest.TestCase):
     def test_string_keys_use_virtual_address(self):
 class DataLayoutAddressTests(unittest.TestCase):
