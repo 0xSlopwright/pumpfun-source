@@ -16,6 +16,12 @@ from coords import sites, ORIG, OS  # noqa
 from win import demangle  # noqa
 
 
+def write_report(path, rows):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(rows, indent=1))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--cand', type=Path, default=BASE / 'current/unstripped.so')
@@ -59,7 +65,7 @@ def main():
         rows.append({'start': hex(w['start']), 'bytes': w['bytes'], 'category': cat, 'has_source_sites': bool(osites),
                      'original_sites': [{'path': s['path'], 'line': s['line']} for s in osites],
                      'nearest': None if best is None else {'addr': hex(best[1]), 'symbol': demangle(best[2]), 'diff_slots': len(best[3]), 'noncoord_slots': len(best[4])}})
-    a.json.write_text(json.dumps(rows, indent=1))
+    write_report(a.json, rows)
     c = Counter(r['category'] for r in rows); b = Counter()
     for r in rows:
         b[r['category']] += r['bytes']
