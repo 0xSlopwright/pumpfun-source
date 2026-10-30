@@ -34,6 +34,12 @@ class BuildDiagnosticTests(unittest.TestCase):
             def run(command, **kwargs):
                 commands.append(command)
                 if command[1] == 'build':
+                    self.assertFalse((out / 'candidate.so').exists())
+                    self.assertFalse((out / 'unstripped.so').exists())
+                    self.assertFalse((out / 'build.log').exists())
+                    with self.assertRaisesRegex(RuntimeError, 'already in use'):
+                        with fastbuild.workspace_lock(work):
+                            pass
                     built = work / 'target-identity' / recipe['triple'] / 'release/pump_recovered.so'
                     built.parent.mkdir(parents=True)
                     built.write_bytes(b'synthetic compiler output')
@@ -47,8 +53,11 @@ class BuildDiagnosticTests(unittest.TestCase):
                  patch.object(fastbuild, 'stage', return_value=work / 'ws/programs/pump'), \
                  patch.object(fastbuild, 'acquire_slot', side_effect=lambda: io.StringIO()), \
                  patch.object(fastbuild.subprocess, 'run', side_effect=run), \
+                 patch.object(fastbuild, 'run_compiler', side_effect=lambda command, **kw: (run(command), False)), \
                  contextlib.redirect_stderr(stderr):
                 result = fastbuild.build(src, work, out, quiet=quiet, recipe='identity')
+            with fastbuild.workspace_lock(work):
+                pass
             files = {p.relative_to(out).as_posix(): p.read_bytes()
                      for p in out.rglob('*') if p.is_file()}
             return result, files, commands, stderr.getvalue()
