@@ -12,6 +12,7 @@ import compare as compare_module
 import struct
 import sys
 import unittest
+from test_analysis_interface_inventory import InterfaceInventoryEncodingTests
 from types import SimpleNamespace
 import deep_disassembly
 from pathlib import Path
