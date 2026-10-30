@@ -17,6 +17,7 @@ from llvm_tools import objdump
 H = Path(__file__).resolve().parent
 sys.path.insert(0, str(H))
 from score import sections, normalize, body, candidate_functions, original_windows, score, BASE  # noqa
+from instruction_stream import instruction_offsets
 
 
 
@@ -69,9 +70,7 @@ class Cand:
 
 
 def opgrams(raw, k=3):
-    ops = []; i = 0
-    while i < len(raw):
-        ops.append(raw[i]); i += 16 if raw[i] == 0x18 else 8
+    ops = [raw[i] for i in instruction_offsets(raw)]
     return Counter(tuple(ops[i:i + k]) for i in range(max(0, len(ops) - k + 1)))
 
 
