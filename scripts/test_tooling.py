@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """Mutation tests ensuring the byte comparator cannot hide code/padding changes."""
+import json
+import pathlib
+import struct
+
+
 import contextlib
 import importlib.util
 import io
@@ -21,6 +26,7 @@ from unittest.mock import patch
 import deep_section_analysis
 import deep_disassembly
 import analyze
+import local_validation
 from compare import compare
 from test_pump_diagnostic_audit import DiagnosticMetadataTests
 class ComparisonTests(unittest.TestCase):
@@ -226,6 +232,71 @@ class InstructionLogNameTests(unittest.TestCase):
         self.assertEqual(len(names), 25)
         self.assertIn('Buy', names)
         self.assertIn('InitializeGlobalParams', names)
+
+
+# capture.json program ids. pump, pump_amm and pump_fees also match their IDL
+# address; mayhem has a receipt and no IDL.
+_CAPTURED_PROGRAMS = {
+    'pump': '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
+    'pump_amm': 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
+    'pump_fees': 'pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ',
+    'mayhem': 'MAyhSmzXzV1pTf7LsNkrNwkWKTo4ougAJ1PPg47MD4e',
+}
+
+
+class LocalValidationProgramTests(unittest.TestCase):
+    def test_missing_selector_uses_capture_receipts(self):
+        got = local_validation.program_addresses()
+        self.assertEqual(got, _CAPTURED_PROGRAMS)
+        root = local_validation.ROOT
+        self.assertFalse((root / 'repro/programs.json').is_file())
+        for name, address in _CAPTURED_PROGRAMS.items():
+            receipt = json.loads((root / 'evidence/original' / name / 'capture.json').read_text())
+            self.assertEqual(receipt['program'], address)
+            idl_path = root / 'evidence/upstream' / f'{name}.json'
+            if idl_path.is_file():
+                self.assertEqual(json.loads(idl_path.read_text())['address'], address)
+            else:
+                self.assertEqual(name, 'mayhem')
+
+    def test_archived_selector_overrides_capture_receipts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / 'repro').mkdir()
+            (root / 'repro/programs.json').write_text(json.dumps({'pump': 'archived-id'}))
+            receipt = root / 'evidence/original/pump'
+            receipt.mkdir(parents=True)
+            (receipt / 'deployed.so').write_bytes(b'\x7fELF')
+            (receipt / 'capture.json').write_text(json.dumps({'program': 'capture-id'}))
+            self.assertEqual(local_validation.program_addresses(root), {'pump': 'archived-id'})
+
+    def test_capture_fallback_skips_absent_binaries_and_rejects_blank_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            pump = root / 'evidence/original/pump'
+            pump.mkdir(parents=True)
+            (pump / 'deployed.so').write_bytes(b'\x7fELF')
+            (pump / 'capture.json').write_text(json.dumps({'program': 'pump-id'}))
+            fees = root / 'evidence/original/pump_fees'
+            fees.mkdir(parents=True)
+            (fees / 'capture.json').write_text(json.dumps({'program': 'fees-without-binary'}))
+            self.assertEqual(local_validation.program_addresses(root), {'pump': 'pump-id'})
+            (pump / 'capture.json').write_text(json.dumps({'program': ''}))
+            with self.assertRaises(ValueError):
+                local_validation.program_addresses(root)
+
+    def test_no_captures_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(FileNotFoundError):
+                local_validation.program_addresses(tmp)
+
+    def test_archived_selector_must_be_an_object(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / 'repro').mkdir()
+            (root / 'repro/programs.json').write_text('["pump"]')
+            with self.assertRaises(ValueError):
+                local_validation.program_addresses(root)
 
 
 class DispatchRecoveryTests(unittest.TestCase):
