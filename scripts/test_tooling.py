@@ -37,6 +37,9 @@ import deep_disassembly
 import analyze
 import local_validation
 from compare import compare
+from test_revalidation_output import RevalidationOutputTests
+
+
 
 
 class RevalidationReportTests(unittest.TestCase):
