@@ -228,6 +228,22 @@ class InstructionLogNameTests(unittest.TestCase):
         self.assertIn('InitializeGlobalParams', names)
 
 
+class DispatchRecoveryTests(unittest.TestCase):
+    def test_every_captured_program_is_recovered(self):
+        import json
+        import recover_dispatch
+        report = recover_dispatch.dispatch()
+        self.assertEqual(
+            list(report), ['pump', 'pump_amm', 'pump_fees', 'mayhem'])
+        self.assertEqual(
+            [sum(bool(row['matches']) for row in rowset['instructions'].values())
+             for rowset in report.values()],
+            [56, 38, 31, 25])
+        self.assertEqual(
+            report,
+            json.loads((analyze.ROOT / 'evidence/dispatch-map.json').read_text()))
+
+
 class SbpfInventoryInputTests(unittest.TestCase):
     def test_inputs_fall_back_to_captured_originals(self):
         import tempfile
