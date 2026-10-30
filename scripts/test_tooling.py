@@ -538,6 +538,30 @@ class InstructionLogNameTests(unittest.TestCase):
         self.assertIn('InitializeGlobalParams', names)
 
 
+class RelocatedCallTargetTests(unittest.TestCase):
+    """Call targets live in .rel.dyn, so detectors cannot read the immediate."""
+
+    def setUp(self):
+        from pathlib import Path
+        from window_elf_reader import Elf
+        import bytecode_signatures
+        self.signatures = bytecode_signatures
+        self.elf = Elf(Path(analyze.ROOT) / 'evidence/original/pump_amm/deployed.so')
+
+    def test_cpi_detection_resolves_relocated_call_targets(self):
+        patterns = self.signatures.detect_cpi_patterns(self.elf, self.elf.lo, self.elf.hi)
+        self.assertEqual(
+            [pattern['syscall'] for pattern in patterns],
+            ['sol_invoke_signed_rust'],
+        )
+
+    def test_serialization_counts_relocated_memcpy_calls(self):
+        report = self.signatures.detect_serialization_patterns(
+            self.elf, self.elf.lo, self.elf.hi
+        )
+        self.assertEqual(report['memcpy_calls'], 2)
+
+
 class EvidenceCommitmentTests(unittest.TestCase):
     """The saved-evidence gate must reject a capture that is not finalized."""
     FOLDER = 'evidence/original/pump'
