@@ -14,6 +14,7 @@ from unittest.mock import patch
 import deep_section_analysis
 import analyze
 from compare import compare
+from test_pump_diagnostic_audit import DiagnosticMetadataTests
 class ComparisonTests(unittest.TestCase):
     def test_equal(self): self.assertTrue(compare(b'abc\0\0',b'abc\0\0')['full_byte_equality'])
     def test_code_mutation(self): self.assertEqual(compare(b'abc\0\0',b'axc\0\0')['first_difference'],1)
