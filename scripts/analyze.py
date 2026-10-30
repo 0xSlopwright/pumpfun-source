@@ -56,6 +56,7 @@ def instruction_log_names(b, known=()):
     an IDL keep the original alphanumeric fallback.
     """
     names = set()
+    known = sorted(known, key=lambda name: (-len(name), name))
     fallback_pattern = re.compile(rb'[A-Z][A-Za-z0-9]*')
     for match in re.finditer(rb'Instruction: ', b):
         # Match in place: a suffix slice copies the remaining ELF/allocation.
