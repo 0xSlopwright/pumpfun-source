@@ -113,6 +113,24 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class AllocationSizeRegisterTests(unittest.TestCase):
+    def sizes(self, instructions):
+        blob = bytes(64) + b''.join(struct.pack('<BBhi', *ix) for ix in instructions)
+        elf = SimpleNamespace(b=blob, lo=64, hi=len(blob), entries=[64], funcs=[])
+        return deep_section_analysis.recover_anchor_idl(elf)['unique_allocation_sizes']
+
+    def test_size_comes_from_r1_not_nearer_r2(self):
+        self.assertEqual(self.sizes([
+            (0xb7, 1, 0, 64), (0xb7, 2, 0, 0),
+            (0x85, 0, 0, -2081419633),
+        ]), [64])
+
+    def test_other_register_does_not_supply_size(self):
+        self.assertEqual(self.sizes([
+            (0xb7, 2, 0, 64), (0x85, 0, 0, -2081419633),
+        ]), [])
+
+
 class CompareProgramNamesTests(unittest.TestCase):
     def test_program_names_fall_back_to_captures(self):
         with tempfile.TemporaryDirectory() as temporary:
