@@ -238,6 +238,32 @@ class ControlFlowJumpTests(unittest.TestCase):
 
 
 class InstructionLogNameTests(unittest.TestCase):
+    def test_scan_does_not_copy_binary_suffixes(self):
+        class UnslicedBytes(bytes):
+            def __getitem__(self, key):
+                if isinstance(key, slice):
+                    raise AssertionError('instruction scan copied binary bytes')
+                return super().__getitem__(key)
+
+        blob = UnslicedBytes(
+            b'Instruction: Buyadjacent\0Instruction: Unknown42\0' + bytes(1024 * 1024)
+        )
+        self.assertEqual(analyze.instruction_log_names(blob, ('Buy',)), ['Buy', 'Unknown42'])
+
+    def test_scan_preserves_marker_boundaries_and_fallback(self):
+        blob = (b'Instruction: BuyV2adjacent\0Instruction: Buytail\0'
+                b'Instruction: Unknown42Instruction\0Instruction: Instruction\0'
+                b'Instruction: lowercaseLater\0Instruction: \xffBad\0'
+                b'Instruction: Unknown42\0Instruction: End9')
+        self.assertEqual(
+            analyze.instruction_log_names(blob, ('BuyV2', 'Buy')),
+            ['Buy', 'BuyV2', 'End9', 'Instruction', 'Unknown42'],
+        )
+        self.assertEqual(analyze.instruction_log_names(b'Instruction: '), [])
+        self.assertEqual(analyze.instruction_log_names(b'no marker'), [])
+        self.assertEqual(analyze.instruction_log_names(b''), [])
+
+
     def test_idl_names_are_independent_of_locale_encoding(self):
         original_open = Path.open
         for program in ('pump', 'pump_amm', 'pump_fees'):
