@@ -153,7 +153,8 @@ def main():
     elif a.baseline.is_file():
         base = load_baseline(a.baseline)
     else:
-        sys.exit(f'score.py: baseline not found: {a.baseline} (pass --no-baseline to score without one)')
+        print(f'score.py: baseline not found: {a.baseline} (pass --no-baseline to score without one)', file=sys.stderr)
+        sys.exit(2)
     cur, candidate_sha256 = score_with_hash(a.candidate)
     n = sum(v['normalized'] for v in cur.values()); r = sum(v['raw'] for v in cur.values())
     tb = sum(v['bytes'] for v in cur.values() if v['normalized'])
