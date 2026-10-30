@@ -1,6 +1,15 @@
 # pumpfun-source
 
-Source code for pump.fun
+This repository has one goal: exact bytecode reconstruction of pump.fun's
+on-chain Solana programs — Pump Main, PumpSwap/AMM, Fees, Mayhem and the
+Donation Relay. Each program is rebuilt from source with a pinned toolchain
+and scored instruction-by-instruction against the captured deployed binary.
+
+**Scope.** Only the program bytecode publicly deployed on-chain is
+reconstructed. This project does not reconstruct, capture or reproduce
+pump.fun's website, apps, backend services, APIs, SDKs, branding or any other
+off-chain material. Pull requests for frontend, backend, SDK or off-chain
+capture work are closed without review. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 **Verified checkpoint progress**
 
