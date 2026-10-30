@@ -2,6 +2,8 @@
 """Mutation tests ensuring the byte comparator cannot hide code/padding changes."""
 import struct
 import unittest
+from types import SimpleNamespace
+import deep_disassembly
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -17,12 +19,19 @@ class ComparisonTests(unittest.TestCase):
     def test_empty(self): self.assertEqual(compare(b'a',b'')['first_difference'],0)
 
 
+class RodataStringAddressTests(unittest.TestCase):
+    def test_string_keys_use_virtual_address(self):
 class DataLayoutAddressTests(unittest.TestCase):
     def test_string_address_uses_virtual_address(self):
         blob = bytearray(0x40)
         blob[0x20:0x24] = b'TEST'
         elf = SimpleNamespace(
             b=bytes(blob),
+            secs={'.rodata': (0, 1, 2, 0x1000, 0x20, 0x10, 0, 0, 1, 0)},
+        )
+        strings = deep_disassembly.extract_rodata_strings(elf)
+        self.assertEqual(strings[0x1000], 'TEST')
+        self.assertNotIn(0x20, strings)
             lo=0x2000,
             hi=0x3000,
             secs={'.rodata': (0, 1, 2, 0x1000, 0x20, 0x10, 0, 0, 1, 0)},
